@@ -4,7 +4,7 @@ import geopandas as gpd
 import numpy as np
 
 def haversine(lon1, lat1, lon2, lat2):
-    # Calculate the great circle distance between two points on the earth (specified in decimal degrees)
+    # 하버사인
     lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
     dlon = lon2 - lon1
     dlat = lat2 - lat1
@@ -13,56 +13,43 @@ def haversine(lon1, lat1, lon2, lat2):
     km = 6371 * c
     return km
 
-def main():
-    base_dir = os.path.join(os.path.dirname(__file__), '../..')
-    ktdb_dir = os.path.join(base_dir, 'KTDB')
+def make_dist_matrix():
+    base_dir = "/Users/implement/KT/KTDB/dataset"
+    raw_dir = os.path.join(base_dir, "raw")
+    output_path = os.path.join(base_dir, "dist_data.csv")
     
-    # 1. Load dong_code.xlsx to get the 1153 7-digit codes and define indices
-    dong_file = os.path.join(base_dir, 'dataset', 'dong_code.xlsx')
+    dong_file = os.path.join(raw_dir, 'OD_dong_list.xlsx')
     dong_df = pd.read_excel(dong_file)
-    dong_codes_7 = dong_df['읍면동'].astype(str).values
-    idx_map = {code: i for i, code in enumerate(dong_codes_7)}
+    valid_dongs = dong_df['dong_code'].astype(int).values
     
-    # 2. Load GeoJSON to get centroids
-    print("Loading GeoJSON...")
-    geojson_path = os.path.join(base_dir, 'dataset', 'HangJeongDong_ver20230101.geojson')
+    # Load Change Review 
+    change_review_path = os.path.join(raw_dir, 'dong', 'hangjeongdong_change_review.csv')
+    od_dong_change_list = pd.read_csv(change_review_path)
+    change_map = dict(zip(od_dong_change_list['이후_행정동코드'], od_dong_change_list['이전_행정동코드']))
+    
+    # Load GeoJSON 
+    geojson_path = os.path.join(raw_dir, 'dong', 'dong_area_20220101.geojson')
     gdf = gpd.read_file(geojson_path)
-    gdf['adm_cd'] = gdf['adm_cd'].astype(str)
     
-    # Calculate Centroids (Using projected CRS for accuracy)
+    # 7자리 -> 8자리
+    gdf['adm_cd_8digit'] = pd.to_numeric(gdf['adm_cd'], errors='coerce') * 10
+    
+    # 행정동 중심좌표 계산
     gdf_proj = gdf.to_crs(epsg=3857)
     gdf['centroid'] = gdf_proj.geometry.centroid.to_crs(epsg=4326)
     gdf['lon'] = gdf['centroid'].x
     gdf['lat'] = gdf['centroid'].y
     
-    # 3. Create mapping from 7-digit code to lat/lon
-    coord_map = dict(zip(gdf['adm_cd'], zip(gdf['lat'], gdf['lon'])))
+    # 행정동 코드와 중심좌표를 매핑
+    coords_dict = dict(zip(gdf['adm_cd_8digit'], zip(gdf['lat'], gdf['lon'])))
     
-    # 4. Fill coordinate array for 1153 zones
-    num_dongs = len(dong_codes_7)
+    num_dongs = len(valid_dongs)
     coords = np.zeros((num_dongs, 2), dtype=np.float32)
-    
-    for i, code in enumerate(dong_codes_7):
-        if code in coord_map:
-            coords[i, 0] = coord_map[code][0] # lat
-            coords[i, 1] = coord_map[code][1] # lon
-        else:
-            # Fallback to mean of that Sigungu if Dong is missing
-            sigungu = code[:5]
-            match = gdf[gdf['adm_cd'].str.startswith(sigungu)]
-            if not match.empty:
-                coords[i, 0] = match['lat'].mean()
-                coords[i, 1] = match['lon'].mean()
-            else:
-                # If utterly failed, default to Seoul center
-                coords[i, 0] = 37.5665
-                coords[i, 1] = 126.9780
-                
-    # 5. Compute pairwise Haversine Distance Matrix
-    print("Computing Distance Matrix...")
-    X_distance = np.zeros((num_dongs, num_dongs), dtype=np.float32)
-    
-    # Broadcasting to calculate distances quickly
+    for i, code in enumerate(valid_dongs):
+        coords[i, 0] = coords_dict[code][0]
+        coords[i, 1] = coords_dict[code][1]
+        
+    # 행정동간 거리 계산
     lat1 = coords[:, 0][:, np.newaxis]
     lon1 = coords[:, 1][:, np.newaxis]
     lat2 = coords[:, 0][np.newaxis, :]
@@ -70,13 +57,26 @@ def main():
     
     X_distance = haversine(lon1, lat1, lon2, lat2)
     
-    # Intrazonal distance (approximate based on area or just set to 1.5km as standard)
+    # 내부 거리는 1km로 설정
     for i in range(num_dongs):
-        X_distance[i, i] = 1.5 # 1.5km for intra-zonal trip roughly
+        X_distance[i, i] = 1
         
-    out_path = os.path.join(ktdb_dir, 'dataset', 'X_distance.npy')
-    np.save(out_path, X_distance)
-    print(f"✅ Saved X_distance to {out_path} with shape {X_distance.shape}")
+    # Meshgrid를 사용하여 O, D 조합 생성
+    O_grid, D_grid = np.meshgrid(valid_dongs, valid_dongs, indexing='ij')
+    
+    # 1D 배열로 평탄화
+    df_dist = pd.DataFrame({
+        'O_dong_code': O_grid.flatten(),
+        'D_dong_code': D_grid.flatten(),
+        'distance': X_distance.flatten()
+    })
+    
+    # 소수점 3자리로 반올림
+    df_dist['distance'] = df_dist['distance'].round(3)
+    
+    df_dist.to_csv(output_path, index=False)
+    print(f"\n완료! 총 {len(df_dist):,}개의 O-D 거리 쌍이 성공적으로 저장되었습니다.")
+    print(f"저장 위치: {output_path}")
 
 if __name__ == '__main__':
-    main()
+    make_dist_matrix()

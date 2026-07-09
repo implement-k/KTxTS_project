@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
+from sklearn.preprocessing import StandardScaler
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (
@@ -12,87 +13,83 @@ from config import (
 )
 
 class ODDataset(Dataset):
-    def __init__(self, data_dir=None, mode='train'):
-        # data_dir is kept for backward compatibility but we use config paths
+    def __init__(self, mode='train'):
         self.mode = mode
-        self.max_mask_size = TRAIN_CONFIG['max_mask_size']
+        self.max_mask_size = TRAIN_CONFIG['min_mask_size']
         
-        # 1. 행정동 표준 목록 로드 및 인덱스 맵 생성
+        # 행정동 코드 로드
         dong_df = pd.read_excel(DONG_CODE_PATH)
-        valid_dongs = dong_df['dong_code'].astype(int).values
-        self.num_nodes = len(valid_dongs)
-        idx_map = {code: i for i, code in enumerate(valid_dongs)}
+        dongs = dong_df['dong_code'].astype(int).values
+        self.num_nodes = len(dongs)   # 전체 동 개수
+        dong2idx_map = {code: i for i, code in enumerate(dongs)}
         
-        # 2. OD 매트릭스 로드 및 피벗 (N, N, 5)
-        print("Loading and pivoting OD data...")
+        # === OD 매트릭스 로드 (N, N, 5) ===
         self.X_OD = np.zeros((self.num_nodes, self.num_nodes, 5), dtype=np.float32)
         od_df = pd.read_csv(OD_DATA_PATH)
         
-        o_indices = od_df['O_dong_code'].map(idx_map).values
-        d_indices = od_df['D_dong_code'].map(idx_map).values
+        # OD 데이터에서 유효한 행정동만 필터링
+        o_indices = od_df['O_dong_code'].map(dong2idx_map).values
+        d_indices = od_df['D_dong_code'].map(dong2idx_map).values
         valid_mask = pd.notna(o_indices) & pd.notna(d_indices)
         
         o_idx_valid = o_indices[valid_mask].astype(int)
         d_idx_valid = d_indices[valid_mask].astype(int)
         
+        # 기존 데이터 3차원으로 변환 후 저장
         purposes = ['귀가', '출근', '등교', '업무', '기타']
         for c, purpose in enumerate(purposes):
             if purpose in od_df.columns:
                 self.X_OD[o_idx_valid, d_idx_valid, c] = od_df[purpose].values[valid_mask]
         
-        # 3. 거리 매트릭스 로드 및 피벗 (N, N)
-        print("Loading and pivoting Distance data...")
+        # === 거리 매트릭스 로드 (N, N) ===
         self.X_dist = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         dist_df = pd.read_csv(DIST_DATA_PATH)
         
-        o_dist = dist_df['O_dong_code'].map(idx_map).values
-        d_dist = dist_df['D_dong_code'].map(idx_map).values
+        # dist에서 유효한 행정동만 필터링
+        o_dist = dist_df['O_dong_code'].map(dong2idx_map).values
+        d_dist = dist_df['D_dong_code'].map(dong2idx_map).values
         dist_mask = pd.notna(o_dist) & pd.notna(d_dist)
         
+        # 거리 매트릭스에 값 채우기
         self.X_dist[o_dist[dist_mask].astype(int), d_dist[dist_mask].astype(int)] = dist_df['distance'].values[dist_mask]
         
-        # 4. Static Feature 로드 및 정렬 매칭
-        print("Loading Static Features...")
+        # === Static Feature 로드 ===
         static_df = pd.read_csv(STATIC_DATA_PATH)
         static_df['dong_code'] = static_df['dong_code'].astype(int)
-        # valid_dongs 순서대로 완벽히 재정렬
-        static_df = static_df.set_index('dong_code').reindex(valid_dongs).reset_index()
+        
+        # 행정동 코드 기준으로 결측치 0으로 채우기
+        static_df = static_df.set_index('dong_code').reindex(dongs).reset_index()
         static_df.fillna(0, inplace=True)
         
-        drop_cols = ['dong_code', 'dong_name', 'sigungu_code', 'OD행정동코드', '행정동명']
-        feature_cols = [c for c in static_df.columns if c not in drop_cols]
+        feature_cols = [c for c in static_df.columns if c not in ['dong_code', 'dong_name']]
         
-        # 마스킹할 컬럼의 정확한 인덱스 탐색
+        # 마스킹할 컬럼의 인덱스 탐색
         self.masking_indices = [feature_cols.index(c) for c in MASKING_COLUMNS if c in feature_cols]
         raw_static = static_df[feature_cols].values
+        # 선택한 도시의 인덱스 찾기 및 train/test 분리
+        self.test_indices = self._find_dong_indices(dong2idx_map)
+        self.all_indices = np.arange(self.num_nodes)
+        self.train_indices = np.setdiff1d(self.all_indices, self.test_indices)
         
-        # 피처 정규화 (StandardScaler)
-        from sklearn.preprocessing import StandardScaler
+        # 피처 정규화
         scaler = StandardScaler()
-        self.X_static = scaler.fit_transform(raw_static)
+        scaler.fit(raw_static[self.train_indices])
+        self.X_static = scaler.transform(raw_static)
         
         # 마스킹 여부를 알려주는 Indicator 컬럼 추가 (0.0으로 초기화)
         indicator = np.zeros((self.X_static.shape[0], 1), dtype=np.float32)
         self.X_static = np.concatenate([self.X_static, indicator], axis=1)
-            
-        # 선택한 도시의 인덱스 찾기
-        self.test_indices = self._find_dong_indices(idx_map)
         
         # Test 도시의 지정된 Feature 결측 처리 (0으로 마스킹)
-        # target leakage 방지를 위해 예측 대상 도시의 실측 데이터는 모델에 제공하지 않습니다.
         for m_idx in self.masking_indices:
             self.X_static[self.test_indices, m_idx] = 0.0
         self.X_static[self.test_indices, -1] = 1.0 # is_masked = 1
-        
-        # train test 분리
-        self.all_indices = np.arange(self.num_nodes)
-        self.train_indices = np.setdiff1d(self.all_indices, self.test_indices)
         
         # 정규화 (거리 및 통행량 로그 변환)
         self.X_dist = np.log1p(self.X_dist)
         self.X_OD = np.log1p(self.X_OD)
         
-        print("Dataset initialization complete.")
+        print("Dataset 초기화 완료")
         
     def _find_dong_indices(self, idx_map):
         test_city_indices = []
@@ -107,7 +104,7 @@ class ODDataset(Dataset):
         # train 모드에서는 한 epoch당 1000번, test 모드에선 1개의 샘플만 반환
         return 1000 if self.mode == 'train' else 1
 
-    def __getitem__(self, idx):
+    def __getitem__(self):
         if self.mode == 'train':
             # 마스크 사이즈 랜덤 선택
             k = np.random.randint(2, self.max_mask_size + 1)
@@ -129,7 +126,7 @@ class ODDataset(Dataset):
         # Target OD (N, N, 5)
         y_OD = self.X_OD.copy()
         
-        # Masked OD (해당 존의 출발/도착 통행량 모두 0으로 은닉)
+        # Masked OD 
         X_OD_masked = self.X_OD.copy()
         X_OD_masked[mask, :, :] = 0
         X_OD_masked[:, mask, :] = 0

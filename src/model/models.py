@@ -123,8 +123,8 @@ class DeepGravity(nn.Module):
         out = self.out_mlp(combined).squeeze(-1)
         return out
 
-# ==== Spatial OD-MAE(ours) ====
-class SpatialODMAE(nn.Module):
+# ==== Spatial OD-MAE(ours) 1-channel ====
+class SpatialODMAE1(nn.Module):
     def __init__(self, num_nodes=1152, num_features=13, d_model=128, nhead=8, num_layers=4):
         super().__init__()
         self.num_nodes = num_nodes
@@ -214,6 +214,84 @@ class SpatialODMAE(nn.Module):
         pred_incoming = out[..., N:].transpose(1, 2) # (B, N, N) -> pred_incoming[b, i, j] is trip from i to j
         
         # Average
+        pred_od = (pred_outgoing + pred_incoming) / 2.0
+        
+        return pred_od
+
+# ==== Spatial OD-MAE(ours) 5-channel ====
+class SpatialODMAE5(nn.Module):
+    def __init__(self, num_nodes=1152, num_features=13, d_model=128, nhead=8, num_layers=4):
+        super().__init__()
+        self.num_nodes = num_nodes
+        
+        # stataic feature embedding
+        self.feature_embed = nn.Linear(num_features, d_model)
+        
+        # OD feature embedding (row i and col i for each node, 5 channels)
+        self.od_embed = nn.Linear(num_nodes * 2 * 5, d_model)
+        
+        # Distance-based Relative Positional Bias
+        self.nhead = nhead
+        self.distance_bias = nn.Embedding(50, nhead)
+        # log1p boundaries from 0 to 5.5 (covers ~243km)
+        self.register_buffer('boundaries', torch.linspace(0, 5.5, 49))
+        
+        # Mask Token
+        self.mask_token = nn.Parameter(torch.zeros(1, 1, d_model))
+        
+        # Transformer Encoder
+        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=d_model*4, batch_first=True)
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        
+        # decoder to reconstruct OD matrix
+        self.decoder = nn.Sequential(
+            nn.Linear(d_model, d_model),
+            nn.GELU(),
+            nn.Linear(d_model, num_nodes * 2 * 5)
+        )
+
+    def forward(self, x_static, x_od_masked, x_dist, mask):
+        """
+        x_static: (B, N, F)
+        x_od_masked: (B, N, N, 5)
+        x_dist: (B, N, N) distance matrix (log-scaled)
+        mask: (B, N) boolean mask where True means masked
+        """
+        B, N, _ = x_static.shape
+        
+        # Flatten the OD features for embedding
+        # row_feat: (B, N, N, 5) -> reshape to (B, N, N*5)
+        row_feat = x_od_masked.reshape(B, N, N * 5)
+        # col_feat: (B, N, N, 5) -> transpose to (B, N, N, 5) then reshape
+        col_feat = x_od_masked.transpose(1, 2).reshape(B, N, N * 5)
+        
+        node_od_feat = torch.cat([row_feat, col_feat], dim=-1) # (B, N, 2N*5)
+        
+        # Embeddings
+        feat_emb = self.feature_embed(x_static) # (B, N, D)
+        od_emb = self.od_embed(node_od_feat)    # (B, N, D)
+        
+        mask_expanded = mask.unsqueeze(-1).expand_as(od_emb)
+        mask_token_expanded = self.mask_token.expand(B, N, -1)
+        
+        od_emb_masked = torch.where(mask_expanded, mask_token_expanded, od_emb)
+        
+        x = feat_emb + od_emb_masked
+        
+        distance_bins = torch.bucketize(x_dist, self.boundaries) # (B, N, N)
+        bias = self.distance_bias(distance_bins) # (B, N, N, nhead)
+        bias = bias.permute(0, 3, 1, 2).reshape(B * self.nhead, N, N) # (B*nhead, N, N)
+        
+        x = self.transformer(x, mask=bias) # (B, N, D)
+        
+        out = self.decoder(x) # (B, N, 2N*5)
+        
+        # Reshape to (B, N, 2, N, 5)
+        out = out.view(B, N, 2, N, 5)
+        
+        pred_outgoing = out[:, :, 0, :, :] # (B, N, N, 5)
+        pred_incoming = out[:, :, 1, :, :].transpose(1, 2) # (B, N, N, 5)
+        
         pred_od = (pred_outgoing + pred_incoming) / 2.0
         
         return pred_od

@@ -43,11 +43,12 @@ def train_dl_model(args, train_dataset, test_dataset):
     print(f"Using device: {device}")
     
     if args.model == 'mae':
-        model = SpatialODMAE(num_nodes=train_dataset.num_nodes, num_features=13).to(device)
+        model = SpatialODMAE(num_nodes=train_dataset.num_nodes, num_features=train_dataset.X_static.shape[1]).to(device)
     else:
-        model = DeepGravity(num_features=13).to(device)
+        model = DeepGravity(num_features=train_dataset.X_static.shape[1]).to(device)
         
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    # Transformer(MAE) 모델의 학습 안정성을 위해 lr을 낮춥니다 (기존 1e-3 -> 1e-4)
+    optimizer = optim.Adam(model.parameters(), lr=1e-4)
     criterion = nn.MSELoss()
     
     min_mask = TRAIN_CONFIG['min_mask_size']
@@ -65,7 +66,7 @@ def train_dl_model(args, train_dataset, test_dataset):
             pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs} [Max Mask: {current_mask_size}]")
             for batch in pbar:
                 x_static = batch['X_static'].to(device)
-                x_dist = batch['X_distance'].to(device)
+                x_dist = batch['X_dist'].to(device)
                 x_od_masked = batch['X_OD_masked'].to(device)
                 y_od = batch['y_OD'].to(device)
                 mask = batch['mask'].to(device)
@@ -76,18 +77,47 @@ def train_dl_model(args, train_dataset, test_dataset):
                 mask_2d = mask.unsqueeze(1) | mask.unsqueeze(2)
                 loss = criterion(pred[mask_2d], y_od[mask_2d])
                 loss.backward()
+                
+                # 기울기 폭발(Gradient Explosion) 방지 (NaN 해결)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                
                 optimizer.step()
                 
                 train_loss += loss.item()
                 pbar.set_postfix({'loss': loss.item()})
             print(f"Epoch {epoch+1} Train Loss: {train_loss/len(train_loader):.4f}")
             
+            # --- 중간 검증 (Validation) ---
+            # PyTorch Transformer float mask 버그 우회 (model.train() 유지 + Dropout만 끄기)
+            model.train()
+            for m_module in model.modules():
+                if isinstance(m_module, torch.nn.Dropout):
+                    m_module.eval()
+            with torch.no_grad():
+                val_batch = next(iter(test_loader))
+                x_s = val_batch['X_static'].to(device)
+                x_d = val_batch['X_dist'].to(device)
+                x_o = val_batch['X_OD_masked'].to(device)
+                y_o = val_batch['y_OD'].to(device)
+                m = val_batch['mask'].to(device)
+                
+                v_pred = model(x_s, x_o, x_d, m)
+                m2d = m.unsqueeze(1) | m.unsqueeze(2)
+                v_loss = criterion(v_pred[m2d], y_o[m2d]).item()
+                
+                p_real = np.maximum(torch.expm1(v_pred[m2d]).cpu().numpy(), 0)
+                y_real = torch.expm1(y_o[m2d]).cpu().numpy()
+                rmse = np.sqrt(np.mean((y_real - p_real)**2))
+                cpc = cpc_score(y_real, p_real)
+            print(f"  ➜ [Val] Loss: {v_loss:.4f} | RMSE: {rmse:.2f} | CPC: {cpc:.4f}")
+            model.train()
+            
         elif args.model == 'deep_gravity':
             # Deep Gravity는 입력이 모든 도시의 static, dist이므로 Batch가 무의미합니다.
             # 전체 Train 도시에 대해 한 번에(Full-batch) 학습합니다.
             batch = next(iter(train_loader)) # 임의의 1개 배치만 가져와서 전체 데이터 활용
             x_static = batch['X_static'].to(device)
-            x_dist = batch['X_distance'].to(device)
+            x_dist = batch['X_dist'].to(device)
             y_od = batch['y_OD'].to(device)
             
             # Train 쌍 마스크 (Test 도시가 포함되지 않은 모든 쌍)
@@ -107,7 +137,11 @@ def train_dl_model(args, train_dataset, test_dataset):
             print(f"Epoch {epoch+1}/{args.epochs} Train Loss: {loss.item():.4f}")
         
     # Testing
-    model.eval()
+    # PyTorch Transformer float mask 버그 우회 (model.train() 유지 + Dropout만 끄기)
+    model.train()
+    for m_module in model.modules():
+        if isinstance(m_module, torch.nn.Dropout):
+            m_module.eval()
     test_loss = 0
     all_y_true = []
     all_y_pred = []
@@ -115,7 +149,7 @@ def train_dl_model(args, train_dataset, test_dataset):
     with torch.no_grad():
         for batch in test_loader:
             x_static = batch['X_static'].to(device)
-            x_dist = batch['X_distance'].to(device)
+            x_dist = batch['X_dist'].to(device)
             x_od_masked = batch['X_OD_masked'].to(device)
             y_od = batch['y_OD'].to(device)
             mask = batch['mask'].to(device)

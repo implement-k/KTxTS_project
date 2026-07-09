@@ -3,7 +3,7 @@ import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, 'dataset')
-DONG_CODE_PATH = os.path.join(BASE_DIR, '..', 'dataset', 'dong_code.xlsx')
+DONG_CODE_PATH = os.path.join(BASE_DIR, 'dataset', 'dong_code_cap.xlsx')
 
 # 테스트 지역 행정동 코드
 TEST_CITIES_CODES = {

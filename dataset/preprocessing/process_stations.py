@@ -98,6 +98,6 @@ def process_subway_data(input_path, output_path):
     print("모든 처리 완료.")
     
 if __name__ == "__main__":
-    input_file = "/Users/implement/KT/KTDB/dataset/raw/Station Line ADM Code Dataset.csv"
+    input_file = "/Users/implement/KT/KTDB/dataset/raw/Station Line Admin Dataset.csv"
     output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_subway_count.csv"
     process_subway_data(input_file, output_file)

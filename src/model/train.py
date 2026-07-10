@@ -172,11 +172,11 @@ def train_dl_model(args, train_dataset, test_dataset):
                 
                 if args.model == 'mae5':
                     m_exp = m2d.unsqueeze(-1).expand_as(y_o)
-                    v_loss = criterion(v_pred, y_o, m_exp, current_epoch=epoch)[0].item()
+                    v_loss = criterion(v_pred, y_o, m_exp, current_epoch=epoch).item()
                     p_real = np.maximum(torch.expm1(v_pred[m_exp]).cpu().numpy(), 0)
                     y_real = torch.expm1(y_o[m_exp]).cpu().numpy()
                 else:
-                    v_loss = criterion(v_pred, y_o, m2d, current_epoch=epoch)[0].item()
+                    v_loss = criterion(v_pred, y_o, m2d, current_epoch=epoch).item()
                     p_real = np.maximum(torch.expm1(v_pred[m2d]).cpu().numpy(), 0)
                     y_real = torch.expm1(y_o[m2d]).cpu().numpy()
                     

@@ -15,6 +15,7 @@ from dataset import ODDataset
 from models import DeepGravity, SpatialODMAE1, SpatialODMAE5, XGBGravityModel, GravityModel, XGBHurdleModel
 from tqdm import tqdm
 from model_test import test_dl_model
+from loss import DynamicPINNLoss
 
 def main():
     print("Starting Training...")
@@ -43,13 +44,6 @@ def main():
 #     weight = 1.0 + alpha * target
 #     loss = ((pred - target) ** 2) * weight
 #     return loss.mean()
-
-def weighted_mse_loss(pred, target, alpha=1.5):
-    real_target = torch.expm1(target)
-    weight = 1.0 + alpha * real_target
-    weight = weight/(weight.mean() + 1e-8)
-    loss = ((pred - target) ** 2) * weight
-    return loss.mean()
 
 def cpc_score(y_true, y_pred):
     numerator = 2 * np.sum(np.minimum(y_true, y_pred))
@@ -81,6 +75,7 @@ def train_dl_model(args, train_dataset, test_dataset):
         pct_start=0.3,
         anneal_strategy='cos'
     )
+    criterion = DynamicPINNLoss(total_epochs=args.epochs)
     
     min_mask = TRAIN_CONFIG['min_mask_size']
     max_mask = TRAIN_CONFIG['max_mask_size']
@@ -121,11 +116,11 @@ def train_dl_model(args, train_dataset, test_dataset):
                 if args.model == 'mae5':
                     # mask: (batch, N, N) -> (batch, N, N, 5)
                     mask_expanded = mask_2d.unsqueeze(-1).expand_as(y_od)
-                    loss = weighted_mse_loss(pred[mask_expanded], y_od[mask_expanded], alpha=current_alpha)
+                    loss = criterion(pred, y_od, mask_expanded, current_epoch=epoch)
                 # mae1
                 else:
-                    loss = weighted_mse_loss(pred[mask_2d], y_od[mask_2d], alpha=current_alpha)
-                    
+                    loss = criterion(pred, y_od, mask_2d, current_epoch=epoch)
+
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
@@ -152,7 +147,7 @@ def train_dl_model(args, train_dataset, test_dataset):
             
             optimizer.zero_grad()
             pred = model(x_static, x_dist)
-            loss = weighted_mse_loss(pred[train_mask_2d], y_od[train_mask_2d], alpha=current_alpha)
+            loss = criterion(pred, y_od, train_mask_2d, current_epoch=epoch)
             loss.backward()
             optimizer.step()
             scheduler.step()
@@ -177,11 +172,11 @@ def train_dl_model(args, train_dataset, test_dataset):
                 
                 if args.model == 'mae5':
                     m_exp = m2d.unsqueeze(-1).expand_as(y_o)
-                    v_loss = weighted_mse_loss(v_pred[m_exp], y_o[m_exp], alpha=1.0).item()
+                    v_loss = criterion(v_pred, y_o, m_exp, current_epoch=epoch)[0].item()
                     p_real = np.maximum(torch.expm1(v_pred[m_exp]).cpu().numpy(), 0)
                     y_real = torch.expm1(y_o[m_exp]).cpu().numpy()
                 else:
-                    v_loss = weighted_mse_loss(v_pred[m2d], y_o[m2d], alpha=1.0).item()
+                    v_loss = criterion(v_pred, y_o, m2d, current_epoch=epoch)[0].item()
                     p_real = np.maximum(torch.expm1(v_pred[m2d]).cpu().numpy(), 0)
                     y_real = torch.expm1(y_o[m2d]).cpu().numpy()
                     

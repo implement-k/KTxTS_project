@@ -30,8 +30,9 @@ def main():
     args = parser.parse_args()
     
     # 데이터셋 로드
-    train_dataset = ODDataset(mode='train')
-    test_dataset = ODDataset(mode='test')
+    channel = 5 if args.model == 'mae5' else 1
+    train_dataset = ODDataset(mode='train', channel=channel)
+    test_dataset = ODDataset(mode='test', channel=channel)
     
     if args.model in ['mae1', 'mae5', 'deep_gravity']:
         train_dl_model(args, train_dataset, test_dataset)

@@ -201,7 +201,8 @@ def main():
     parser.add_argument('--model', type=str, default=TRAIN_CONFIG['model_type'], choices=['gravity', 'xgb', 'xgb_hurdle', 'deep_gravity', 'mae1', 'mae5'])
     args = parser.parse_args()
     
-    test_dataset = ODDataset(mode='test')
+    channel = 5 if args.model == 'mae5' else 1
+    test_dataset = ODDataset(mode='test', channel=channel)
     
     if args.model in ['mae1', 'mae5', 'deep_gravity']:
         test_dl_model(args, test_dataset)

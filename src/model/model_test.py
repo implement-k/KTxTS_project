@@ -92,9 +92,7 @@ def test_dl_model(args, test_dataset):
             x_od_masked = batch['X_OD_masked'].to(device)
             y_od = batch['y_OD'].to(device)
             
-            if args.model != 'mae5' and x_od_masked.ndim == 3:
-                x_od_masked = torch.log1p(torch.expm1(x_od_masked).sum(dim=-1))
-                y_od = torch.log1p(torch.expm1(y_od).sum(dim=-1))
+
             
             if args.model in ['mae1', 'mae5']:
                 pred = model(x_static, x_od_masked, x_dist, mask)

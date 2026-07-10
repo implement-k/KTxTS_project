@@ -39,8 +39,15 @@ def main():
     elif args.model in ['gravity', 'xgb', 'xgb_hurdle']:
         train_tabular_model(args, test_dataset)
 
+# def weighted_mse_loss(pred, target, alpha=1.5):
+#     weight = 1.0 + alpha * target
+#     loss = ((pred - target) ** 2) * weight
+#     return loss.mean()
+
 def weighted_mse_loss(pred, target, alpha=1.5):
-    weight = 1.0 + alpha * target
+    real_target = torch.expm1(target)
+    weight = 1.0 + alpha * real_target
+    weight = weight/(weight.mean() + 1e-8)
     loss = ((pred - target) ** 2) * weight
     return loss.mean()
 

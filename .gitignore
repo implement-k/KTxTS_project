@@ -21,3 +21,5 @@ __pycache__/
 # IDEs
 .vscode/
 .idea/
+
+/KTDB/src/model/test_xgb.py

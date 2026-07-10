@@ -14,6 +14,7 @@ import joblib
 from dataset import ODDataset
 from models import DeepGravity, SpatialODMAE1, SpatialODMAE5, XGBGravityModel, GravityModel, XGBHurdleModel
 from tqdm import tqdm
+from model_test import test_dl_model
 
 def main():
     print("Starting Training...")
@@ -187,6 +188,7 @@ def train_dl_model(args, train_dataset, test_dataset):
             
             model.train()
     print("Training finished.")
+    test_dl_model(args, test_dataset)
 
 # TODO 개발 필요
 def train_tabular_model(args, test_dataset):

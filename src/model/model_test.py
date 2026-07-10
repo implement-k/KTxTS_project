@@ -48,9 +48,6 @@ def visualize_predictions(y_true, y_pred, model_name):
     print(f"Visualization saved to {save_path}")
 
 def weighted_mse_loss(pred, target, alpha=1.5):
-    """
-    Heavy-tail robust MSE Loss
-    """
     weight = 1.0 + alpha * target
     loss = ((pred - target) ** 2) * weight
     return loss.mean()

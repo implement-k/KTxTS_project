@@ -2,11 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from xgboost import XGBRegressor
+from xgboost import XGBRegressor, XGBClassifier
 
 from scipy.optimize import minimize
 
 # ==== gravity model ====
+# TODO 수정 필요
 class GravityModel:
     def __init__(self):
         self.b = -1.0 # Inverse power parameter
@@ -64,9 +65,10 @@ class GravityModel:
         return T_pred
 
 # ==== XGBoost ====
+# TODO 수정 필요
 class XGBGravityModel:
     def __init__(self):
-        self.model = XGBRegressor(n_estimators=100, max_depth=6, learning_rate=0.1, random_state=42)
+        self.model = XGBRegressor(n_estimators=100, max_depth=6, learning_rate=0.1, random_state=42, n_jobs=1)
 
     def fit(self, X_tabular, y):
         self.model.fit(X_tabular, y)
@@ -74,7 +76,44 @@ class XGBGravityModel:
     def predict(self, X_tabular):
         return self.model.predict(X_tabular)
 
+# ==== XGBoost Hurdle Model ====
+class XGBHurdleModel:
+    def __init__(self):
+        # Classification for P(y > 0)
+        self.classifier = XGBClassifier(n_estimators=100, max_depth=6, learning_rate=0.1, random_state=42, n_jobs=1)
+        # Regression for E(y | y > 0)
+        self.regressor = XGBRegressor(n_estimators=100, max_depth=6, learning_rate=0.1, random_state=42, n_jobs=1)
+
+    def fit(self, X_tabular, y):
+        # 1. Train classifier to predict non-zero
+        y_clf = (y > 0).astype(int)
+        self.classifier.fit(X_tabular, y_clf)
+        
+        # 2. Train regressor only on non-zero instances
+        non_zero_mask = y > 0
+        if non_zero_mask.sum() > 0:
+            self.regressor.fit(X_tabular[non_zero_mask], y[non_zero_mask])
+            self.has_regressor = True
+        else:
+            self.has_regressor = False
+
+    def predict(self, X_tabular):
+        # P(y > 0)
+        p_non_zero = self.classifier.predict_proba(X_tabular)[:, 1]
+        
+        if self.has_regressor:
+            # E(y | y > 0)
+            y_pred_reg = self.regressor.predict(X_tabular)
+            # Ensure regression predictions are non-negative
+            y_pred_reg = np.maximum(y_pred_reg, 0)
+        else:
+            y_pred_reg = np.zeros(len(X_tabular))
+            
+        # Expected value: P(y > 0) * E(y | y > 0)
+        return p_non_zero * y_pred_reg
+
 # ==== deep grvity ====
+# TODO 수정 필요
 class DeepGravity(nn.Module):
     def __init__(self, num_features=13, hidden_dim=64):
         super().__init__()
@@ -135,7 +174,7 @@ class SpatialODMAE1(nn.Module):
         # OD feature embedding (row i and col i for each node)
         self.od_embed = nn.Linear(num_nodes * 2, d_model)
         
-        # Distance-based Relative Positional Bias
+        # distance based 상대 positional bias
         self.nhead = nhead
         self.distance_bias = nn.Embedding(50, nhead)
         # log1p boundaries from 0 to 5.5 (covers ~243km)

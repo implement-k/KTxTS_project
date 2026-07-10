@@ -104,7 +104,7 @@ class ODDataset(Dataset):
         # train 모드에서는 한 epoch당 1000번, test 모드에선 1개의 샘플만 반환
         return 1000 if self.mode == 'train' else 1
 
-    def __getitem__(self):
+    def __getitem__(self, idx):
         if self.mode == 'train':
             # 마스크 사이즈 랜덤 선택
             k = np.random.randint(2, self.max_mask_size + 1)

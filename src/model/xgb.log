@@ -1,0 +1,6 @@
+Hello from train.py
+Starting main...
+Dataset 초기화 완료
+Dataset 초기화 완료
+Fitting xgb_hurdle Model (this might take a while)...
+(1274641, 33) float64 (1274641,) int64

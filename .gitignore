@@ -11,13 +11,6 @@ __pycache__/
 # Mac OS
 .DS_Store
 
-# Data files (usually too large for GitHub)
-*.npy
-*.npz
-*.csv
-*.pt
-*.pth
-
 # IDEs
 .vscode/
 .idea/

@@ -13,8 +13,9 @@ from config import (
 )
 
 class ODDataset(Dataset):
-    def __init__(self, mode='train'):
+    def __init__(self, mode='train', channel=1):
         self.mode = mode
+        self.channel = channel
         self.max_mask_size = TRAIN_CONFIG['min_mask_size']
         
         # 행정동 코드 로드
@@ -23,8 +24,11 @@ class ODDataset(Dataset):
         self.num_nodes = len(dongs)   # 전체 동 개수
         dong2idx_map = {code: i for i, code in enumerate(dongs)}
         
-        # === OD 매트릭스 로드 (N, N, 5) ===
-        self.X_OD = np.zeros((self.num_nodes, self.num_nodes, 5), dtype=np.float32)
+        # === OD 매트릭스 로드 (N,N) or (N, N, 5) ===
+        if self.channel == 1:
+            self.X_OD = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
+        else:
+            self.X_OD = np.zeros((self.num_nodes, self.num_nodes, 5), dtype=np.float32)
         od_df = pd.read_csv(OD_DATA_PATH)
         
         # OD 데이터에서 유효한 행정동만 필터링
@@ -35,11 +39,17 @@ class ODDataset(Dataset):
         o_idx_valid = o_indices[valid_mask].astype(int)
         d_idx_valid = d_indices[valid_mask].astype(int)
         
-        # 기존 데이터 3차원으로 변환 후 저장
         purposes = ['귀가', '출근', '등교', '업무', '기타']
-        for c, purpose in enumerate(purposes):
-            if purpose in od_df.columns:
-                self.X_OD[o_idx_valid, d_idx_valid, c] = od_df[purpose].values[valid_mask]
+        # mae5 이외의 경우 (N, N)으로 합산
+        if self.channel == 1:
+            calculated_total = od_df[purposes].sum(axis=1)
+            self.X_OD[o_idx_valid, d_idx_valid] = calculated_total.values[valid_mask]
+        # mae5인 경우 (N, N, 5)로 각 목적별로 저장
+        else:
+            # 기존 데이터 3차원으로 변환 후 저장
+            for c, purpose in enumerate(purposes):
+                if purpose in od_df.columns:
+                    self.X_OD[o_idx_valid, d_idx_valid, c] = od_df[purpose].values[valid_mask]
         
         # === 거리 매트릭스 로드 (N, N) ===
         self.X_dist = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
@@ -107,7 +117,7 @@ class ODDataset(Dataset):
     def __getitem__(self, idx):
         if self.mode == 'train':
             # 마스크 사이즈 랜덤 선택
-            k = np.random.randint(2, self.max_mask_size + 1)
+            k = np.random.randint(1, self.max_mask_size + 1)
     
             # train 동 중에서 한개 선택 후 그 동과의 거리 리스트 추출    
             dist_list = self.X_dist[np.random.choice(self.train_indices)]
@@ -124,12 +134,19 @@ class ODDataset(Dataset):
         mask[mask_indices] = True
         
         # Target OD (N, N, 5)
+        # mae1인 경우 (N,N)
         y_OD = self.X_OD.copy()
         
         # Masked OD 
         X_OD_masked = self.X_OD.copy()
-        X_OD_masked[mask, :, :] = 0
-        X_OD_masked[:, mask, :] = 0
+        
+        # mae1인 경우 (N,N)
+        if self.channel == 1:
+            X_OD_masked[mask, :] = 0
+            X_OD_masked[:, mask] = 0
+        else:
+            X_OD_masked[mask, :, :] = 0
+            X_OD_masked[:, mask, :] = 0
         
         # Static Feature Dynamic Masking
         X_static_masked = self.X_static.copy()

@@ -70,11 +70,16 @@ class ODDataset:
         
         feature_cols = [c for c in static_df.columns if c not in ['dong_code', 'dong_name']]
         raw_static = static_df[feature_cols].values
+        self.masking_indices = [feature_cols.index(c) for c in MASKING_COLUMNS if c in feature_cols]
         
         # 피처 정규화
         scaler = StandardScaler()
         scaler.fit(raw_static[self.train_indices])
         self.X_static = scaler.transform(raw_static)
+        
+        for m_idx in self.masking_indices:
+            self.X_static[self.test_indices, m_idx] = 0.0
+        self.X_static[self.test_indices, -1] = 1.0 # is_masked = 1
         
         print("Dataset 초기화 완료")
         

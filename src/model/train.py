@@ -12,38 +12,33 @@ from torch.utils.data import DataLoader
 import joblib
 
 from dataset import ODDataset
-from models import DeepGravity, SpatialODMAE1, SpatialODMAE5, XGBGravityModel, GravityModel, XGBHurdleModel
+from models import DeepGravity, SpatialODMAE1, SpatialODMAE5, LGBMModel
 from tqdm import tqdm
 from model_test import test_dl_model
-from loss import DynamicPINNLoss
+from loss import HuberLossWrapper
 
 def main():
     print("Starting Training...")
     '''
     사용법
-    python train.py --model [gravity, xgb, xgb_hurdle, deep_gravity, mae1, mae5] --epochs [NUM_EPOCHS] --batch_size [BATCH_SIZE]
+    python train.py --model [lgbm, deep_gravity, mae1, mae5] --epochs [NUM_EPOCHS] --batch_size [BATCH_SIZE]
     '''
     # Argument Parsing
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str, default=TRAIN_CONFIG['model_type'], choices=['gravity', 'xgb', 'xgb_hurdle', 'deep_gravity', 'mae1', 'mae5'])
+    parser.add_argument('--model', type=str, default=TRAIN_CONFIG['model_type'], choices=['lgbm', 'deep_gravity', 'mae1', 'mae5'])
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
     args = parser.parse_args()
     
     # 데이터셋 로드
     channel = 5 if args.model == 'mae5' else 1
-    train_dataset = ODDataset(mode='train', channel=channel)
-    test_dataset = ODDataset(mode='test', channel=channel)
+    train_dataset = ODDataset(mode='train', channel=channel, isLogScale=True if args.model in ['mae1', 'mae5', 'deep_gravity'] else False)
+    test_dataset = ODDataset(mode='test', channel=channel, isLogScale=True if args.model in ['mae1', 'mae5', 'deep_gravity'] else False)
     
     if args.model in ['mae1', 'mae5', 'deep_gravity']:
         train_dl_model(args, train_dataset, test_dataset)
-    elif args.model in ['gravity', 'xgb', 'xgb_hurdle']:
+    elif args.model in ['lgbm']:
         train_tabular_model(args, test_dataset)
-
-# def weighted_mse_loss(pred, target, alpha=1.5):
-#     weight = 1.0 + alpha * target
-#     loss = ((pred - target) ** 2) * weight
-#     return loss.mean()
 
 def cpc_score(y_true, y_pred):
     numerator = 2 * np.sum(np.minimum(y_true, y_pred))
@@ -75,7 +70,8 @@ def train_dl_model(args, train_dataset, test_dataset):
         pct_start=0.3,
         anneal_strategy='cos'
     )
-    criterion = DynamicPINNLoss(total_epochs=args.epochs)
+    criterion = HuberLossWrapper(delta=1.0).to(device)
+    # criterion = WeightedMSELossWrapper(alpha=1.5).to(device)
     
     min_mask = TRAIN_CONFIG['min_mask_size']
     max_mask = TRAIN_CONFIG['max_mask_size']
@@ -109,17 +105,17 @@ def train_dl_model(args, train_dataset, test_dataset):
                 
                 optimizer.zero_grad()
                 pred = model(x_static, x_od_masked, x_dist, mask)
-                # mask: (batch, 2N) -> (batch, N, N)
+                # mask: (batch, N) -> (batch, N, N)
                 mask_2d = mask.unsqueeze(1) | mask.unsqueeze(2)
                 
                 # mae5
                 if args.model == 'mae5':
                     # mask: (batch, N, N) -> (batch, N, N, 5)
                     mask_expanded = mask_2d.unsqueeze(-1).expand_as(y_od)
-                    loss = criterion(pred, y_od, mask_expanded, current_epoch=epoch)
+                    loss = criterion(pred, y_od, mask_expanded)
                 # mae1
                 else:
-                    loss = criterion(pred, y_od, mask_2d, current_epoch=epoch)
+                    loss = criterion(pred, y_od, mask_2d)
 
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -131,27 +127,32 @@ def train_dl_model(args, train_dataset, test_dataset):
                 pbar.set_postfix({'loss': loss.item(), 'lr': f"{current_lr:.1e}"})
             print(f"Epoch {epoch+1} Train Loss: {train_loss/len(train_loader):.4f}")
         
-        # TODO 개발 필요
         elif args.model == 'deep_gravity':
-            batch = next(iter(train_loader))
-            x_static = batch['X_static'].to(device)
-            x_dist = batch['X_dist'].to(device)
-            
-            # (N, N)
-            y_od = batch['y_OD'].to(device)
-            
             is_train_node = torch.ones(train_dataset.num_nodes, dtype=torch.bool, device=device)
             is_train_node[train_dataset.test_indices] = False
             train_mask_2d = is_train_node.unsqueeze(0) & is_train_node.unsqueeze(1)
             train_mask_2d = train_mask_2d.unsqueeze(0) 
             
-            optimizer.zero_grad()
-            pred = model(x_static, x_dist)
-            loss = criterion(pred, y_od, train_mask_2d, current_epoch=epoch)
-            loss.backward()
-            optimizer.step()
-            scheduler.step()
-            print(f"Epoch {epoch+1}/{args.epochs} Train Loss: {loss.item():.4f}")
+            pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs}")
+            for batch in pbar:
+                x_static = batch['X_static'][0:1].to(device)
+                x_dist = batch['X_dist'][0:1].to(device)
+                y_od = batch['y_OD'][0:1].to(device)
+                
+                optimizer.zero_grad()
+                pred = model(x_static, x_dist)
+                loss = criterion(pred, y_od, train_mask_2d)
+                
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                optimizer.step()
+                scheduler.step()
+                
+                train_loss += loss.item()
+                current_lr = scheduler.get_last_lr()[0]
+                pbar.set_postfix({'loss': loss.item(), 'lr': f"{current_lr:.1e}"})
+                
+            print(f"Epoch {epoch+1} Train Loss: {train_loss/len(train_loader):.4f}")
             
         # === Validation (2 Epoch마다 수행) ===
         if epoch % 2 == 1 or epoch == args.epochs - 1:
@@ -167,16 +168,20 @@ def train_dl_model(args, train_dataset, test_dataset):
                 x_o = val_batch['X_OD_masked'].to(device)
                 y_o = val_batch['y_OD'].to(device)
                 
-                v_pred = model(x_s, x_o, x_d, m)
+                if args.model == 'deep_gravity':
+                    v_pred = model(x_s, x_d)
+                else:
+                    v_pred = model(x_s, x_o, x_d, m)
+                
                 m2d = m.unsqueeze(1) | m.unsqueeze(2)
                 
                 if args.model == 'mae5':
                     m_exp = m2d.unsqueeze(-1).expand_as(y_o)
-                    v_loss = criterion(v_pred, y_o, m_exp, current_epoch=epoch).item()
+                    v_loss = criterion(v_pred, y_o, m_exp).item()
                     p_real = np.maximum(torch.expm1(v_pred[m_exp]).cpu().numpy(), 0)
                     y_real = torch.expm1(y_o[m_exp]).cpu().numpy()
                 else:
-                    v_loss = criterion(v_pred, y_o, m2d, current_epoch=epoch).item()
+                    v_loss = criterion(v_pred, y_o, m2d).item()
                     p_real = np.maximum(torch.expm1(v_pred[m2d]).cpu().numpy(), 0)
                     y_real = torch.expm1(y_o[m2d]).cpu().numpy()
                     
@@ -193,10 +198,10 @@ def train_dl_model(args, train_dataset, test_dataset):
     print("Training finished.")
     test_dl_model(args, test_dataset)
 
-# TODO 개발 필요
+
 def train_tabular_model(args, test_dataset):
-    X_OD_real = np.expm1(test_dataset.X_OD)
-    X_dist_real = np.expm1(test_dataset.X_dist)
+    X_OD_real = test_dataset.X_OD
+    X_dist_real = test_dataset.X_dist
     X_static = test_dataset.X_static
     num_nodes = test_dataset.num_nodes
     
@@ -206,32 +211,13 @@ def train_tabular_model(args, test_dataset):
     
     y = X_OD_real.flatten()
     dist = X_dist_real.flatten()
-    
-    O_pop_total = X_OD_real.sum(axis=1)
-    D_pop_total = X_OD_real.sum(axis=0)
-    O_pop = O_pop_total[O_idx]
-    D_pop = D_pop_total[D_idx]
-    
-    if args.model == 'gravity':
-        model = GravityModel()
-        test_cities = set(test_dataset.test_indices)
-        is_train_2d = np.ones((num_nodes, num_nodes), dtype=bool)
-        for t in test_cities:
-            is_train_2d[t, :] = False
-            is_train_2d[:, t] = False
-            
-        print(f"Fitting {args.model} Model (this might take a while)...")
-        model.fit(O_pop_total, D_pop_total, X_dist_real, X_OD_real, is_train_2d)
         
-    elif args.model in ['xgb', 'xgb_hurdle']:
-        if args.model == 'xgb_hurdle':
-            model = XGBHurdleModel()
-        else:
-            model = XGBGravityModel()
+    if args.model == 'lgbm':
+        model = LGBMModel()
             
         O_stat_feat = X_static[O_idx]
         D_stat_feat = X_static[D_idx]
-        X_tabular = np.column_stack([O_pop, D_pop, dist, O_stat_feat, D_stat_feat])
+        X_tabular = np.column_stack([dist, O_stat_feat, D_stat_feat])
         
         test_cities = set(test_dataset.test_indices)
         is_test = np.array([(o in test_cities) or (d in test_cities) for o, d in zip(O_idx, D_idx)])

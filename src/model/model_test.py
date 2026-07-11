@@ -65,7 +65,7 @@ def test_dl_model(args, test_dataset):
     else:
         model = DeepGravity(num_features=test_dataset.X_static.shape[1]).to(device)
         
-    best_model_path = f'best_model_{args.model}.pth'
+    best_model_path = f'KTDB/src/model/best_model_{args.model}.pth'
     
     if not os.path.exists(best_model_path):
         print(f"Error: {best_model_path} not found! Please train the model first.")
@@ -132,10 +132,8 @@ def test_dl_model(args, test_dataset):
 
 
 def test_tabular_model(args, test_dataset):
-    X_OD_real = np.expm1(test_dataset.X_OD)
-    if X_OD_real.ndim == 3:
-        X_OD_real = X_OD_real.sum(axis=-1)
-    X_dist_real = np.expm1(test_dataset.X_dist)
+    X_OD_real = test_dataset.X_OD
+    X_dist_real = test_dataset.X_dist
     X_static = test_dataset.X_static
     num_nodes = test_dataset.num_nodes
     
@@ -159,22 +157,11 @@ def test_tabular_model(args, test_dataset):
     print(f"Loading {save_path}...")
     model = joblib.load(save_path)
     print("Predicting...")
-    
-    if args.model == 'gravity':
-        test_cities = set(test_dataset.test_indices)
-        is_train_2d = np.ones((num_nodes, num_nodes), dtype=bool)
-        for t in test_cities:
-            is_train_2d[t, :] = False
-            is_train_2d[:, t] = False
             
-        T_pred = model.predict(O_pop_total, D_pop_total, X_dist_real)
-        y_pred = T_pred[~is_train_2d]
-        y_true = X_OD_real[~is_train_2d]
-        
-    elif args.model in ['xgb', 'xgb_hurdle']:
+    if args.model == 'lgbm':
         O_stat_feat = X_static[O_idx]
         D_stat_feat = X_static[D_idx]
-        X_tabular = np.column_stack([O_pop, D_pop, dist, O_stat_feat, D_stat_feat])
+        X_tabular = np.column_stack([dist, O_stat_feat, D_stat_feat])
         
         test_cities = set(test_dataset.test_indices)
         is_test = np.array([(o in test_cities) or (d in test_cities) for o, d in zip(O_idx, D_idx)])
@@ -196,15 +183,15 @@ def test_tabular_model(args, test_dataset):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str, default=TRAIN_CONFIG['model_type'], choices=['gravity', 'xgb', 'xgb_hurdle', 'deep_gravity', 'mae1', 'mae5'])
+    parser.add_argument('--model', type=str, default=TRAIN_CONFIG['model_type'], choices=['lgbm', 'deep_gravity', 'mae1', 'mae5'])
     args = parser.parse_args()
     
     channel = 5 if args.model == 'mae5' else 1
-    test_dataset = ODDataset(mode='test', channel=channel)
+    test_dataset = ODDataset(mode='test', channel=channel, isLogScale=True if args.model in ['mae1', 'mae5', 'deep_gravity'] else False)
     
     if args.model in ['mae1', 'mae5', 'deep_gravity']:
         test_dl_model(args, test_dataset)
-    elif args.model in ['gravity', 'xgb', 'xgb_hurdle']:
+    elif args.model in ['lgbm']:
         test_tabular_model(args, test_dataset)
 
 if __name__ == '__main__':

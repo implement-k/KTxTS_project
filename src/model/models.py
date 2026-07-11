@@ -2,142 +2,65 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from xgboost import XGBRegressor, XGBClassifier
-
+import lightgbm as lgb
 from scipy.optimize import minimize
 
-# ==== gravity model ====
-# TODO 수정 필요
-class GravityModel:
+# ==== LightGBM (Tweedie) ====
+class LGBMModel:
     def __init__(self):
-        self.b = -1.0 # Inverse power parameter
-        self.c = -0.1 # Exponential parameter
-
-    def fit(self, P, A, dist_matrix, y_matrix, train_mask):
-        """
-        Fit gravity parameters using scipy minimize.
-        Formula: T_ij = P_i * (A_j * F_ij) / sum_k (A_k * F_ik)
-        Friction: F_ij = dist_ij^b * exp(c * dist_ij)
-        """
-        P = np.clip(P, 1e-5, None)
-        A = np.clip(A, 1e-5, None)
-        dist = np.clip(dist_matrix, 1.0, None)
-        
-        def loss_func(params):
-            b, c = params
-            # F_ij = d^b * e^(c*d)
-            F = (dist ** b) * np.exp(c * dist)
-            
-            # A_j * F_ij
-            AF = A.reshape(1, -1) * F
-            
-            # sum_k (A_k, F_ik)
-            sum_AF = np.clip(AF.sum(axis=1, keepdims=True), 1e-9, None)
-            
-            # T_ij
-            T_pred = P.reshape(-1, 1) * (AF / sum_AF)
-            
-            # MSE on train_mask
-            err = T_pred[train_mask] - y_matrix[train_mask]
-            return np.mean(err**2)
-
-        p0 = [self.b, self.c]
-        bounds = [(-10.0, 5.0), (-1.0, 1.0)]
-        
-        try:
-            res = minimize(loss_func, p0, bounds=bounds, method='L-BFGS-B')
-            self.b, self.c = res.x
-            print(f"중력 모형 하이퍼파라미터: b={self.b:.4f}, c={self.c:.4f}")
-        except Exception as e:
-            print("Optimization 실패:", e)
-
-    def predict(self, P, A, dist_matrix):
-        P = np.clip(P, 1e-5, None)
-        A = np.clip(A, 1e-5, None)
-        dist = np.clip(dist_matrix, 1.0, None)
-        
-        F = (dist ** self.b) * np.exp(self.c * dist)
-        AF = A.reshape(1, -1) * F
-        sum_AF = AF.sum(axis=1, keepdims=True)
-        sum_AF = np.clip(sum_AF, 1e-9, None)
-        
-        T_pred = P.reshape(-1, 1) * (AF / sum_AF)
-        return T_pred
-
-# ==== XGBoost ====
-# TODO 수정 필요
-class XGBGravityModel:
-    def __init__(self):
-        self.model = XGBRegressor(n_estimators=100, max_depth=6, learning_rate=0.1, random_state=42, n_jobs=1)
+        # tweedie_variance_power=1.5 is a common default between Poisson (1.0) and Gamma (2.0)
+        self.model = lgb.LGBMRegressor(
+            objective='tweedie',
+            tweedie_variance_power=1.5,
+            n_estimators=100,
+            learning_rate=0.1,
+            max_depth=6,
+            random_state=42,
+            n_jobs=1
+        )
 
     def fit(self, X_tabular, y):
+        # LightGBM handles Tweedie natively.
         self.model.fit(X_tabular, y)
 
     def predict(self, X_tabular):
-        return self.model.predict(X_tabular)
-
-# ==== XGBoost Hurdle Model ====
-class XGBHurdleModel:
-    def __init__(self):
-        # Classification for P(y > 0)
-        self.classifier = XGBClassifier(n_estimators=100, max_depth=6, learning_rate=0.1, random_state=42, n_jobs=1)
-        # Regression for E(y | y > 0)
-        self.regressor = XGBRegressor(n_estimators=100, max_depth=6, learning_rate=0.1, random_state=42, n_jobs=1)
-
-    def fit(self, X_tabular, y):
-        # 1. Train classifier to predict non-zero
-        y_clf = (y > 0).astype(int)
-        self.classifier.fit(X_tabular, y_clf)
-        
-        # 2. Train regressor only on non-zero instances
-        non_zero_mask = y > 0
-        if non_zero_mask.sum() > 0:
-            self.regressor.fit(X_tabular[non_zero_mask], y[non_zero_mask])
-            self.has_regressor = True
-        else:
-            self.has_regressor = False
-
-    def predict(self, X_tabular):
-        # P(y > 0)
-        p_non_zero = self.classifier.predict_proba(X_tabular)[:, 1]
-        
-        if self.has_regressor:
-            # E(y | y > 0)
-            y_pred_reg = self.regressor.predict(X_tabular)
-            # Ensure regression predictions are non-negative
-            y_pred_reg = np.maximum(y_pred_reg, 0)
-        else:
-            y_pred_reg = np.zeros(len(X_tabular))
-            
-        # Expected value: P(y > 0) * E(y | y > 0)
-        return p_non_zero * y_pred_reg
+        y_pred = self.model.predict(X_tabular)
+        return np.maximum(y_pred, 0)
 
 # ==== deep grvity ====
-# TODO 수정 필요
 class DeepGravity(nn.Module):
-    def __init__(self, num_features=13, hidden_dim=64):
+    def __init__(self, num_features=13, hidden_dim=64, dropout_p=0.35):
         super().__init__()
-        self.o_mlp = nn.Sequential(
-            nn.Linear(num_features, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim)
-        )
-        self.d_mlp = nn.Sequential(
-            nn.Linear(num_features, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim)
-        )
-        self.dist_mlp = nn.Sequential(
-            nn.Linear(1, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim)
-        )
+        # Input: O_feat + D_feat + Dist (all concatenated)
+        dim_input = num_features * 2 + 1
         
-        self.out_mlp = nn.Sequential(
-            nn.Linear(hidden_dim * 3, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, 1)
-        )
+        layers = []
+        in_dim = dim_input
+        out_dim = hidden_dim
+        
+        # Layer 1~5: (hidden_dim, hidden_dim)
+        for _ in range(5):
+            layers.append(nn.Linear(in_dim, out_dim))
+            layers.append(nn.LeakyReLU())
+            layers.append(nn.Dropout(dropout_p))
+            in_dim = out_dim
+            
+        # Layer 6: (hidden_dim, hidden_dim // 2)
+        out_dim = hidden_dim // 2
+        layers.append(nn.Linear(in_dim, out_dim))
+        layers.append(nn.LeakyReLU())
+        layers.append(nn.Dropout(dropout_p))
+        in_dim = out_dim
+        
+        # Layer 7~15: (hidden_dim // 2, hidden_dim // 2)
+        for _ in range(9):
+            layers.append(nn.Linear(in_dim, out_dim))
+            layers.append(nn.LeakyReLU())
+            layers.append(nn.Dropout(dropout_p))
+            in_dim = out_dim
+            
+        self.mlp = nn.Sequential(*layers)
+        self.out_layer = nn.Linear(out_dim, 1)
 
     def forward(self, x_static, dist_matrix):
         """
@@ -146,20 +69,23 @@ class DeepGravity(nn.Module):
         """
         B, N, F = x_static.shape
         
-        # O_feat: (B, N, 1, H) -> Broadcast to (B, N, N, H)
-        o_feat = self.o_mlp(x_static).unsqueeze(2).expand(-1, -1, N, -1)
+        # O_feat: (B, N, 1, F) -> Broadcast to (B, N, N, F)
+        o_feat = x_static.unsqueeze(2).expand(-1, -1, N, -1)
         
-        # D_feat: (B, 1, N, H) -> Broadcast to (B, N, N, H)
-        d_feat = self.d_mlp(x_static).unsqueeze(1).expand(-1, N, -1, -1)
+        # D_feat: (B, 1, N, F) -> Broadcast to (B, N, N, F)
+        d_feat = x_static.unsqueeze(1).expand(-1, N, -1, -1)
         
-        # Dist_feat: (B, N, N, H)
-        dist_feat = self.dist_mlp(dist_matrix.unsqueeze(-1))
+        # Dist_feat: (B, N, N, 1)
+        dist_feat = dist_matrix.unsqueeze(-1)
         
-        # Concat: (B, N, N, 3*H)
+        # Concat: (B, N, N, 2F + 1)
         combined = torch.cat([o_feat, d_feat, dist_feat], dim=-1)
         
+        # Pass through 15-layer MLP
+        hidden = self.mlp(combined)
+        
         # Output: (B, N, N, 1) -> (B, N, N)
-        out = self.out_mlp(combined).squeeze(-1)
+        out = self.out_layer(hidden).squeeze(-1)
         return out
 
 # ==== Spatial OD-MAE(ours) 1-channel ====

@@ -13,7 +13,7 @@ from config import (
 )
 
 class ODDataset(Dataset):
-    def __init__(self, mode='train', channel=1):
+    def __init__(self, mode='train', channel=1, isLogScale=True):
         self.mode = mode
         self.channel = channel
         self.max_mask_size = TRAIN_CONFIG['min_mask_size']
@@ -96,9 +96,10 @@ class ODDataset(Dataset):
         self.X_static[self.test_indices, -1] = 1.0 # is_masked = 1
         
         # 정규화 (거리 및 통행량 로그 변환)
-        self.X_dist = np.log1p(self.X_dist)
-        self.X_OD = np.log1p(self.X_OD)
-        
+        if isLogScale:
+            self.X_dist = np.log1p(self.X_dist)
+            self.X_OD = np.log1p(self.X_OD)
+
         print("Dataset 초기화 완료")
         
     def _find_dong_indices(self, idx_map):

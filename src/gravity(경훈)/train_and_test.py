@@ -44,7 +44,7 @@ def main():
         beta: 마찰계수 지수, max_iter: IPF 최대 반복 횟수
         마찰계수 지수는 일반적으로 1~2 값이라는데 조정하면서 성능이 가장 좋게 나오도록 설정해
     '''
-    model = DoublyConstrainedGravityModel(beta=1.5, max_iter=100)
+    model = DoublyConstrainedGravityModel(beta=2.0, max_iter=100)
     
     # 4. LGBM 학습 및 이중제약 적용
     # 주의: IPF 알고리즘은 전체 노드에 대해 수행되어야 하므로 X_dist가 아닌 전체 dataset.X_dist를 전달해야 합니다.

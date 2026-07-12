@@ -9,13 +9,13 @@ import lightgbm as lgb
 
 
 class DoublyConstrainedGravityModel:
-    def __init__(self, beta=1.5, max_iter=100, tol=1e-4):
+    def __init__(self, beta=2.0, max_iter=100, tol=1e-4):
         """
             LightGBM + 이중제약 중력모델 초기화
 
             beta: 거리저항 계수. f(d_ij) = 1 / d_ij^beta 형태로 사용.
                   값이 클수록 가까운 동에 더 강하게 배분됨.
-                  현재 1.5는 기본 실험값이며, 이후 튜닝 대상.
+                  현재 beta 튜닝 결과 현재 기본값은 2.0 사용, 이후 튜닝 대상.
             max_iter: IPF(Balancing) 최대 반복 횟수.
             tol: IPF 수렴 허용 오차.
         """
@@ -193,7 +193,7 @@ class DoublyConstrainedGravityModel:
         # 중요: 외부 OD 배분에서는 대각선을 반드시 0으로 둔다.
         #
         # 원래 거리 0인 대각선은 dist_safe에서 1e-3으로 바뀐다.
-        # beta=1.5일 때 1 / 0.001^1.5 ~= 31623이 되어
+        # beta=2.0일 때 1 / 0.001^2.0 ~= 31623이 되어
         # 자기동(A동->A동)에 지나치게 큰 가중치가 생길 수 있다.
         #
         # 하지만 현재 구조에서는 내부통행을 y_self로 따로 예측해서

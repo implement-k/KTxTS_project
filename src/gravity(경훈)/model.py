@@ -3,9 +3,7 @@ os.environ['KMP_DUPLICATE_OK'] = 'True'
 import numpy as np
 import lightgbm as lgb
 
-'''
-    여기 코드 수정해주면 돼.
-'''
+
 
 
 class DoublyConstrainedGravityModel:

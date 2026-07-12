@@ -30,14 +30,15 @@ def main():
     y_o = np.sum(x_od, axis=1) # 행 합계 (발생량, Origin) (N,)
     y_d = np.sum(x_od, axis=0) # 열 합계 (도착량, Destination) (N,)
     y_self = np.diag(x_od) # 자기동 내부 통행량 (N,)
-    y_inter = y_o - y_self # 타 지역 간 통행량 (N,)
+    y_external_out = y_o - y_self # 외부 유출 통행량 (N,)
+    y_external_in = y_d - y_self # 외부 유입 통행량 (N,)
     
     # 2.2. 학습용 데이터셋 생성
     X_static = dataset.X_static[train_mask]
-    X_o = y_o[train_mask]
-    X_d = y_d[train_mask]
+    X_o = y_external_out[train_mask]
+    X_d = y_external_in[train_mask]
     X_self = y_self[train_mask]
-    X_inter = y_inter[train_mask]
+    X_inter = y_external_out[train_mask]
     
     # 3. 모델 초기화 및 실행
     '''

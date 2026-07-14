@@ -4,10 +4,7 @@ import numpy as np
 from dataset import ODDataset
 from model import DoublyConstrainedGravityModel
 
-'''
-    이 코드는 수정할 필요 없을거야. models.py에서 코드 수정하면 돼.
-    이파일 실행하면 모델 학습하고, Test 구역(동탄, 위례, 검단)에 대한 RMSE, CPC 평가 결과 출력해줘.
-'''
+
 
 
 def main():
@@ -44,11 +41,12 @@ def main():
     '''
         beta: 마찰계수 지수, max_iter: IPF 최대 반복 횟수
         마찰계수 지수는 일반적으로 1~2 값이라는데 조정하면서 성능이 가장 좋게 나오도록 설정해
+        - beta=2.0d으로 수정했음
     '''
     model = DoublyConstrainedGravityModel(beta=2.0, max_iter=100)
     
     # 4. LGBM 학습 및 이중제약 적용
-    # 주의: IPF 알고리즘은 전체 노드에 대해 수행되어야 하므로 X_dist가 아닌 전체 dataset.X_dist를 전달해야 합니다.
+    # 주의: IPF 알고리즘은 전체 노드에 대해 수행되어야 하므로 X_dist가 아닌 전체 dataset.X_dist를 전달해야함
     T_pred = model.fit_predict(X_static, X_o, X_d, dataset.X_static, dataset.X_dist, X_self, X_inter)
     
     print("Shape of Predicted OD Matrix:", T_pred.shape)

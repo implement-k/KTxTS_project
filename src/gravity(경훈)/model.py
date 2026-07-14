@@ -13,7 +13,8 @@ class DoublyConstrainedGravityModel:
 
             beta: 거리저항 계수. f(d_ij) = 1 / d_ij^beta 형태로 사용.
                   값이 클수록 가까운 동에 더 강하게 배분됨.
-                  현재 beta 튜닝 결과 현재 기본값은 2.0 사용, 이후 튜닝 대상.
+                  
+                  .
             max_iter: IPF(Balancing) 최대 반복 횟수.
             tol: IPF 수렴 허용 오차.
         """
@@ -189,13 +190,11 @@ class DoublyConstrainedGravityModel:
         f_d = dist_safe ** (-self.beta)
 
         # 중요: 외부 OD 배분에서는 대각선을 반드시 0으로 둔다.
-        #
         # 원래 거리 0인 대각선은 dist_safe에서 1e-3으로 바뀐다.
-        # beta=2.0일 때 1 / 0.001^2.0 = 1,000,000이 되어
+        # beta=1.5일 때 1 / 0.001^1.5 ~= 31623이 되어
         # 자기동(A동->A동)에 지나치게 큰 가중치가 생길 수 있다.
-        #
         # 하지만 현재 구조에서는 내부통행을 y_self로 따로 예측해서
-        # 마지막에 대각선에 넣으므로, IPF 단계에서는 자기동 배분을 막는다.
+        # 마지막에 대각선에 넣으므로, IPF 단계에서는 자기동 배분을 막는다.(그러니까 A동 내부 통행량을 외부 통행량으로 옮기는거 방지)
         np.fill_diagonal(f_d, 0.0)
         
         # A_i, B_j 초기화
@@ -221,7 +220,7 @@ class DoublyConstrainedGravityModel:
             # 수렴 확인.
             # 기존 AI 코드에서는 A, B 값 변화량으로 수렴을 판단했다.
             # 현재는 실제로 만들어진 OD 행렬의 행합/열합이
-            # O_pred/D_pred와 맞는지를 직접 확인한다.
+            # O_pred/D_pred와 맞는지를 직접 확인한다. (이중제약 중력모델 특성상 이게 더 직관적임)
             A = A_new
             B = B_new
 
@@ -305,7 +304,7 @@ class DoublyConstrainedGravityModel:
         - O_train/D_train은 전체 통행량이 아니라 외부 유출/외부 유입 총량이어야 함.
           이 값은 train_and_test.py에서 대각선 내부통행을 뺀 뒤 만들어짐.
         - X_self는 이름은 X로 되어 있지만 실제로는 내부통행 정답값(y_self_train)에 가까움.
-        - 내부통행 모델을 학습한 뒤 predict_self()로 전체 동의 내부통행을 예측하고,
+        - 내부통행 모델을 학습한 뒤 predict_self()로 전체 동의 내부통행을 예측하고
           apply_ipf() 마지막 단계에서 최종 OD 대각선에 넣음.
         """
         # 총 발생량, 총 도착량 예측용 LGBM 학습

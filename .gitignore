@@ -16,3 +16,6 @@ __pycache__/
 .idea/
 
 /KTDB/src/model/test_xgb.py
+
+# MAE1 loss 탐색 자동 실험 산출물 (체크포인트/CSV/PNG/로그) — 코드만 커밋, 결과물은 커밋하지 않음
+artifacts/loss_search/

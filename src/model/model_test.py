@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from dataset import ODDataset
 from models import DeepGravity, SpatialODMAE1, SpatialODMAE5
 from loss import LOSS_REGISTRY
-from eval_utils import evaluate_breakdown, get_git_commit_hash
+from eval_utils import evaluate_breakdown, get_git_commit_hash, eval_mode_for_validation
 
 def cpc_score(y_true, y_pred):
     numerator = 2 * np.sum(np.minimum(y_true, y_pred))
@@ -22,9 +22,13 @@ def cpc_score(y_true, y_pred):
     if denominator == 0: return 0.0
     return numerator / denominator
 
-def visualize_predictions(y_true, y_pred, model_name):
+def visualize_predictions(y_true, y_pred, model_name, run_tag=None):
+    """
+    run_tag: 파일명에 쓸 실행 식별자(예: 'mae1_weighted_mse_seed42').
+        지정하지 않으면 기존처럼 model_name만 사용(예: lgbm 등 --loss/--seed 개념이 없는 경로).
+    """
     plt.figure(figsize=(12, 5))
-    
+
     # Scatter Plot
     plt.subplot(1, 2, 1)
     # 0값 처리를 위해 log1p 사용
@@ -33,7 +37,7 @@ def visualize_predictions(y_true, y_pred, model_name):
     plt.xlabel('True OD (log1p)')
     plt.ylabel('Predicted OD (log1p)')
     plt.title(f'Scatter Plot ({model_name})')
-    
+
     # Residual Plot
     plt.subplot(1, 2, 2)
     residual = y_pred - y_true
@@ -42,9 +46,9 @@ def visualize_predictions(y_true, y_pred, model_name):
     plt.xlabel('True OD (log1p)')
     plt.ylabel('Residual (Pred - True)')
     plt.title('Residual Plot (Heavy-tail Check)')
-    
+
     plt.tight_layout()
-    save_path = f'results_{model_name}.png'
+    save_path = f'results_{run_tag or model_name}.png'
     plt.savefig(save_path)
     plt.close()
     print(f"Visualization saved to {save_path}")
@@ -77,11 +81,6 @@ def test_dl_model(args, test_dataset):
     model.load_state_dict(torch.load(best_model_path, map_location=device, weights_only=True))
     print(f"Loaded {best_model_path} for testing.")
         
-    model.train()
-    for m_module in model.modules():
-        if isinstance(m_module, torch.nn.Dropout):
-            m_module.eval()
-            
     all_y_true = []
     all_y_pred = []
     all_O_idx = []
@@ -92,7 +91,7 @@ def test_dl_model(args, test_dataset):
     # O/D 행정동 인덱스 그리드 (동일동/타동 구분 및 diagnostic용, 배치마다 동일하므로 루프 밖에서 1회 계산)
     O_idx_grid, D_idx_grid = np.indices((test_dataset.num_nodes, test_dataset.num_nodes))
 
-    with torch.no_grad():
+    with eval_mode_for_validation(model), torch.no_grad():
         for batch in test_loader:
             x_static = batch['X_static'].to(device)
             x_dist = batch['X_dist'].to(device)
@@ -146,24 +145,26 @@ def test_dl_model(args, test_dataset):
     print(f"MAE (Real scale, 테스트 지역 마스킹 대상): {mae:.2f}")
     print(f"CPC (Common Part of Commuters, 테스트 지역 마스킹 대상): {cpc:.4f}")
 
-    visualize_predictions(all_y_true, all_y_pred, args.model)
+    visualize_predictions(all_y_true, all_y_pred, args.model, run_tag=f'{args.model}_{args.loss}_seed{args.seed}')
 
     if all_O_idx:
         all_O_idx = np.concatenate(all_O_idx)
         all_D_idx = np.concatenate(all_D_idx)
         diagnostic_full = (np.concatenate(all_diag_y_true), np.concatenate(all_diag_y_pred))
 
-        # loss/파이프라인별 실제 alpha 설정을 정확히 기록 (train.py의 실제 값과 반드시 일치시킬 것)
-        ALPHA_INFO = {
-            'weighted_mse': 'alpha=1.5 fixed (WeightedMSELossWrapper 기본값, src/model/train.py와 동일)',
-        }
+        # loss 하이퍼파라미터는 train.py가 실제로 사용한 --loss-params 그대로 기록한다.
+        # weighted_mse에서 --loss-params를 안 넘긴 경우 train.py가 alpha=1.5로 채워 학습하므로
+        # 그 사실을 알 수 있도록 표기해 둔다(실제 학습에 쓰인 값과 이 필드가 어긋나지 않도록 주의).
+        loss_params_display = getattr(args, 'loss_params', '{}') or '{}'
+        if args.loss == 'weighted_mse' and loss_params_display == '{}':
+            loss_params_display = '{"alpha": 1.5}  # train.py 기본값(명시 안 함)'
         run_meta = {
             'pipeline': args.model,
             'loss': args.loss,
             'seed': args.seed,
             'epochs': getattr(args, 'epochs', None),
             'batch_size': getattr(args, 'batch_size', None),
-            'alpha_info': ALPHA_INFO.get(args.loss, 'unknown'),
+            'loss_params': loss_params_display,
             'git_commit': get_git_commit_hash(),
             'device': str(device),
         }
@@ -227,9 +228,10 @@ def main():
     parser.add_argument('--model', type=str, default=TRAIN_CONFIG['model_type'], choices=['lgbm', 'deep_gravity', 'mae1', 'mae5'])
     parser.add_argument('--loss', type=str, default='weighted_mse', choices=list(LOSS_REGISTRY.keys()))
     parser.add_argument('--seed', type=int, default=42)
-    # 아래 둘은 체크포인트 탐색에는 쓰이지 않고, 단독 실행 시 결과 CSV 메타데이터 기록용
+    # 아래는 체크포인트 탐색에는 쓰이지 않고, 단독 실행 시 결과 CSV 메타데이터 기록용
     parser.add_argument('--epochs', type=int, default=None)
     parser.add_argument('--batch_size', type=int, default=None)
+    parser.add_argument('--loss-params', type=str, default='{}')
     args = parser.parse_args()
     
     channel = 5 if args.model == 'mae5' else 1

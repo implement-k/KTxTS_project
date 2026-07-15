@@ -5,6 +5,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import TRAIN_CONFIG
 
 import argparse
+import json
 import numpy as np
 import torch
 import torch.optim as optim
@@ -16,13 +17,13 @@ from models import DeepGravity, SpatialODMAE1, SpatialODMAE5, LGBMModel
 from tqdm import tqdm
 from model_test import test_dl_model
 from loss import LOSS_REGISTRY
-from eval_utils import set_seed
+from eval_utils import set_seed, eval_mode_for_validation
 
 def main():
     print("Starting Training...")
     '''
     사용법
-    python train.py --model [lgbm, deep_gravity, mae1, mae5] --epochs [NUM_EPOCHS] --batch_size [BATCH_SIZE] --loss [weighted_mse] --seed [SEED]
+    python train.py --model [lgbm, deep_gravity, mae1, mae5] --epochs [NUM_EPOCHS] --batch_size [BATCH_SIZE] --loss [weighted_mse] --seed [SEED] --loss-params ["JSON"]
     '''
     # Argument Parsing
     parser = argparse.ArgumentParser()
@@ -31,6 +32,8 @@ def main():
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
     parser.add_argument('--loss', type=str, default='weighted_mse', choices=list(LOSS_REGISTRY.keys()))
     parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--loss-params', type=str, default='{}',
+                         help='선택한 loss 생성자에 전달할 키워드 인자 JSON 문자열 (예: \'{"lambda_log": 0.5}\')')
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -75,10 +78,12 @@ def train_dl_model(args, train_dataset, test_dataset):
         pct_start=0.3,
         anneal_strategy='cos'
     )
-    # alpha=1.5는 WeightedMSELossWrapper의 기본값 그대로 고정 사용 (기존 baseline 동작 보존).
-    # alpha 스케줄링(예: twostage처럼 10.0->1.0로 감소) 자체를 실험하는 것은 별도 loss 변형으로 취급하고,
-    # 이번 Weighted MSE baseline에서는 다루지 않음(이후 작업으로 분리).
-    criterion = LOSS_REGISTRY[args.loss](alpha=1.5).to(device)
+    # loss 하이퍼파라미터는 --loss-params(JSON)로 주입. weighted_mse는 명시적으로 넘기지 않으면
+    # alpha=1.5 고정(기존 baseline 동작 보존, twostage식 alpha 스케줄링은 다루지 않음 — 별도 작업으로 분리).
+    loss_params = json.loads(args.loss_params)
+    if args.loss == 'weighted_mse' and 'alpha' not in loss_params:
+        loss_params['alpha'] = 1.5
+    criterion = LOSS_REGISTRY[args.loss](**loss_params).to(device)
 
     min_mask = TRAIN_CONFIG['min_mask_size']
     max_mask = TRAIN_CONFIG['max_mask_size']
@@ -160,11 +165,7 @@ def train_dl_model(args, train_dataset, test_dataset):
             
         # === Validation (2 Epoch마다 수행) ===
         if epoch % 2 == 1 or epoch == args.epochs - 1:
-            model.train() # PyTorch 우회용
-            for m_module in model.modules():
-                if isinstance(m_module, torch.nn.Dropout):
-                    m_module.eval()
-            with torch.no_grad():
+            with eval_mode_for_validation(model), torch.no_grad():
                 val_batch = next(iter(test_loader))
                 x_s = val_batch['X_static'].to(device)
                 x_d = val_batch['X_dist'].to(device)

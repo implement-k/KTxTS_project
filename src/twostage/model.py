@@ -10,9 +10,9 @@ class Stage1Model:
         Stage1: 자기 동 내부 통행량(y_self)과 타 지역 간 통행량(y_inter)을 예측하는 모델
     '''
     
-    def __init__(self, model_self=None, model_inter=None, random_state=42):
-        self.model_self = model_self or lgb.LGBMRegressor(objective='regression', n_estimators=300, num_leaves=15, min_child_samples=10, random_state=random_state)
-        self.model_inter = model_inter or lgb.LGBMRegressor(objective='regression', n_estimators=300, num_leaves=15, min_child_samples=10, random_state=random_state)
+    def __init__(self, model_self=None, model_inter=None):
+        self.model_self = model_self or lgb.LGBMRegressor(objective='regression', n_estimators=300, num_leaves=15, min_child_samples=10)
+        self.model_inter = model_inter or lgb.LGBMRegressor(objective='regression', n_estimators=300, num_leaves=15, min_child_samples=10)
 
     def fit(self, X_static, y_self, y_inter):
         """
@@ -36,10 +36,10 @@ class Stage1Model:
         
         return log_self, log_inter
     
-    def fit_predict(self, X_static, y_self, y_inter, self_path='lgbm_self.pkl', inter_path='lgbm_inter.pkl'):
+    def fit_predict(self, X_static, y_self, y_inter):
         self.fit(X_static, y_self, y_inter)
-        joblib.dump(self.model_self, self_path)
-        joblib.dump(self.model_inter, inter_path)
+        joblib.dump(self.model_self, 'lgbm_self.pkl')
+        joblib.dump(self.model_inter, 'lgbm_inter.pkl')
         return self.predict(X_static)
 
 # ==== Two-Stage Gravity Model ====

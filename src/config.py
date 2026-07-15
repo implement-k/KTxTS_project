@@ -37,6 +37,18 @@ TEST_CITIES_CODES = {
     ],
 }
 
+# 마스킹 대상 컬럼
+MASKING_COLUMNS = ['worker_count', 'business_count']
+
+TRAIN_CONFIG = {
+    'min_mask_size': 3,
+    'max_mask_size': 10,
+    'batch_size': 16,
+    'epochs': 50,
+    'learning_rate': 1e-3,
+    'model_type': 'mae',
+}
+
 OUTLIER_CONFIG = {
     'statistical_percentile': 99.9,
     'residual_top_percent': 1.0

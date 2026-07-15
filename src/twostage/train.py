@@ -11,23 +11,27 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from dataset import ODDataset
-from loss import WeightedMSELossWrapper
+from loss import LOSS_REGISTRY
 from tqdm import tqdm
-from KTDB.src.twostage.model import Stage1Model
-from KTDB.src.twostage.model import Stage2Model
+from model import Stage1Model, Stage2Model
+from eval_utils import set_seed
 
 def main():
     print("Two-Stage model")
     '''
     사용법
-    python train.py --epochs [NUM_EPOCHS] --batch_size [BATCH_SIZE]
+    python train.py --epochs [NUM_EPOCHS] --batch_size [BATCH_SIZE] --loss [weighted_mse] --seed [SEED]
     '''
     # Argument Parsing
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
+    parser.add_argument('--loss', type=str, default='weighted_mse', choices=list(LOSS_REGISTRY.keys()))
+    parser.add_argument('--seed', type=int, default=42)
     args = parser.parse_args()
-    
+
+    set_seed(args.seed)
+
     # 데이터셋 로드
     train_dataset = ODDataset(mode='train')
     test_dataset = ODDataset(mode='test')
@@ -39,16 +43,18 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu')
     print(f"Using device: {device}")
     
-    ################### Stage1: LightGBM PRE-TRAINING ################### 
-    print("Stage1: LightGBM Pre-training")        
-    stage1_model = Stage1Model()
-    
+    ################### Stage1: LightGBM PRE-TRAINING ###################
+    print("Stage1: LightGBM Pre-training")
+    stage1_model = Stage1Model(random_state=args.seed)
+
     # x_static만 보고 y_self, y_inter를 예측하도록 학습
     print("Fitting LGBM")
     log_self_all, log_inter_all = stage1_model.fit_predict(
-        X_static = train_dataset.X_static_lgb, 
-        y_self=np.log1p(train_dataset.y_self_train), 
-        y_inter=np.log1p(train_dataset.y_inter_train)
+        X_static = train_dataset.X_static_lgb,
+        y_self=np.log1p(train_dataset.y_self_train),
+        y_inter=np.log1p(train_dataset.y_inter_train),
+        self_path=f'lgbm_self_seed{args.seed}.pkl',
+        inter_path=f'lgbm_inter_seed{args.seed}.pkl'
         )
     
     # Convert to tensors
@@ -69,13 +75,13 @@ def main():
         pct_start=0.3,
         anneal_strategy='cos'
     )
-    criterion = WeightedMSELossWrapper(alpha=10.0).to(device)
-    
+    criterion = LOSS_REGISTRY[args.loss](alpha=10.0).to(device)
+
     min_mask = TRAIN_CONFIG['min_mask_size']
     max_mask = TRAIN_CONFIG['max_mask_size']
-    
+
     best_val_rmse = float('inf')
-    best_model_path = f'best_model_twostage.pth'
+    best_model_path = f'best_model_twostage_{args.loss}_seed{args.seed}.pth'
     
     for epoch in range(args.epochs):
         # masking size 결정(min_mask ~ current_mask_size) 랜덤으로 선택

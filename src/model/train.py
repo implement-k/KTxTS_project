@@ -15,21 +15,26 @@ from dataset import ODDataset
 from models import DeepGravity, SpatialODMAE1, SpatialODMAE5, LGBMModel
 from tqdm import tqdm
 from model_test import test_dl_model
-from loss import HuberLossWrapper
+from loss import LOSS_REGISTRY
+from eval_utils import set_seed
 
 def main():
     print("Starting Training...")
     '''
     사용법
-    python train.py --model [lgbm, deep_gravity, mae1, mae5] --epochs [NUM_EPOCHS] --batch_size [BATCH_SIZE]
+    python train.py --model [lgbm, deep_gravity, mae1, mae5] --epochs [NUM_EPOCHS] --batch_size [BATCH_SIZE] --loss [weighted_mse] --seed [SEED]
     '''
     # Argument Parsing
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', type=str, default=TRAIN_CONFIG['model_type'], choices=['lgbm', 'deep_gravity', 'mae1', 'mae5'])
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
+    parser.add_argument('--loss', type=str, default='weighted_mse', choices=list(LOSS_REGISTRY.keys()))
+    parser.add_argument('--seed', type=int, default=42)
     args = parser.parse_args()
-    
+
+    set_seed(args.seed)
+
     # 데이터셋 로드
     channel = 5 if args.model == 'mae5' else 1
     train_dataset = ODDataset(mode='train', channel=channel, isLogScale=True if args.model in ['mae1', 'mae5', 'deep_gravity'] else False)
@@ -70,29 +75,28 @@ def train_dl_model(args, train_dataset, test_dataset):
         pct_start=0.3,
         anneal_strategy='cos'
     )
-    criterion = HuberLossWrapper(delta=1.0).to(device)
-    # criterion = WeightedMSELossWrapper(alpha=1.5).to(device)
-    
+    # alpha=1.5는 WeightedMSELossWrapper의 기본값 그대로 고정 사용 (기존 baseline 동작 보존).
+    # alpha 스케줄링(예: twostage처럼 10.0->1.0로 감소) 자체를 실험하는 것은 별도 loss 변형으로 취급하고,
+    # 이번 Weighted MSE baseline에서는 다루지 않음(이후 작업으로 분리).
+    criterion = LOSS_REGISTRY[args.loss](alpha=1.5).to(device)
+
     min_mask = TRAIN_CONFIG['min_mask_size']
     max_mask = TRAIN_CONFIG['max_mask_size']
-    
+
     best_val_rmse = float('inf')
-    best_model_path = f'best_model_{args.model}.pth'
-    
+    best_model_path = f'best_model_{args.model}_{args.loss}_seed{args.seed}.pth'
+
     for epoch in range(args.epochs):
         # masking size 결정(min_mask ~ current_mask_size) 랜덤으로 선택
         progress = epoch / max(1, args.epochs - 1)
         current_mask_size = int(min_mask + (max_mask - min_mask) * progress)
         train_dataset.max_mask_size = current_mask_size
-        
-        # alpha 값 결정 (10.0 -> 1.0) -> epoch 진행에 따라 감소
-        current_alpha = max(1.0, 10.0 * (1.0 - progress))
-        
+
         model.train()
         train_loss = 0
-        
+
         if args.model in ['mae1', 'mae5']:
-            pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs} [Mask: {current_mask_size}, α: {current_alpha:.1f}]")
+            pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs} [Mask: {current_mask_size}]")
             for batch in pbar:
                 x_static = batch['X_static'].to(device)
                 x_dist = batch['X_dist'].to(device)

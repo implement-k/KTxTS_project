@@ -191,7 +191,13 @@ def try_resume(path, identity, model, optimizer, scheduler, device):
     np.random.set_state(state['rng_numpy'])
     torch.set_rng_state(state['rng_torch'].cpu() if torch.is_tensor(state['rng_torch']) else state['rng_torch'])
     if torch.cuda.is_available() and state.get('rng_cuda') is not None:
-        torch.cuda.set_rng_state_all(state['rng_cuda'])
+        rng_cuda = [
+            rng.detach().cpu().to(dtype=torch.uint8)
+            if torch.is_tensor(rng)
+            else torch.tensor(rng, dtype=torch.uint8)
+            for rng in state['rng_cuda']
+        ]
+        torch.cuda.set_rng_state_all(rng_cuda)
 
     start_epoch = state['current_epoch'] + 1
     best_val_metric = state['best_val_metric']
@@ -481,6 +487,7 @@ def train_dl_model(args, train_dataset, val_dataset, test_dataset):
             'canonical_loss_params': identity['canonical_loss_params'],
             'seed': args.seed,
             'epochs': args.epochs,
+            'planned_epochs': args.epochs,
             'batch_size': args.batch_size,
             'model': args.model,
             'checkpoint_path': best_model_path,

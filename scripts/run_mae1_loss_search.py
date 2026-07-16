@@ -120,7 +120,17 @@ def build_identity(model, loss, canonical_params_json, seed, epochs, batch_size,
 
 
 def identity_matches(record, identity):
-    return all(record.get(k) == v for k, v in identity.items())
+    for key, expected in identity.items():
+        actual = record.get(key)
+
+        # 기존 completed.json은 planned_epochs 대신 epochs로 저장되어 있다.
+        if key == 'planned_epochs' and actual is None:
+            actual = record.get('epochs')
+
+        if actual != expected:
+            return False
+
+    return True
 
 
 def check_smoke_complete(run_dir):

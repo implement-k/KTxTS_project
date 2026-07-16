@@ -176,8 +176,15 @@ def scan_log_for_instability(log_path):
         tail = text.strip().splitlines()[-15:]
         return True, 'Python traceback: ' + ' | '.join(tail)
     import re
-    if re.search(r"\bnan\b", text, re.IGNORECASE) or re.search(r"[^a-zA-Z]inf[^a-zA-Z]", text):
-        return True, 'nan/inf 문자열이 로그에서 발견됨'
+
+    # 진단 필드명 자체의 'inf'를 실제 비정상값으로 오인하지 않도록 제외한다.
+    scan_text = text.replace('nan_or_inf_grad_norm', '')
+    nonfinite_pattern = re.compile(
+        r"(?<![A-Za-z0-9_])(?:nan|[+-]?inf)(?![A-Za-z0-9_])",
+        re.IGNORECASE,
+    )
+    if nonfinite_pattern.search(scan_text):
+        return True, '독립된 nan/inf 값이 로그에서 발견됨'
     return False, None
 
 

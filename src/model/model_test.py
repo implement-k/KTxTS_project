@@ -71,16 +71,17 @@ def test_dl_model(args, test_dataset):
         model = SpatialODMAE1(num_nodes=test_dataset.num_nodes, num_features=test_dataset.X_static.shape[1]).to(device)
     else:
         model = DeepGravity(num_features=test_dataset.X_static.shape[1]).to(device)
-        
-    best_model_path = f'best_model_{args.model}_{args.loss}_seed{args.seed}.pth'
+
+    protocol = getattr(args, 'protocol', 'legacy')
+    best_model_path = f'best_model_{args.model}_{args.loss}_seed{args.seed}_{protocol}.pth'
 
     if not os.path.exists(best_model_path):
         print(f"Error: {best_model_path} not found! Please train the model first.")
         return
-        
+
     model.load_state_dict(torch.load(best_model_path, map_location=device, weights_only=True))
     print(f"Loaded {best_model_path} for testing.")
-        
+
     all_y_true = []
     all_y_pred = []
     all_O_idx = []
@@ -91,7 +92,7 @@ def test_dl_model(args, test_dataset):
     # O/D 행정동 인덱스 그리드 (동일동/타동 구분 및 diagnostic용, 배치마다 동일하므로 루프 밖에서 1회 계산)
     O_idx_grid, D_idx_grid = np.indices((test_dataset.num_nodes, test_dataset.num_nodes))
 
-    with eval_mode_for_validation(model), torch.no_grad():
+    with eval_mode_for_validation(model, device=device), torch.no_grad():
         for batch in test_loader:
             x_static = batch['X_static'].to(device)
             x_dist = batch['X_dist'].to(device)
@@ -145,7 +146,8 @@ def test_dl_model(args, test_dataset):
     print(f"MAE (Real scale, 테스트 지역 마스킹 대상): {mae:.2f}")
     print(f"CPC (Common Part of Commuters, 테스트 지역 마스킹 대상): {cpc:.4f}")
 
-    visualize_predictions(all_y_true, all_y_pred, args.model, run_tag=f'{args.model}_{args.loss}_seed{args.seed}')
+    visualize_predictions(all_y_true, all_y_pred, args.model,
+                           run_tag=f'{args.model}_{args.loss}_seed{args.seed}_{protocol}')
 
     if all_O_idx:
         all_O_idx = np.concatenate(all_O_idx)
@@ -153,12 +155,11 @@ def test_dl_model(args, test_dataset):
         diagnostic_full = (np.concatenate(all_diag_y_true), np.concatenate(all_diag_y_pred))
 
         # loss 하이퍼파라미터는 train.py가 실제로 사용한 --loss-params 그대로 기록한다.
-        # weighted_mse에서 --loss-params를 안 넘긴 경우 train.py가 alpha=1.5로 채워 학습하므로
-        # 그 사실을 알 수 있도록 표기해 둔다(실제 학습에 쓰인 값과 이 필드가 어긋나지 않도록 주의).
         loss_params_display = getattr(args, 'loss_params', '{}') or '{}'
-        if args.loss == 'weighted_mse' and loss_params_display == '{}':
+        if args.loss in ('weighted_mse_fixed',) and loss_params_display == '{}':
             loss_params_display = '{"alpha": 1.5}  # train.py 기본값(명시 안 함)'
         run_meta = {
+            'protocol': protocol,
             'pipeline': args.model,
             'loss': args.loss,
             'seed': args.seed,
@@ -168,7 +169,7 @@ def test_dl_model(args, test_dataset):
             'git_commit': get_git_commit_hash(),
             'device': str(device),
         }
-        csv_path = f'results_{args.model}_{args.loss}_seed{args.seed}.csv'
+        csv_path = f'results_{args.model}_{args.loss}_seed{args.seed}_{protocol}.csv'
         evaluate_breakdown(all_y_true, all_y_pred, all_O_idx, all_D_idx, run_meta, csv_path,
                             diagnostic_full=diagnostic_full)
 
@@ -232,10 +233,13 @@ def main():
     parser.add_argument('--epochs', type=int, default=None)
     parser.add_argument('--batch_size', type=int, default=None)
     parser.add_argument('--loss-params', type=str, default='{}')
+    parser.add_argument('--protocol', type=str, default='legacy', choices=['legacy', 'strict'])
     args = parser.parse_args()
-    
+
     channel = 5 if args.model == 'mae5' else 1
-    test_dataset = ODDataset(mode='test', channel=channel, isLogScale=True if args.model in ['mae1', 'mae5', 'deep_gravity'] else False)
+    test_dataset = ODDataset(mode='test', channel=channel,
+                              isLogScale=True if args.model in ['mae1', 'mae5', 'deep_gravity'] else False,
+                              protocol=args.protocol)
     
     if args.model in ['mae1', 'mae5', 'deep_gravity']:
         test_dl_model(args, test_dataset)

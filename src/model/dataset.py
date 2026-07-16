@@ -13,9 +13,18 @@ from config import (
 )
 
 class ODDataset(Dataset):
-    def __init__(self, mode='train', channel=1, isLogScale=True):
+    def __init__(self, mode='train', channel=1, isLogScale=True, protocol='legacy',
+                 val_fraction=0.10, val_seed=42):
+        """
+        protocol: 'legacy'(기존 동작, 하위 호환 100%) 또는 'strict'.
+            strict일 때는 mode='val'을 쓸 수 있음 — test_indices를 전혀 건드리지 않고
+            train_indices 내부에서 행정구역(시/군/구) group 단위로 떼어낸
+            strict_val_indices를 검증 대상으로 사용한다.
+        mode: 'train' | 'val' | 'test'. 'val'은 strict protocol 전용.
+        """
         self.mode = mode
         self.channel = channel
+        self.protocol = protocol
         self.max_mask_size = TRAIN_CONFIG['min_mask_size']
         
         # 행정동 코드 로드
@@ -80,7 +89,32 @@ class ODDataset(Dataset):
         self.test_indices = self._find_dong_indices(dong2idx_map)
         self.all_indices = np.arange(self.num_nodes)
         self.train_indices = np.setdiff1d(self.all_indices, self.test_indices)
-        
+
+        # === strict protocol을 위한 group(행정구역) 기반 validation node 분리 ===
+        # dong_code // 1000 은 한국 행정동 코드 체계상 시/군/구 단위 그룹키와 일치함
+        # (예: 11010530 -> 11010 = 종로구). OD pair를 무작위로 나누지 않고
+        # 이 그룹 단위로 validation을 떼어내 공간적으로 인접한 정보가 train/val에
+        # 동시에 섞이는 것을 최대한 피한다. 그룹만으로 목표 비율을 맞추기 어려우면
+        # seed 고정 개별 노드 샘플링으로 폴백한다.
+        self.dong_codes = dongs
+        self.strict_train_indices, self.strict_val_indices = self._split_train_val_by_group(
+            self.train_indices, self.dong_codes, val_fraction=val_fraction, seed=val_seed)
+
+        # === test 노드와 연결된 OD 쌍을 가리는 마스크 (strict 학습 loss에서 배제용) ===
+        # (i, j) 중 어느 한쪽이라도 test_indices에 속하면 True(=test와 접촉).
+        test_node_flag = np.zeros(self.num_nodes, dtype=bool)
+        test_node_flag[self.test_indices] = True
+        self.test_touch_od_mask = test_node_flag[:, None] | test_node_flag[None, :]
+        self.non_test_od_mask = ~self.test_touch_od_mask
+
+        # strict_val 노드와 연결된 OD 쌍도 동일한 방식으로 표시(strict 학습에서 함께 배제)
+        strict_val_flag = np.zeros(self.num_nodes, dtype=bool)
+        strict_val_flag[self.strict_val_indices] = True
+        self.strict_val_touch_od_mask = strict_val_flag[:, None] | strict_val_flag[None, :]
+        # strict protocol의 train 단계 loss에서 배제해야 하는 전체 영역(test ∪ strict_val 접촉)
+        self.strict_excluded_od_mask = self.test_touch_od_mask | self.strict_val_touch_od_mask
+        self.strict_train_safe_od_mask = ~self.strict_excluded_od_mask
+
         # 피처 정규화
         scaler = StandardScaler()
         scaler.fit(raw_static[self.train_indices])
@@ -110,23 +144,65 @@ class ODDataset(Dataset):
                 if code_int in idx_map:
                     test_city_indices.append(idx_map[code_int])
         return np.array(test_city_indices)
-        
+
+    @staticmethod
+    def _split_train_val_by_group(train_indices, dong_codes, val_fraction=0.10, seed=42):
+        """
+        train_indices를 시/군/구 그룹(dong_code // 1000) 단위로 묶어 val_fraction 비율만큼
+        그룹째로 validation에 배정한다(OD pair를 무작위로 나누지 않기 위함). 그룹 단위로
+        목표 비율에 근접하게 맞추기 어려우면 seed 고정 개별 노드 샘플링으로 폴백한다.
+        """
+        rng = np.random.RandomState(seed)
+        groups = dong_codes[train_indices] // 1000
+        unique_groups = np.unique(groups)
+        target_val_count = max(1, int(round(len(train_indices) * val_fraction)))
+
+        order = rng.permutation(len(unique_groups))
+        picked_groups = []
+        picked_count = 0
+        for gi in order:
+            g = unique_groups[gi]
+            g_size = int((groups == g).sum())
+            if picked_count + g_size <= target_val_count * 1.5:
+                picked_groups.append(g)
+                picked_count += g_size
+            if picked_count >= target_val_count:
+                break
+
+        if picked_groups and abs(picked_count - target_val_count) <= max(3, target_val_count * 0.5):
+            val_mask = np.isin(groups, picked_groups)
+        else:
+            # 그룹 단위로 목표 비율을 맞추기 어려운 경우: 개별 노드 단위 폴백(seed 고정)
+            val_mask = np.zeros(len(train_indices), dtype=bool)
+            val_pos = rng.choice(len(train_indices), size=target_val_count, replace=False)
+            val_mask[val_pos] = True
+
+        strict_val_indices = train_indices[val_mask]
+        strict_train_indices = train_indices[~val_mask]
+        return strict_train_indices, strict_val_indices
+
     def __len__(self):
-        # train 모드에서는 한 epoch당 1000번, test 모드에선 1개의 샘플만 반환
+        # train 모드에서는 한 epoch당 1000번, val/test 모드에선 1개의 샘플만 반환
         return 1000 if self.mode == 'train' else 1
 
     def __getitem__(self, idx):
         if self.mode == 'train':
+            # strict protocol이면 strict_val_indices를 완전히 제외한 풀에서만 샘플링
+            sample_pool = self.strict_train_indices if self.protocol == 'strict' else self.train_indices
+
             # 마스크 사이즈 랜덤 선택
             k = np.random.randint(1, self.max_mask_size + 1)
-    
-            # train 동 중에서 한개 선택 후 그 동과의 거리 리스트 추출    
-            dist_list = self.X_dist[np.random.choice(self.train_indices)]
-            # 그중 test 동은 제외
-            valid_distances = dist_list[self.train_indices]
-            closest_k_indices = self.train_indices[np.argsort(valid_distances)[:k]]
-            
+
+            # 풀 안에서 한개 선택 후 그 동과의 거리 리스트 추출
+            dist_list = self.X_dist[np.random.choice(sample_pool)]
+            # 그중 풀 밖(= legacy면 test동, strict면 test동+strict_val동) 노드는 제외
+            valid_distances = dist_list[sample_pool]
+            closest_k_indices = sample_pool[np.argsort(valid_distances)[:k]]
+
             mask_indices = closest_k_indices
+        elif self.mode == 'val':
+            # strict protocol 전용: train_indices 내부에서 떼어낸 검증 노드만 사용, test_indices는 전혀 사용하지 않음
+            mask_indices = self.strict_val_indices
         else:
             mask_indices = self.test_indices
             
@@ -138,9 +214,9 @@ class ODDataset(Dataset):
         # mae1인 경우 (N,N)
         y_OD = self.X_OD.copy()
         
-        # Masked OD 
+        # Masked OD
         X_OD_masked = self.X_OD.copy()
-        
+
         # mae1인 경우 (N,N)
         if self.channel == 1:
             X_OD_masked[mask, :] = 0
@@ -148,7 +224,16 @@ class ODDataset(Dataset):
         else:
             X_OD_masked[mask, :, :] = 0
             X_OD_masked[:, mask, :] = 0
-        
+
+        # strict protocol의 train 모드에서는, 커리큘럼상 이번 스텝에 마스킹되지 않은 노드라도
+        # test 노드(및 strict_val 노드)와 연결된 실제 OD 값이 모델 입력에 그대로 노출되지 않도록
+        # 별도로 0 처리한다(legacy에서는 이 값이 항상 노출되던 것을 strict에서만 차단).
+        if self.protocol == 'strict' and self.mode == 'train':
+            if self.channel == 1:
+                X_OD_masked[self.strict_excluded_od_mask] = 0
+            else:
+                X_OD_masked[self.strict_excluded_od_mask, :] = 0
+
         # Static Feature Dynamic Masking
         X_static_masked = self.X_static.copy()
         for m_idx in self.masking_indices:

@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import DataLoader
 import joblib
 import matplotlib.pyplot as plt
-from KTDB.src.twostage.model import TwoStageGravity
+from twostage.model import Stage2Model, Stage1Model_DualLGBM
 from dataset import ODDataset
 
 def cpc_score(y_true, y_pred):
@@ -55,9 +55,9 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu')
     print(f"Using device: {device}")
     
-    model = TwoStageGravity(num_features=test_dataset.X_static.shape[1]).to(device)
+    model = Stage2Model(num_features=test_dataset.X_static.shape[1]).to(device)
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    best_model_path = os.path.join(current_dir, 'best_model_twostage.pth')
+    best_model_path = os.path.join(current_dir, 'best_model_twostage_3_fold_1.pth')
     
     if not os.path.exists(best_model_path):
         print(f"Error: {best_model_path} not found! Please train the model first.")
@@ -71,10 +71,15 @@ def main():
         if isinstance(m_module, torch.nn.Dropout):
             m_module.eval()
             
-    model_self = joblib.load(os.path.join(current_dir, 'lgbm_self.pkl'))
-    model_inter = joblib.load(os.path.join(current_dir, 'lgbm_inter.pkl'))
-    log_self_all = model_self.predict(test_dataset.X_static)
-    log_inter_all = model_inter.predict(test_dataset.X_static)
+    stage1 = Stage1Model_DualLGBM()
+    # Test 시에는 편의상 첫 번째 Fold의 모델을 사용합니다.
+    # K-Fold Ensemble을 하려면 각 Fold별 예측값의 평균을 내야 합니다.
+    stage1.normal_self = joblib.load(os.path.join(current_dir, 'lgbm_normal_self_fold_1.pkl'))
+    stage1.normal_inter = joblib.load(os.path.join(current_dir, 'lgbm_normal_inter_fold_1.pkl'))
+    stage1.masked_self = joblib.load(os.path.join(current_dir, 'lgbm_masked_self_fold_1.pkl'))
+    stage1.masked_inter = joblib.load(os.path.join(current_dir, 'lgbm_masked_inter_fold_1.pkl'))
+    
+    log_self_all, log_inter_all = stage1.predict(test_dataset.X_static)
     log_self_tensor = torch.tensor(log_self_all, dtype=torch.float32, device=device).unsqueeze(0)
     log_inter_tensor = torch.tensor(log_inter_all, dtype=torch.float32, device=device).unsqueeze(0)
 

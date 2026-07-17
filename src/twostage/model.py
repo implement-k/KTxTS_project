@@ -7,46 +7,75 @@ import joblib
 
 class Stage1Model_LGBM:
     '''
-        Stage1: 자기 동 내부 통행량(model1)과 타 지역 간 통행량(model2)을 예측하는 모델
-        or 총발생량(model1), 총도착량(model2) 예측하는 모델
+        Stage1: train과 val/test를 구분하여 자기 동 내부 통행량과 타 지역 간 통행량을 예측
     '''
     
-    def __init__(self, model_self=None, model_inter=None):
-        self.model1 = model_self or lgb.LGBMRegressor(objective='regression', n_estimators=300, num_leaves=15, min_child_samples=10)
-        self.model2 = model_inter or lgb.LGBMRegressor(objective='regression', n_estimators=300, num_leaves=15, min_child_samples=10)
+    def __init__(self, normal_self=None, normal_inter=None, masked_self=None, masked_inter=None):
+        params = {'objective': 'regression', 'n_estimators': 300, 'num_leaves': 15, 'min_child_samples': 10, 'n_jobs': 1}
+        self.normal_self = normal_self or lgb.LGBMRegressor(**params)
+        self.normal_inter = normal_inter or lgb.LGBMRegressor(**params)
+        self.masked_self = masked_self or lgb.LGBMRegressor(**params)
+        self.masked_inter = masked_inter or lgb.LGBMRegressor(**params)
 
-    def fit(self, X_static, y_1, y_2):
+    def fit(self, X_static, y_self, y_inter, masking_indices):
         """
         X_static: (N, F)
-        y_1: (N, 1)     # 자기 동 내부 통행량 or 총발생량
-        y_2: (N, 1)     # 타 지역 간 통행량 or 총도착량
+        y_self: (N, 1)
+        y_inter: (N, 1)
+        masking_indices: 강제 마스킹할 컬럼 인덱스 리스트
         """
-        self.model1.fit(X_static, y_1)
-        self.model2.fit(X_static, y_2)
+        # Normal fit
+        self.normal_self.fit(X_static, y_self)
+        self.normal_inter.fit(X_static, y_inter)
+        
+        # Masked fit (종사자수/사업체수 강제 마스킹)
+        X_static_masked = X_static.copy()
+        for idx in masking_indices:
+            X_static_masked[:, idx] = 0.0
+        X_static_masked[:, -1] = 1.0 # is_masked = 1
+        
+        self.masked_self.fit(X_static_masked, y_self)
+        self.masked_inter.fit(X_static_masked, y_inter)
 
     def predict(self, X_static):
         """
         X_static: (N, F)
-        Returns:
-            log_1: (N,)
-            log_2: (N,)
         """
-        threshold_log = np.log1p(1e-6) 
-        log_1 = np.maximum(self.model1.predict(X_static), threshold_log)
-        log_2 = np.maximum(self.model2.predict(X_static), threshold_log)
+        is_masked = (X_static[:, -1] == 1.0)
         
-        return log_1, log_2
+        threshold_log = np.log1p(1e-6) 
+        
+        log_self = np.zeros(len(X_static))
+        log_inter = np.zeros(len(X_static))
+        
+        if (~is_masked).any():
+            log_self[~is_masked] = self.normal_self.predict(X_static[~is_masked])
+            log_inter[~is_masked] = self.normal_inter.predict(X_static[~is_masked])
+            
+        if is_masked.any():
+            log_self[is_masked] = self.masked_self.predict(X_static[is_masked])
+            log_inter[is_masked] = self.masked_inter.predict(X_static[is_masked])
+            
+        return np.maximum(log_self, threshold_log), np.maximum(log_inter, threshold_log)
     
-    def fit_predict(self, X_static, y_1, y_2, fold=None, model1='', model2=''):
-        self.fit(X_static, y_1, y_2)
-        joblib.dump(self.model1, f'lgbm_{model1}_fold_{fold}.pkl' if fold is not None else f'lgbm_{model1}.pkl')
-        joblib.dump(self.model2, f'lgbm_{model2}_fold_{fold}.pkl' if fold is not None else f'lgbm_{model2}.pkl')
+    def fit_predict(self, X_static, y_self, y_inter, masking_indices, fold=None):
+        import os
+        self.fit(X_static, y_self, y_inter, masking_indices)
+        
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        suffix = f'_fold_{fold}.pkl' if fold is not None else '.pkl'
+        
+        joblib.dump(self.normal_self, os.path.join(current_dir, f'lgbm_normal_self{suffix}'))
+        joblib.dump(self.normal_inter, os.path.join(current_dir, f'lgbm_normal_inter{suffix}'))
+        joblib.dump(self.masked_self, os.path.join(current_dir, f'lgbm_masked_self{suffix}'))
+        joblib.dump(self.masked_inter, os.path.join(current_dir, f'lgbm_masked_inter{suffix}'))
+        
         return self.predict(X_static)
 
 
 # ==== Two-Stage Gravity Model ====
 class Stage2Model(nn.Module):
-    def __init__(self, num_features=13, hidden_dim=64, dropout_p=0.35):
+    def __init__(self, num_features=13, hidden_dim=64, dropout_p=0.3):
         super().__init__()
         
         # Stage1: Generation Model (Pre-trained LGBM)

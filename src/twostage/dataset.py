@@ -93,7 +93,7 @@ class ODDataset(Dataset):
     def get_stage1_training_data(self, val_indices):
         """
         Test 도시 및 Validation 도시를 마스킹한 뒤,
-        Stage 1 (LGBM) 학습을 위한 데이터(X_static, y_self, y_inter, train_mask)를 생성하여 반환합니다.
+        Stage 1 (LGBM) 학습을 위한 데이터(X_static, y_o, y_d, train_mask)를 생성하여 반환
         """
         fold_train_mask = np.ones(self.num_nodes, dtype=bool)
         fold_train_mask[self.test_indices] = False
@@ -103,8 +103,8 @@ class ODDataset(Dataset):
         x_od[:, ~fold_train_mask] = 0 # Test/Val 도착 가리기
         x_od[~fold_train_mask, :] = 0 # Test/Val 출발 가리기
         
-        y_self = np.diag(x_od) # 자기동 내부 통행량 (N,)
-        y_inter = np.sum(x_od, axis=1) - y_self # 타 지역 간 통행량 (N,)
+        y_self = np.diag(x_od)
+        y_inter = np.sum(x_od, axis=1) - y_self
         
         X_static_lgb = self.X_static[fold_train_mask]
         y_self_train = y_self[fold_train_mask]

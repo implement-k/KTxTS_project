@@ -83,24 +83,13 @@ def main():
         ################### Stage1: LightGBM PRE-TRAINING ################### 
         print(f"Stage1: LightGBM Pre-training (Fold {fold+1})")        
         stage1_model = Stage1Model_LGBM() 
-        
-        print("Fitting LGBM")
-        # method 1: 내부 통행량, 외부 통행량 예측
-        # stage1_model.fit_predict(
-        #     X_static = X_static_lgb, 
-        #     y_1=np.log1p(y_self_train), 
-        #     y_2=np.log1p(y_inter_train),
-        #     fold=fold+1
-        # )
-        
         stage1_model.fit_predict(
-            X_static = X_static_lgb, 
-            y_1=np.log1p(y_self_train), 
-            y_2=np.log1p(y_inter_train),
+            X_static=X_static_lgb, 
+            y_self=np.log1p(y_self_train), 
+            y_inter=np.log1p(y_inter_train),
+            masking_indices=dataset.masking_indices,
             fold=fold+1
         )
-            
-        print("LightGBM Stage 1 Finished!")
         ###########################################################
 
         ################### Stage2: Two-Stage Gravity Model Training ################### 
@@ -118,7 +107,7 @@ def main():
         # 지표
         best_val_rmse = float('inf')
         best_cpc = 0.0
-        best_model_path = f'best_model_twostage_2_fold_{fold+1}.pth'
+        best_model_path = f'best_model_twostage_3_fold_{fold+1}.pth'
         
         for epoch in range(args.epochs):
             # mask size 선택 (min_mask ~ current_mask_size 중에 랜덤으로 선택함)

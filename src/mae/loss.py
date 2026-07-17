@@ -17,15 +17,14 @@ class HuberLossWrapper(nn.Module):
 
 # 이게 정확도가 높게 나옴.
 class WeightedMSELossWrapper(nn.Module):
-    def __init__(self, alpha=1.5):
+    def __init__(self):
         super().__init__()
-        self.alpha = alpha
         
-    def forward(self, pred, target, mask=None):
+    def forward(self, pred, target, current_alpha, mask=None):
         if mask is not None:
             pred = pred[mask]
             target = target[mask]
             
-        weight = 1.0 + self.alpha * target
+        weight = 1.0 + current_alpha * target
         loss = ((pred - target) ** 2) * weight
         return loss.mean()

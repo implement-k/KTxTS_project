@@ -13,9 +13,8 @@ from config import (
 )
 
 class ODDataset(Dataset):
-    def __init__(self, mode='train', channel=1, isLogScale=True):
+    def __init__(self, mode='train'):
         self.mode = mode
-        self.channel = channel
         self.max_mask_size = TRAIN_CONFIG['min_mask_size']
         
         # 행정동 코드 로드
@@ -24,11 +23,8 @@ class ODDataset(Dataset):
         self.num_nodes = len(dongs)   # 전체 동 개수
         dong2idx_map = {code: i for i, code in enumerate(dongs)}
         
-        # === OD 매트릭스 로드 (N,N) or (N, N, 5) ===
-        if self.channel == 1:
-            self.X_OD = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-        else:
-            self.X_OD = np.zeros((self.num_nodes, self.num_nodes, 5), dtype=np.float32)
+        # === OD 매트릭스 로드 (N,N) ===
+        self.X_OD = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         od_df = pd.read_csv(OD_DATA_PATH)
         
         # OD 데이터에서 유효한 행정동만 필터링
@@ -39,17 +35,10 @@ class ODDataset(Dataset):
         o_idx_valid = o_indices[valid_mask].astype(int)
         d_idx_valid = d_indices[valid_mask].astype(int)
         
+        # (N, N)으로 합산
         purposes = ['귀가', '출근', '등교', '업무', '기타']
-        # mae5 이외의 경우 (N, N)으로 합산
-        if self.channel == 1:
-            calculated_total = od_df[purposes].sum(axis=1)
-            self.X_OD[o_idx_valid, d_idx_valid] = calculated_total.values[valid_mask]
-        # mae5인 경우 (N, N, 5)로 각 목적별로 저장
-        else:
-            # 기존 데이터 3차원으로 변환 후 저장
-            for c, purpose in enumerate(purposes):
-                if purpose in od_df.columns:
-                    self.X_OD[o_idx_valid, d_idx_valid, c] = od_df[purpose].values[valid_mask]
+        calculated_total = od_df[purposes].sum(axis=1)
+        self.X_OD[o_idx_valid, d_idx_valid] = calculated_total.values[valid_mask]
         
         # === 거리 매트릭스 로드 (N, N) ===
         self.X_dist = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
@@ -96,9 +85,8 @@ class ODDataset(Dataset):
         self.X_static[self.test_indices, -1] = 1.0 # is_masked = 1
         
         # 정규화 (거리 및 통행량 로그 변환)
-        if isLogScale:
-            self.X_dist = np.log1p(self.X_dist)
-            self.X_OD = np.log1p(self.X_OD)
+        self.X_dist = np.log1p(self.X_dist)
+        self.X_OD = np.log1p(self.X_OD)
 
         print("Dataset 초기화 완료")
         
@@ -140,14 +128,8 @@ class ODDataset(Dataset):
         
         # Masked OD 
         X_OD_masked = self.X_OD.copy()
-        
-        # mae1인 경우 (N,N)
-        if self.channel == 1:
-            X_OD_masked[mask, :] = 0
-            X_OD_masked[:, mask] = 0
-        else:
-            X_OD_masked[mask, :, :] = 0
-            X_OD_masked[:, mask, :] = 0
+        X_OD_masked[mask, :] = 0
+        X_OD_masked[:, mask] = 0
         
         # Static Feature Dynamic Masking
         X_static_masked = self.X_static.copy()

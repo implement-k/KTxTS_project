@@ -16,6 +16,40 @@ from mae.models import SpatialODMAE
 from tqdm import tqdm
 from mae.loss import WeightedMSELossWrapper
 
+def create_k_folds(train_indices, X_dist, k_fold=3):
+    unassigned = set(train_indices)
+    val_cities = []
+
+    while len(unassigned) > 0:
+        if len(unassigned) <= 8:
+            val_cities.append(list(unassigned))
+            break
+        
+        val_city_center = random.choice(list(unassigned))
+        val_city_size = random.randint(4, 8)
+
+        # validation city center와 unassigned nodes 간의 거리 계산
+        unassigned_list  = list(unassigned)
+        dists = X_dist[val_city_center, unassigned_list]
+        
+        # validation city size만큼 가장 가까운 노드 선택
+        nearest_idx = np.argsort(dists)[:val_city_size]
+        val_city = [unassigned_list[i] for i in nearest_idx]
+
+        # validation city 추가 및 unassigned에서 제거
+        val_cities.append(val_city)
+        for dong in val_city:
+            unassigned.remove(dong)
+
+    # shuffle하고 fold로 나누기
+    random.shuffle(val_cities)
+    folds = [[] for _ in range(k_fold)]
+    for i, val_city in enumerate(val_cities):
+        folds[i % k_fold].extend(val_city)
+
+    return [np.array(f, dtype=int) for f in folds]
+
+
 def cpc_score(y_true, y_pred):
     numerator   = 2 * np.sum(np.minimum(y_true, y_pred))
     denominator = np.sum(y_true) + np.sum(y_pred)
@@ -72,85 +106,107 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
+    parser.add_argument('--k_fold', type=int, default=3, help='K-Fold 수')
     args = parser.parse_args()
 
     dataset = ODDataset(mode='train')
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps'  if torch.backends.mps.is_available() else 'cpu')
     print(f"Using device: {device}")
 
+    # K-Fold 생성 (test 도시 제외한 train 도시들 대상)
+    folds = create_k_folds(dataset.train_indices, dataset.X_dist, k_fold=args.k_fold)
+
     min_mask = TRAIN_CONFIG['min_mask_size']
     max_mask = TRAIN_CONFIG['max_mask_size']
 
-    print(f"\n{'='*20} Fast Validation Mode (Test Set) {'='*20}")
-    
-    # Validation 대상은 Test 도시 전체
-    val_indices = dataset.test_indices
+    cv_rmses = []
+    cv_cpcs  = []
 
-    train_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    for fold in range(args.k_fold):
+        print(f"\n{'='*20} FOLD {fold+1}/{args.k_fold} {'='*20}")
+        val_indices = folds[fold]
 
-    model = SpatialODMAE(num_nodes=dataset.num_nodes, num_features=dataset.X_static.shape[1]).to(device)
-    optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
-    total_steps = args.epochs * len(train_loader)
-    scheduler = optim.lr_scheduler.OneCycleLR(
-        optimizer, max_lr=5e-4, 
-        total_steps=total_steps,
-        pct_start=0.3, 
-        anneal_strategy='cos'
-    )
-    criterion = WeightedMSELossWrapper().to(device)
+        # 이번 fold에서의 train_indices (test + val 제외)
+        fold_train_mask = np.ones(dataset.num_nodes, dtype=bool)
+        fold_train_mask[dataset.test_indices] = False
+        fold_train_mask[val_indices] = False
+        dataset.train_indices = np.where(fold_train_mask)[0]
 
-    best_val_rmse = float('inf')
-    best_cpc = 0.0
-    best_model_path = 'best_model_mae.pth'
+        train_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-    for epoch in range(args.epochs):
-        progress = epoch / max(1, args.epochs - 1)
-        current_mask_size = int(min_mask + (max_mask - min_mask) * progress)
-        dataset.max_mask_size = current_mask_size
-        current_alpha = max(1.0, 10.0 * (1.0 - progress))
+        model = SpatialODMAE(num_nodes=dataset.num_nodes,num_features=dataset.X_static.shape[1]).to(device)
+        optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
+        total_steps = args.epochs * len(train_loader)
+        scheduler = optim.lr_scheduler.OneCycleLR(
+            optimizer, max_lr=5e-4, 
+            total_steps=total_steps,
+            pct_start=0.3, 
+            anneal_strategy='cos'
+        )
+        criterion = WeightedMSELossWrapper().to(device)
 
-        model.train()
-        train_loss = 0
+        best_val_rmse = float('inf')
+        best_cpc = 0.0
+        best_model_path = f'best_model_mae_fold_{fold+1}.pth'
 
-        pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs} " f"[Mask:{current_mask_size} α:{current_alpha:.1f}]")
-        for batch in pbar:
-            x_static = batch['X_static'].to(device)
-            x_dist = batch['X_dist'].to(device)
-            mask = batch['mask'].to(device)
-            x_od_masked = batch['X_OD_masked'].to(device)
-            y_od = batch['y_OD'].to(device)
-
-            optimizer.zero_grad()
-            pred = model(x_static, x_od_masked, x_dist, mask)
-            mask_2d = mask.unsqueeze(1) | mask.unsqueeze(2)
-            loss = criterion(pred, y_od, current_alpha, mask_2d)
-
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            optimizer.step()
-            scheduler.step()
-
-            train_loss += loss.item()
-            pbar.set_postfix({'loss': f"{loss.item():.4f}", 'lr': f"{scheduler.get_last_lr()[0]:.1e}"})
-
-        print(f"Epoch {epoch+1} Train Loss: {train_loss/len(train_loader):.4f}")
-
-        # Validation (2 epoch 마다)
-        if epoch % 2 == 1 or epoch == args.epochs - 1:
-            v_loss, rmse, cpc = validate(model, dataset, val_indices, criterion, device)
-            print(f"  ➜ [Val] Loss: {v_loss:.4f} | RMSE: {rmse:.2f} | CPC: {cpc:.4f}")
-
-            if rmse < best_val_rmse:
-                best_val_rmse = rmse
-                best_cpc      = cpc
-                current_dir   = os.path.dirname(os.path.abspath(__file__))
-                torch.save(model.state_dict(),
-                           os.path.join(current_dir, best_model_path))
-                print(f"  ➜ [Checkpoint] Best saved! (RMSE:{rmse:.2f} CPC:{cpc:.4f})")
+        for epoch in range(args.epochs):
+            progress = epoch / max(1, args.epochs - 1)
+            current_mask_size = int(min_mask + (max_mask - min_mask) * progress)
+            dataset.max_mask_size = current_mask_size
+            current_alpha = max(1.0, 10.0 * (1.0 - progress))
 
             model.train()
+            train_loss = 0
 
-    print(f"\nTraining Complete. Best RMSE: {best_val_rmse:.2f} | CPC: {best_cpc:.4f}")
+            pbar = tqdm(train_loader, desc=f"Fold {fold+1} Epoch {epoch+1}/{args.epochs} " f"[Mask:{current_mask_size} α:{current_alpha:.1f}]")
+            for batch in pbar:
+                x_static = batch['X_static'].to(device)
+                x_dist = batch['X_dist'].to(device)
+                mask = batch['mask'].to(device)
+                x_od_masked = batch['X_OD_masked'].to(device)
+                y_od = batch['y_OD'].to(device)
+
+                optimizer.zero_grad()
+                pred = model(x_static, x_od_masked, x_dist, mask)
+                mask_2d = mask.unsqueeze(1) | mask.unsqueeze(2)
+                loss = criterion(pred, y_od, current_alpha, mask_2d)
+
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                optimizer.step()
+                scheduler.step()
+
+                train_loss += loss.item()
+                pbar.set_postfix({'loss': f"{loss.item():.4f}", 'lr': f"{scheduler.get_last_lr()[0]:.1e}"})
+
+            print(f"Fold {fold+1} Epoch {epoch+1} Train Loss: {train_loss/len(train_loader):.4f}")
+
+            # Validation (2 epoch 마다)
+            if epoch % 2 == 1 or epoch == args.epochs - 1:
+                v_loss, rmse, cpc = validate(model, dataset, val_indices, criterion, device)
+                print(f"  ➜ [Val] Loss: {v_loss:.4f} | RMSE: {rmse:.2f} | CPC: {cpc:.4f}")
+
+                if rmse < best_val_rmse:
+                    best_val_rmse = rmse
+                    best_cpc      = cpc
+                    current_dir   = os.path.dirname(os.path.abspath(__file__))
+                    torch.save(model.state_dict(),
+                               os.path.join(current_dir, best_model_path))
+                    print(f"  ➜ [Checkpoint] Best saved! (RMSE:{rmse:.2f} CPC:{cpc:.4f})")
+
+                model.train()
+
+        cv_rmses.append(best_val_rmse)
+        cv_cpcs.append(best_cpc)
+        print(f"Fold {fold+1} 완료  Best RMSE: {best_val_rmse:.2f} | CPC: {best_cpc:.4f}")
+
+    print(f"\n{'='*40}")
+    print(f"K-FOLD CV RESULTS")
+    for i, (r, c) in enumerate(zip(cv_rmses, cv_cpcs)):
+        print(f"  Fold {i+1}: RMSE={r:.2f}  CPC={c:.4f}")
+    print(f"  평균  : RMSE={np.mean(cv_rmses):.2f}  CPC={np.mean(cv_cpcs):.4f}")
+    print(f"{'='*40}")
+
 
 if __name__ == '__main__':
     main()

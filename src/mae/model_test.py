@@ -14,6 +14,7 @@ import matplotlib.gridspec as gridspec
 from mae.dataset import ODDataset
 from mae.models import SpatialODMAE
 
+
 def cpc_score(y_true, y_pred):
     numerator   = 2 * np.sum(np.minimum(y_true, y_pred))
     denominator = np.sum(y_true) + np.sum(y_pred)
@@ -22,12 +23,12 @@ def cpc_score(y_true, y_pred):
     return numerator / denominator
 
 
-def test_model(model_path=None):
+def test_model(fold=1, model_path=None):
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # 모델 경로 결정
     if model_path is None:
-        model_path = os.path.join(current_dir, 'best_model_mae.pth')
+        model_path = os.path.join(current_dir, f'best_model_mae_fold_{fold}.pth')
 
     # ── 데이터 로드 ──────────────────────────────────────────────────────────
     test_dataset = ODDataset(mode='test')
@@ -48,7 +49,7 @@ def test_model(model_path=None):
     model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
     print(f"Loaded: {model_path}")
 
-    # Dropout은 eval, BatchNorm은 train 유지
+    # Dropout은 eval, BatchNorm은 train 유지 (twostage 방식 동일)
     model.train()
     for m in model.modules():
         if isinstance(m, torch.nn.Dropout):
@@ -86,7 +87,7 @@ def test_model(model_path=None):
     cpc  = cpc_score(all_y_true, all_y_pred)
     corr = np.corrcoef(all_y_true, all_y_pred)[0, 1]
 
-    print(f"\n=== Test Results ===")
+    print(f"\n=== Test Results (Fold {fold}) ===")
     print(f"RMSE : {rmse:.2f}")
     print(f"MAE  : {mae:.2f}")
     print(f"CPC  : {cpc:.4f}")
@@ -166,12 +167,12 @@ def test_model(model_path=None):
     plt.colorbar(im, ax=ax6, fraction=0.046, pad=0.04)
 
     fig.suptitle(
-        f'SpatialODMAE Test Results\n'
+        f'SpatialODMAE Test Results (Fold {fold})\n'
         f'RMSE={rmse:.2f}  MAE={mae:.2f}  CPC={cpc:.4f}  Corr={corr:.4f}',
         fontsize=13, fontweight='bold'
     )
 
-    save_path = os.path.join(current_dir, f'test_analysis.png')
+    save_path = os.path.join(current_dir, f'test_analysis_fold_{fold}.png')
     plt.savefig(save_path, dpi=150, bbox_inches='tight')
     plt.close()
     print(f"Visualization saved -> {save_path}")
@@ -183,7 +184,7 @@ def test_model(model_path=None):
         dong_df   = pd.read_excel(dong_path)
         dongs     = dong_df['dong_code'].values
         df_pred   = pd.DataFrame(np.maximum(pred_full, 0), index=dongs, columns=dongs)
-        csv_path  = os.path.join(current_dir, 'predicted_OD_matrix.csv')
+        csv_path  = os.path.join(current_dir, f'predicted_OD_matrix_fold_{fold}.csv')
         df_pred.to_csv(csv_path)
         print(f"Full OD matrix saved -> {csv_path}")
     except Exception as e:
@@ -195,7 +196,8 @@ def test_model(model_path=None):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
+    parser.add_argument('--fold', type=int, default=1, help='사용할 fold 번호')
     parser.add_argument('--model_path', type=str, default=None, help='가중치 경로 직접 지정 (선택)')
     args = parser.parse_args()
 
-    test_model(model_path=args.model_path)
+    test_model(fold=args.fold, model_path=args.model_path)

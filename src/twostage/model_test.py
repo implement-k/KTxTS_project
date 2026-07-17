@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import DataLoader
 import joblib
 import matplotlib.pyplot as plt
-from twostage.model import Stage2Model, Stage1Model_DualLGBM
+from twostage.model import Stage2Model, Stage1Model_LGBM
 from dataset import ODDataset
 
 def cpc_score(y_true, y_pred):
@@ -57,31 +57,35 @@ def main():
     
     model = Stage2Model(num_features=test_dataset.X_static.shape[1]).to(device)
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    best_model_path = os.path.join(current_dir, 'best_model_twostage_3_fold_1.pth')
+    weights_dir = os.path.join(current_dir, '가중치')
     
-    if not os.path.exists(best_model_path):
-        print(f"Error: {best_model_path} not found! Please train the model first.")
-        return
+    # Load 3 models for ensemble
+    models = []
+    for f in range(1, 4):
+        model_path = os.path.join(weights_dir, f'best_model_two_stage_3_fold_{f}.pth')
+        if not os.path.exists(model_path):
+            print(f"Error: {model_path} not found!")
+            return
         
-    model.load_state_dict(torch.load(best_model_path, map_location=device, weights_only=True))
-    print(f"Loaded {best_model_path} for testing.")
-        
-    model.train()
-    for m_module in model.modules():
-        if isinstance(m_module, torch.nn.Dropout):
-            m_module.eval()
+        m = Stage2Model(num_features=test_dataset.X_static.shape[1]).to(device)
+        m.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
+        m.eval()
+        for m_module in m.modules():
+            if isinstance(m_module, torch.nn.Dropout):
+                m_module.eval()
+        models.append(m)
+        print(f"Loaded {model_path} for testing.")
             
-    stage1 = Stage1Model_DualLGBM()
+    stage1 = Stage1Model_LGBM()
     # Test 시에는 편의상 첫 번째 Fold의 모델을 사용합니다.
-    # K-Fold Ensemble을 하려면 각 Fold별 예측값의 평균을 내야 합니다.
-    stage1.normal_self = joblib.load(os.path.join(current_dir, 'lgbm_normal_self_fold_1.pkl'))
-    stage1.normal_inter = joblib.load(os.path.join(current_dir, 'lgbm_normal_inter_fold_1.pkl'))
-    stage1.masked_self = joblib.load(os.path.join(current_dir, 'lgbm_masked_self_fold_1.pkl'))
-    stage1.masked_inter = joblib.load(os.path.join(current_dir, 'lgbm_masked_inter_fold_1.pkl'))
+    stage1.normal_self = joblib.load(os.path.join(weights_dir, 'lgbm_normal_self_fold_1.pkl'))
+    stage1.normal_inter = joblib.load(os.path.join(weights_dir, 'lgbm_normal_inter_fold_1.pkl'))
+    stage1.masked_self = joblib.load(os.path.join(weights_dir, 'lgbm_masked_self_fold_1.pkl'))
+    stage1.masked_inter = joblib.load(os.path.join(weights_dir, 'lgbm_masked_inter_fold_1.pkl'))
     
-    log_self_all, log_inter_all = stage1.predict(test_dataset.X_static)
-    log_self_tensor = torch.tensor(log_self_all, dtype=torch.float32, device=device).unsqueeze(0)
-    log_inter_tensor = torch.tensor(log_inter_all, dtype=torch.float32, device=device).unsqueeze(0)
+    log_o_all, log_d_all = stage1.predict(test_dataset.X_static)
+    log_o_tensor = torch.tensor(log_o_all, dtype=torch.float32, device=device).unsqueeze(0)
+    log_d_tensor = torch.tensor(log_d_all, dtype=torch.float32, device=device).unsqueeze(0)
 
     test_loss = 0
     all_y_true = []
@@ -96,19 +100,29 @@ def main():
             y_od = batch['y_OD'].to(device)
             y_od_log = torch.log1p(y_od)
             
-            pred = model(x_static, x_dist, log_self_tensor, log_inter_tensor)
+            # Ensemble predictions
+            preds = []
+            for m in models:
+                preds.append(m(x_static, x_dist, log_o_tensor, log_d_tensor))
+            
+            # Combine in real space
+            pred_real_sum = sum(torch.expm1(p) for p in preds)
+            pred_real_avg = pred_real_sum / len(models)
+            
+            # Recompute log pred for loss calc
+            pred_log_avg = torch.log1p(pred_real_avg)
                 
             mask_2d = mask.unsqueeze(1) | mask.unsqueeze(2)
             
-            loss = weighted_mse_loss(pred[mask_2d], y_od_log[mask_2d], alpha=1.0)
-            pred_real = torch.expm1(pred[mask_2d]).cpu().numpy()
+            loss = weighted_mse_loss(pred_log_avg[mask_2d], y_od_log[mask_2d], alpha=1.0)
+            pred_real_masked = pred_real_avg[mask_2d].cpu().numpy()
             y_real = y_od[mask_2d].cpu().numpy()
                 
             test_loss += loss.item()
-            pred_real = np.maximum(pred_real, 0)
+            pred_real_masked = np.maximum(pred_real_masked, 0)
             
             all_y_true.append(y_real)
-            all_y_pred.append(pred_real)
+            all_y_pred.append(pred_real_masked)
             
     all_y_true = np.concatenate(all_y_true)
     all_y_pred = np.concatenate(all_y_pred)
@@ -116,26 +130,25 @@ def main():
     rmse = np.sqrt(np.mean((all_y_true - all_y_pred)**2))
     cpc = cpc_score(all_y_true, all_y_pred)
     
-    print(f"\n=== Test Results (twostage) ===")
+    print(f"\n=== Test Results (twostage Ensemble) ===")
     print(f"Test Loss (Weighted MSE log-scale): {test_loss/len(test_loader):.4f}")
     print(f"RMSE (Real scale): {rmse:.2f}")
     print(f"CPC (Common Part of Commuters): {cpc:.4f}")
     
-    visualize_predictions(all_y_true, all_y_pred, "twostage")
+    visualize_predictions(all_y_true, all_y_pred, "twostage_ensemble")
     
     import pandas as pd
-    if 'pred' in locals():
-        pred_full_real = torch.expm1(pred[0]).cpu().numpy()
+    if 'pred_real_avg' in locals():
+        pred_full_real = pred_real_avg[0].cpu().numpy()
         pred_full_real = np.maximum(pred_full_real, 0)
         
-        current_dir = os.path.dirname(os.path.abspath(__file__))
         dong_path = os.path.join(current_dir, '..', '..', 'dataset', 'raw', 'OD_dong_list.xlsx')
         dong_df = pd.read_excel(dong_path)
         dongs = dong_df['dong_code'].values
         
         df_pred = pd.DataFrame(pred_full_real, index=dongs, columns=dongs)
-        df_pred.to_csv(os.path.join(current_dir, "predicted_twostage_matrix.csv"), index=True)
-        print("Saved full predicted OD matrix to predicted_twostage_matrix.csv")
+        df_pred.to_csv(os.path.join(current_dir, "predicted_twostage_ensemble_matrix.csv"), index=True)
+        print("Saved full predicted OD matrix to predicted_twostage_ensemble_matrix.csv")
 
 if __name__ == '__main__':
     main()

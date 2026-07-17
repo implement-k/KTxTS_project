@@ -1,22 +1,18 @@
 import torch
 import torch.nn as nn
 
-# ==== Spatial OD-MAE(ours) 1-channel ====
 class SpatialODMAE(nn.Module):
-    def __init__(self, num_nodes=1152, num_features=13, d_model=128, nhead=8, num_layers=4):
+    def __init__(self, num_nodes, num_features=13, d_model=128, nhead=8, num_layers=4):
         super().__init__()
-        self.num_nodes = num_nodes
-        
-        # stataic feature embedding
+        # X_static embeding: (B, N, F) -> (B, N, D) - leanable
+        # OD feature embedding: (B, N, 2N) -> (B, N, D) - leanable
         self.feature_embed = nn.Linear(num_features, d_model)
-        
-        # OD feature embedding (row i and col i for each node)
         self.od_embed = nn.Linear(num_nodes * 2, d_model)
         
         # distance based 상대 positional bias
         self.nhead = nhead
         self.distance_bias = nn.Embedding(50, nhead)
-        # log1p boundaries from 0 to 5.5 (covers ~243km)
+        # 0부터 5.5 구간을 49개로 나눔
         self.register_buffer('boundaries', torch.linspace(0, 5.5, 49))
         
         # Mask Token
@@ -26,7 +22,7 @@ class SpatialODMAE(nn.Module):
         encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=d_model*4, batch_first=True)
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         
-        # decoder to reconstruct OD matrix
+        # decoder: (B, N, D) -> (B, N, 2N)
         self.decoder = nn.Sequential(
             nn.Linear(d_model, d_model),
             nn.GELU(),
@@ -41,23 +37,15 @@ class SpatialODMAE(nn.Module):
         mask: (B, N) boolean mask where True means masked (predict this)
         """
         B, N, _ = x_static.shape
-        
-        # Extract row i and col i for each node i to form node OD features
-        # x_od_masked shape: (B, N, N)
-        # Row i: x_od_masked[:, i, :] -> (B, N)
-        # Col i: x_od_masked[:, :, i] -> (B, N)
-        # Concat -> (B, N, 2N)
-        
+            
         # Note: Since x_od_masked is symmetric conceptually in how we gather, we just transpose
         row_feat = x_od_masked
         col_feat = x_od_masked.transpose(1, 2)
         node_od_feat = torch.cat([row_feat, col_feat], dim=-1) # (B, N, 2N)
         
-        # Embeddings
-        feat_emb = self.feature_embed(x_static) # (B, N, D)
-        
-        # OD 임베딩에만 마스킹 적용
-        od_emb = self.od_embed(node_od_feat)    # (B, N, D)
+        # feat_emb: (B, N, D), od_emb: (B, N, D) - 임베딩
+        feat_emb = self.feature_embed(x_static) 
+        od_emb = self.od_embed(node_od_feat)    
         mask_expanded = mask.unsqueeze(-1).expand_as(od_emb)
         mask_token_expanded = self.mask_token.expand(B, N, -1)
         

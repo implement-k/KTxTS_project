@@ -9,8 +9,6 @@ import numpy as np
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
-import random
-
 from mae.dataset import ODDataset
 from mae.models import SpatialODMAE
 from tqdm import tqdm
@@ -57,7 +55,7 @@ def validate(model, dataset, val_indices, criterion, device):
         v_pred = model(x_s, x_o, x_d, mask)
 
     m2d = mask.unsqueeze(1) | mask.unsqueeze(2)
-    v_loss = criterion(v_pred, y_o, m2d).item()
+    v_loss = criterion(v_pred, y_o, 1.0, m2d).item()  # alpha=1.0, mask=m2d로 수정
 
     p_real = np.maximum(torch.expm1(v_pred[m2d]).cpu().numpy(), 0)
     y_real = torch.expm1(y_o[m2d]).cpu().numpy()
@@ -142,8 +140,8 @@ def main():
 
             if rmse < best_val_rmse:
                 best_val_rmse = rmse
-                best_cpc      = cpc
-                current_dir   = os.path.dirname(os.path.abspath(__file__))
+                best_cpc = cpc
+                current_dir = os.path.dirname(os.path.abspath(__file__))
                 torch.save(model.state_dict(),
                            os.path.join(current_dir, best_model_path))
                 print(f"  ➜ [Checkpoint] Best saved! (RMSE:{rmse:.2f} CPC:{cpc:.4f})")

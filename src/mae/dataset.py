@@ -122,8 +122,7 @@ class ODDataset(Dataset):
         mask = np.zeros(self.num_nodes, dtype=bool)
         mask[mask_indices] = True
         
-        # Target OD (N, N, 5)
-        # mae1인 경우 (N,N)
+        # (N,N)
         y_OD = self.X_OD.copy()
         
         # Masked OD 

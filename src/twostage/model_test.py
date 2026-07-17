@@ -56,7 +56,8 @@ def main():
     print(f"Using device: {device}")
     
     model = TwoStageGravity(num_features=test_dataset.X_static.shape[1]).to(device)
-    best_model_path = f'best_model_twostage.pth'
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    best_model_path = os.path.join(current_dir, 'best_model_twostage.pth')
     
     if not os.path.exists(best_model_path):
         print(f"Error: {best_model_path} not found! Please train the model first.")
@@ -70,8 +71,8 @@ def main():
         if isinstance(m_module, torch.nn.Dropout):
             m_module.eval()
             
-    model_self = joblib.load('lgbm_self.pkl')
-    model_inter = joblib.load('lgbm_inter.pkl')
+    model_self = joblib.load(os.path.join(current_dir, 'lgbm_self.pkl'))
+    model_inter = joblib.load(os.path.join(current_dir, 'lgbm_inter.pkl'))
     log_self_all = model_self.predict(test_dataset.X_static)
     log_inter_all = model_inter.predict(test_dataset.X_static)
     log_self_tensor = torch.tensor(log_self_all, dtype=torch.float32, device=device).unsqueeze(0)
@@ -116,6 +117,20 @@ def main():
     print(f"CPC (Common Part of Commuters): {cpc:.4f}")
     
     visualize_predictions(all_y_true, all_y_pred, "twostage")
+    
+    import pandas as pd
+    if 'pred' in locals():
+        pred_full_real = torch.expm1(pred[0]).cpu().numpy()
+        pred_full_real = np.maximum(pred_full_real, 0)
+        
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        dong_path = os.path.join(current_dir, '..', '..', 'dataset', 'raw', 'OD_dong_list.xlsx')
+        dong_df = pd.read_excel(dong_path)
+        dongs = dong_df['dong_code'].values
+        
+        df_pred = pd.DataFrame(pred_full_real, index=dongs, columns=dongs)
+        df_pred.to_csv(os.path.join(current_dir, "predicted_twostage_matrix.csv"), index=True)
+        print("Saved full predicted OD matrix to predicted_twostage_matrix.csv")
 
 if __name__ == '__main__':
     main()

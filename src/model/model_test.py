@@ -65,7 +65,8 @@ def test_dl_model(args, test_dataset):
     else:
         model = DeepGravity(num_features=test_dataset.X_static.shape[1]).to(device)
         
-    best_model_path = f'KTDB/src/model/best_model_{args.model}.pth'
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    best_model_path = os.path.join(current_dir, f'best_model_{args.model}.pth')
     
     if not os.path.exists(best_model_path):
         print(f"Error: {best_model_path} not found! Please train the model first.")
@@ -129,6 +130,24 @@ def test_dl_model(args, test_dataset):
     print(f"CPC (Common Part of Commuters): {cpc:.4f}")
     
     visualize_predictions(all_y_true, all_y_pred, args.model)
+    
+    import pandas as pd
+    if 'pred' in locals():
+        pred_full_real = torch.expm1(pred[0]).cpu().numpy()
+        pred_full_real = np.maximum(pred_full_real, 0)
+        if args.model == 'mae5':
+            if pred_full_real.ndim == 3:
+                pred_full_real = pred_full_real.sum(axis=-1)
+        
+        from config import DONG_CODE_PATH
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        dong_path = os.path.join(current_dir, '..', '..', 'dataset', 'raw', 'OD_dong_list.xlsx')
+        dong_df = pd.read_excel(dong_path)
+        dongs = dong_df['dong_code'].values
+        
+        df_pred = pd.DataFrame(pred_full_real, index=dongs, columns=dongs)
+        df_pred.to_csv(os.path.join(current_dir, f"predicted_{args.model}_matrix.csv"), index=True)
+        print(f"Saved full predicted OD matrix to predicted_{args.model}_matrix.csv")
 
 
 def test_tabular_model(args, test_dataset):
@@ -149,7 +168,8 @@ def test_tabular_model(args, test_dataset):
     O_pop = O_pop_total[O_idx]
     D_pop = D_pop_total[D_idx]
     
-    save_path = f'best_model_{args.model}.pkl'
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    save_path = os.path.join(current_dir, f'best_model_{args.model}.pkl')
     if not os.path.exists(save_path):
         print(f"Error: {save_path} not found! Please train the model first.")
         return
@@ -179,6 +199,22 @@ def test_tabular_model(args, test_dataset):
     print(f"CPC (Common Part of Commuters): {cpc:.4f}")
     
     visualize_predictions(y_true, y_pred, args.model)
+    
+    import pandas as pd
+    if args.model == 'lgbm':
+        y_pred_all = model.predict(X_tabular)
+        y_pred_all = np.maximum(y_pred_all, 0)
+        full_matrix = y_pred_all.reshape(num_nodes, num_nodes)
+        
+        from config import DONG_CODE_PATH
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        dong_path = os.path.join(current_dir, '..', '..', 'dataset', 'raw', 'OD_dong_list.xlsx')
+        dong_df = pd.read_excel(dong_path)
+        dongs = dong_df['dong_code'].values
+        
+        df_pred = pd.DataFrame(full_matrix, index=dongs, columns=dongs)
+        df_pred.to_csv(os.path.join(current_dir, "predicted_lgbm_matrix.csv"), index=True)
+        print("Saved full predicted OD matrix to predicted_lgbm_matrix.csv")
 
 
 def main():

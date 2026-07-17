@@ -86,28 +86,57 @@ class ODDataset(Dataset):
             self.X_static[self.test_indices, m_idx] = 0.0
         self.X_static[self.test_indices, -1] = 1.0 # is_masked = 1
         
-        ################### LGBM 위한 데이터셋 생성 ################### 
-        # 1. Train 노드 마스킹 (동탄, 위례, 검단)
-        train_mask = np.ones(self.num_nodes, dtype=bool)
-        train_mask[self.test_indices] = False
-        
-        # 2. 데이터 파싱
-        x_od = self.X_OD.copy()
-        x_od[:, ~train_mask] = 0 # Test 도착 가리기
-        x_od[~train_mask, :] = 0 # Test 출발 가리기
-        
-        # 2.1. 자기동 내부 통행량, 타 지역 간 통행량 계산
-        y_self = np.diag(x_od) # 자기동 내부 통행량 (N,)
-        y_inter = np.sum(x_od, axis=1) - y_self # 타 지역 간 통행량 (N,)
-        
-        # 3.  학습용 데이터셋 생성
-        self.X_static_lgb = self.X_static[train_mask]
-        self.y_self_train = y_self[train_mask]
-        self.y_inter_train = y_inter[train_mask]
-        ###########################################################
+        # (K-Fold 대응) Stage1용 학습 데이터는 train.py에서 get_stage1_training_data()를 통해 동적으로 생성합니다.
         
         print("Dataset 초기화 완료")
         
+    def get_stage1_training_data(self, val_indices):
+        """
+        Test 도시 및 Validation 도시를 마스킹한 뒤,
+        Stage 1 (LGBM) 학습을 위한 데이터(X_static, y_self, y_inter, train_mask)를 생성하여 반환합니다.
+        """
+        fold_train_mask = np.ones(self.num_nodes, dtype=bool)
+        fold_train_mask[self.test_indices] = False
+        fold_train_mask[val_indices] = False
+        
+        x_od = self.X_OD.copy()
+        x_od[:, ~fold_train_mask] = 0 # Test/Val 도착 가리기
+        x_od[~fold_train_mask, :] = 0 # Test/Val 출발 가리기
+        
+        y_self = np.diag(x_od) # 자기동 내부 통행량 (N,)
+        y_inter = np.sum(x_od, axis=1) - y_self # 타 지역 간 통행량 (N,)
+        
+        X_static_lgb = self.X_static[fold_train_mask]
+        y_self_train = y_self[fold_train_mask]
+        y_inter_train = y_inter[fold_train_mask]
+        
+        return X_static_lgb, y_self_train, y_inter_train, fold_train_mask
+
+    def get_validation_data(self, val_indices):
+        """
+        Validation 평가에 필요한 전체 그래프 형태의 텐서 데이터를 생성하여 반환합니다.
+        반환값: (X_static_masked_np, x_s_tensor, x_d_tensor, y_o_tensor, y_o_log_tensor, val_mask_2d_tensor)
+        """
+        # Static Feature 마스킹(test, val의 종사자수, 사업체수)
+        X_static_masked = self.X_static.copy()
+        for m_idx in self.masking_indices:
+            X_static_masked[val_indices, m_idx] = 0.0
+        X_static_masked[val_indices, -1] = 1.0 
+        
+        # 1D & 2D Mask 생성
+        val_mask_1d = torch.zeros(self.num_nodes, dtype=torch.bool)
+        val_mask_1d[val_indices] = True
+        val_mask_2d = val_mask_1d.unsqueeze(0) | val_mask_1d.unsqueeze(1)
+        val_mask_2d = val_mask_2d.unsqueeze(0) # (1, 1, N, N)
+
+        # Tensor 변환 (배치 차원 추가)
+        x_s = torch.tensor(X_static_masked, dtype=torch.float32).unsqueeze(0)
+        x_d = torch.tensor(self.X_dist, dtype=torch.float32).unsqueeze(0)
+        y_o = torch.tensor(self.X_OD, dtype=torch.float32).unsqueeze(0)
+        y_o_log = torch.log1p(y_o)
+        
+        return X_static_masked, x_s, x_d, y_o, y_o_log, val_mask_2d
+
     def _find_dong_indices(self, idx_map):
         test_city_indices = []
         for _, codes in TEST_CITIES_CODES.items():

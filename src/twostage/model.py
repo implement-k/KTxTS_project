@@ -5,42 +5,44 @@ import numpy as np
 import lightgbm as lgb
 import joblib
 
-class Stage1Model:
+class Stage1Model_LGBM:
     '''
-        Stage1: 자기 동 내부 통행량(y_self)과 타 지역 간 통행량(y_inter)을 예측하는 모델
+        Stage1: 자기 동 내부 통행량(model1)과 타 지역 간 통행량(model2)을 예측하는 모델
+        or 총발생량(model1), 총도착량(model2) 예측하는 모델
     '''
     
     def __init__(self, model_self=None, model_inter=None):
-        self.model_self = model_self or lgb.LGBMRegressor(objective='regression', n_estimators=300, num_leaves=15, min_child_samples=10)
-        self.model_inter = model_inter or lgb.LGBMRegressor(objective='regression', n_estimators=300, num_leaves=15, min_child_samples=10)
+        self.model1 = model_self or lgb.LGBMRegressor(objective='regression', n_estimators=300, num_leaves=15, min_child_samples=10)
+        self.model2 = model_inter or lgb.LGBMRegressor(objective='regression', n_estimators=300, num_leaves=15, min_child_samples=10)
 
-    def fit(self, X_static, y_self, y_inter):
+    def fit(self, X_static, y_1, y_2):
         """
         X_static: (N, F)
-        y_self: (N, 1)
-        y_inter: (N, 1)
+        y_1: (N, 1)     # 자기 동 내부 통행량 or 총발생량
+        y_2: (N, 1)     # 타 지역 간 통행량 or 총도착량
         """
-        self.model_self.fit(X_static, y_self)
-        self.model_inter.fit(X_static, y_inter)
+        self.model1.fit(X_static, y_1)
+        self.model2.fit(X_static, y_2)
 
     def predict(self, X_static):
         """
         X_static: (N, F)
         Returns:
-            log_self: (N,)
-            log_inter: (N,)
+            log_1: (N,)
+            log_2: (N,)
         """
         threshold_log = np.log1p(1e-6) 
-        log_self = np.maximum(self.model_self.predict(X_static), threshold_log)
-        log_inter = np.maximum(self.model_inter.predict(X_static), threshold_log)
+        log_1 = np.maximum(self.model1.predict(X_static), threshold_log)
+        log_2 = np.maximum(self.model2.predict(X_static), threshold_log)
         
-        return log_self, log_inter
+        return log_1, log_2
     
-    def fit_predict(self, X_static, y_self, y_inter):
-        self.fit(X_static, y_self, y_inter)
-        joblib.dump(self.model_self, 'lgbm_self.pkl')
-        joblib.dump(self.model_inter, 'lgbm_inter.pkl')
+    def fit_predict(self, X_static, y_1, y_2, fold=None, model1='', model2=''):
+        self.fit(X_static, y_1, y_2)
+        joblib.dump(self.model1, f'lgbm_{model1}_fold_{fold}.pkl' if fold is not None else f'lgbm_{model1}.pkl')
+        joblib.dump(self.model2, f'lgbm_{model2}_fold_{fold}.pkl' if fold is not None else f'lgbm_{model2}.pkl')
         return self.predict(X_static)
+
 
 # ==== Two-Stage Gravity Model ====
 class Stage2Model(nn.Module):

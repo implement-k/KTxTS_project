@@ -11,9 +11,9 @@ from torch.utils.data import DataLoader
 from mae.dataset import ODDataset
 from mae.models import SpatialODMAE
 from tqdm import tqdm
-from KTDB.src.loss import WeightedMSELoss, HybridWeightedMSELoss, HuberLoss
+from loss import WeightedMSELoss, HybridWeightedMSELoss, HuberLoss
 import wandb
-from KTDB.src.validation import validate_mae
+from validation import validate_mae
 
 def str2bool(v):
     return str(v).lower() in ("yes", "true", "t", "1")

@@ -13,8 +13,8 @@ from torch.utils.data import DataLoader
 from dataset import ODDataset
 from loss import WeightedMSELossWrapper
 from tqdm import tqdm
-from KTDB.src.twostage.model import Stage1Model
-from KTDB.src.twostage.model import Stage2Model
+from twostage.model import Stage1Model
+from twostage.model import Stage2Model
 
 def main():
     print("Two-Stage model")

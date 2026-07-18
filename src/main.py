@@ -1,23 +1,44 @@
 import sys
 import os
 
-# src 폴더를 python path에 추가하여 import 에러 방지
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from mae.train import main as train_mae
 
-if __name__ == '__main__':
-    print("🚀 가장 성능이 좋았던 최신 세팅(거리 저항 O, OD 임베딩 2층)으로 MAE 학습을 시작합니다!")
-    print("-------------------------------------------------------------------------")
+if __name__ == '__main__':    
+    model_type = input("모델 선택 (1: MAE, 2: twostage): ")
+    model_version = input("이전에 테스트 했던 model버전 입력(v1, v2, v3): ")
     
-    # 터미널에서 긴 옵션을 칠 필요 없이, 가장 성공적이었던 실험 세팅을 여기에 고정해둡니다.
-    sys.argv = [
-        'main.py',
-        '--use_friction', 'True',         # 중력 모델 (거리 저항) 강제 적용
-        '--od_embed_layers', '2',         # 900차원 통행량을 깊게(2층) 압축
-        '--loss_type', 'weighted_mse',    # 가장 CPC가 잘 나왔던 순정 Loss
-        '--use_wandb', 'False'            # 대시보드 기록 여부 (필요시 True로 변경)
-    ]
+    if (model_type == '1'):
+        if (model_version == 'v1'):
+            sys.argv = [
+                'main.py',
+                '--use_friction', 'False',         
+                '--od_embed_layers', '1',     
+                '--use_self_loop_predictor', 'False',
+                '--loss_type', 'weighted_mse',
+                '--use_wandb', 'True'          
+            ]
+        elif (model_version == 'v2'):
+            sys.argv = [
+                'main.py',
+                '--use_friction', 'False',         
+                '--od_embed_layers', '2',     
+                '--use_self_loop_predictor', 'True',
+                '--loss_type', 'weighted_mse',
+                '--use_wandb', 'True'          
+            ]
+        elif (model_version == 'v3'):
+            sys.argv = [
+                'main.py',
+                '--use_friction', 'True',         
+                '--od_embed_layers', '3',     
+                '--use_self_loop_predictor', 'True',
+                '--loss_type', 'weighted_mse',
+                '--use_wandb', 'True'          
+            ]
+    elif (model_type == '2'):
+        print("구현중...")
     
     # 학습 스크립트 실행
     train_mae()

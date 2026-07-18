@@ -67,6 +67,7 @@ def validate(model, dataset, val_indices, criterion, device):
 
 
 def main():
+    print("test"+str(1))
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])

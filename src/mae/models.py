@@ -19,6 +19,15 @@ class SpatialODMAE(nn.Module):
             nn.Sigmoid()
         )
         
+        # 자기동 내부 통행량 직접 예측을 위한 작은 MLP
+        self.self_loop_predictor = nn.Sequential(
+            nn.Linear(d_model, d_model),
+            nn.GELU(),
+            nn.Linear(d_model, d_model // 2),
+            nn.GELU(),
+            nn.Linear(d_model // 2, 1)
+        )
+        
         # distance based 상대 positional bias
         self.nhead = nhead
         self.distance_bias = nn.Embedding(50, nhead)
@@ -88,7 +97,18 @@ class SpatialODMAE(nn.Module):
         # out: (B, N, 2N) - decode
         out = self.decoder(x) 
         
-        # Average
-        pred_od = (out[..., :N] + out[..., N:].transpose(1, 2)) / 2.0
+        # 디코딩 결과를 Outgoing과 Incoming으로 나누고, Symmetric Agreement를 위해 평균
+        pred_outgoing = out[..., :N] 
+        pred_incoming = out[..., N:].transpose(1, 2) 
+        pred_od = (pred_outgoing + pred_incoming) / 2.0
+        
+        self_loop_pred = self.self_loop_predictor(feat_emb).squeeze(-1) # (B, N, D) -> (B, N)
+        
+        # Batch 차원과 Node 차원을 위한 인덱스 생성
+        b_idx = torch.arange(B).unsqueeze(-1) # (B, 1)
+        n_idx = torch.arange(N).unsqueeze(0)  # (1, N)
+        
+        
+        pred_od[b_idx, n_idx, n_idx] += self_loop_pred
         
         return pred_od

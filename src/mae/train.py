@@ -67,7 +67,7 @@ def validate(model, dataset, val_indices, criterion, device):
 
 
 def main():
-    print("test"+str(1))
+    print("test"+str(2))
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
@@ -141,15 +141,21 @@ def main():
 
             if rmse < best_val_rmse:
                 best_val_rmse = rmse
-                best_cpc = cpc
                 current_dir = os.path.dirname(os.path.abspath(__file__))
                 torch.save(model.state_dict(),
                            os.path.join(current_dir, best_model_path))
-                print(f"  ➜ [Checkpoint] Best saved! (RMSE:{rmse:.2f} CPC:{cpc:.4f})")
+                print(f"  ➜ [Checkpoint] Best RMSE saved! (RMSE:{rmse:.2f} CPC:{cpc:.4f})")
+
+            if cpc > best_cpc:
+                best_cpc = cpc
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                torch.save(model.state_dict(),
+                           os.path.join(current_dir, 'best_model_mae_cpc.pth'))
+                print(f"  ➜ [Checkpoint] Best CPC saved! (RMSE:{rmse:.2f} CPC:{cpc:.4f})")
 
             model.train()
 
-    print(f"\nTraining Complete. Best RMSE: {best_val_rmse:.2f} | CPC: {best_cpc:.4f}")
+    print(f"\nTraining Complete. Best RMSE: {best_val_rmse:.2f} | Best CPC: {best_cpc:.4f}")
 
 if __name__ == '__main__':
     main()

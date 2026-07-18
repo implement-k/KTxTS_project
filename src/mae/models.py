@@ -14,7 +14,9 @@ class SpatialODMAE(nn.Module):
         self.od_embed = nn.Sequential(
             nn.Linear(num_nodes * 2, d_model * 2),
             nn.GELU(),
-            nn.Linear(d_model * 2, d_model)       
+            nn.Linear(d_model * 2, d_model),
+            nn.GELU(),
+            nn.Linear(d_model, d_model)
         )
         
         # OD 정보의 반영 비율을 조절하는 Learnable Gating Network
@@ -32,9 +34,10 @@ class SpatialODMAE(nn.Module):
             nn.Linear(d_model // 2, 1)
         )
         
-        # distance based 상대 positional bias
+        # distance based 상대 positional bias 및 최종 Friction
         self.nhead = nhead
         self.distance_bias = nn.Embedding(50, nhead)
+        self.distance_friction = nn.Embedding(50, 1)
         # 0부터 5.5 구간을 49개로 나눔
         self.register_buffer('boundaries', torch.linspace(0, 5.5, 49))
         
@@ -102,9 +105,13 @@ class SpatialODMAE(nn.Module):
         out = self.decoder(x) 
         
         # 디코딩 결과를 Outgoing과 Incoming으로 나누고, Symmetric Agreement를 위해 평균
-        pred_outgoing = out[..., :N] 
-        pred_incoming = out[..., N:].transpose(1, 2) 
+        pred_outgoing = out[..., :N] # (B, N, N) -> pred_outgoing[b, i, j] is trip from i to j
+        pred_incoming = out[..., N:].transpose(1, 2) # (B, N, N) -> pred_incoming[b, i, j] is trip from i to j
         pred_od = (pred_outgoing + pred_incoming) / 2.0
+        
+        # --- 거리 제약 (Distance Friction) 직접 주입 ---
+        friction = self.distance_friction(distance_bins).squeeze(-1) # (B, N, N)
+        pred_od = pred_od + friction
         
         self_loop_pred = self.self_loop_predictor(feat_emb).squeeze(-1) # (B, N, D) -> (B, N)
         

@@ -43,8 +43,8 @@ MASKING_COLUMNS = ['worker_count', 'business_count']
 TRAIN_CONFIG = {
     'min_mask_size': 3,
     'max_mask_size': 10,
-    'batch_size': 16,
-    'epochs': 50,
+    'batch_size': 32,
+    'epochs': 70,
     'learning_rate': 1e-3,
     'model_type': 'mae',
 }

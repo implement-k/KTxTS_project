@@ -4,13 +4,14 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from mae.train import main as train_mae
+from twostage.train import main as train_twostage
 
 if __name__ == '__main__':    
     model_type = input("모델 선택 (1: MAE, 2: twostage): ")
-    model_version = input("이전에 테스트 했던 model버전 입력(v1, v2, v3): ")
     
-    if (model_type == '1'):
-        if (model_version == 'v1'):
+    if model_type == '1':
+        model_version = input("이전에 테스트 했던 model버전 입력(v1, v2, v3): ")
+        if model_version == 'v1':
             sys.argv = [
                 'main.py',
                 '--use_friction', 'False',         
@@ -19,7 +20,7 @@ if __name__ == '__main__':
                 '--loss_type', 'weighted_mse',
                 '--use_wandb', 'True'          
             ]
-        elif (model_version == 'v2'):
+        elif model_version == 'v2':
             sys.argv = [
                 'main.py',
                 '--use_friction', 'False',         
@@ -28,7 +29,7 @@ if __name__ == '__main__':
                 '--loss_type', 'weighted_mse',
                 '--use_wandb', 'True'          
             ]
-        elif (model_version == 'v3'):
+        elif model_version == 'v3':
             sys.argv = [
                 'main.py',
                 '--use_friction', 'True',         
@@ -37,8 +38,48 @@ if __name__ == '__main__':
                 '--loss_type', 'weighted_mse',
                 '--use_wandb', 'True'          
             ]
-    elif (model_type == '2'):
-        print("구현중...")
-    
-    # 학습 스크립트 실행
-    train_mae()
+        train_mae()
+        
+    elif model_type == '2':
+        model_version = input("이전에 테스트 했던 model버전 입력(v2, v3, v4): ")
+        if model_version == 'v2':
+            sys.argv = [
+                'main.py',
+                '--epochs', '40',
+                '--predict_only_masked', 'False',
+                '--use_residual', 'False',
+                '--use_od', 'False',
+                '--use_wandb', 'True'          
+            ]
+        elif model_version == 'v3':
+            sys.argv = [
+                'main.py',
+                '--epochs', '40',
+                '--use_4_lgbm', 'True',
+                '--use_nan_masking', 'True',
+                '--predict_only_masked', 'False',
+                '--use_residual', 'False',
+                '--use_od', 'False',
+                '--use_wandb', 'True'          
+            ]
+        elif model_version == 'v4':
+            sys.argv = [
+                'main.py',
+                '--epochs', '40',
+                '--predict_only_masked', 'False',
+                '--use_od', 'True',
+                '--use_wandb', 'True'          
+            ]
+        elif model_version == 'v5':
+            sys.argv = [
+                'main.py',
+                '--epochs', '40',
+                '--predict_only_masked', 'True',
+                '--use_residual', 'True',
+                '--use_od', 'True',
+                '--use_wandb', 'True'          
+            ]
+        else:
+            print("지원하지 않는 버전입니다.")
+            
+        train_twostage()

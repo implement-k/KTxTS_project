@@ -8,7 +8,7 @@ import argparse
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from mae.dataset import ODDataset
+from dataset import ODDataset
 from mae.models import SpatialODMAE
 from tqdm import tqdm
 from loss import WeightedMSELoss, HybridWeightedMSELoss, HuberLoss
@@ -32,8 +32,7 @@ def main():
     if args.use_wandb: wandb.init(project="SpatialODMAE", config=vars(args))
     
     print("선택된 argument:")
-    for arg in vars(args):
-        print(f"  {arg}: {getattr(args, arg)}")
+    for arg in vars(args): print(f"  {arg}: {getattr(args, arg)}")
 
     dataset = ODDataset(mode='train')
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps'  if torch.backends.mps.is_available() else 'cpu')

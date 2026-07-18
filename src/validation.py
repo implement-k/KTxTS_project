@@ -8,7 +8,6 @@ def cpc_score(y_true, y_pred):
         return 0.0
     return numerator / denominator
 
-
 def validate_mae(model, dataset, val_indices, criterion, device):
     """
     Validation 도시를 마스킹하여 모델 성능 평가.
@@ -46,5 +45,43 @@ def validate_mae(model, dataset, val_indices, criterion, device):
 
     rmse = np.sqrt(np.mean((y_real - p_real) ** 2))
     cpc = cpc_score(y_real, p_real)
+
+    return v_loss, rmse, cpc
+
+def validate_twostage(model, stage1_model, dataset, val_indices, criterion, device, use_od=False, predict_only_masked=False, use_residual=False):
+    """
+    Two-Stage 모델 Validation 평가.
+    """
+    model.train() # PyTorch 우회용
+    for m in model.modules():
+        if isinstance(m, torch.nn.Dropout):
+            m.eval()
+            
+    with torch.no_grad():
+        if use_residual or predict_only_masked: # originally v2, v3
+            X_static_masked, x_s, x_d, y_o, y_o_log, val_mask_1d_tensor, val_mask_2d = dataset.get_validation_data(val_indices)
+            val_mask_1d_tensor = val_mask_1d_tensor.to(device)
+        else: # originally v4, v5
+            X_static_masked, x_s, x_d, y_o, y_o_log, val_mask_2d = dataset.get_validation_data(val_indices)
+            
+        x_s, x_d = x_s.to(device), x_d.to(device)
+        y_o, y_o_log = y_o.to(device), y_o_log.to(device)
+        val_mask_2d = val_mask_2d.to(device)
+        
+        log_1_val, log_2_val = stage1_model.predict(X_static_masked)
+        log_1_tensor = torch.tensor(log_1_val, dtype=torch.float32, device=device).unsqueeze(0)
+        log_2_tensor = torch.tensor(log_2_val, dtype=torch.float32, device=device).unsqueeze(0)
+    
+        if use_residual and not use_od: # originally v2
+            v_pred = model(x_s, x_d, log_1_tensor, log_2_tensor, mask_1d=val_mask_1d_tensor, true_OD=y_o)
+        else:
+            v_pred = model(x_s, x_d, log_1_tensor, log_2_tensor)
+
+        v_loss = criterion(v_pred, y_o_log, val_mask_2d).item()
+        p_real = np.maximum(torch.expm1(v_pred[val_mask_2d]).cpu().numpy(), 0)
+        y_real = y_o[val_mask_2d].cpu().numpy()
+            
+        rmse = np.sqrt(np.mean((y_real - p_real)**2))
+        cpc = cpc_score(y_real, p_real)
 
     return v_loss, rmse, cpc

@@ -11,7 +11,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-from mae.dataset import ODDataset
+from KTDB.src.dataset import ODDataset
 from mae.models import SpatialODMAE
 
 def cpc_score(y_true, y_pred):

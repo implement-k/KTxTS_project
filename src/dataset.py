@@ -13,10 +13,16 @@ from config import (
 )
 
 class ODDataset(Dataset):
-    def __init__(self, mode='train'):
+    def __init__(self, mode='train', use_nan_masking=False, use_log_transform=True, use_od=True, predict_only_masked=False, use_residual=False):
         self.mode = mode
         self.max_mask_size = TRAIN_CONFIG['min_mask_size']
         
+        # twostage용 코드
+        self.use_od = use_od
+        self.use_nan_masking = use_nan_masking
+        self.predict_only_masked = predict_only_masked
+        self.use_residual = use_residual
+
         # 행정동 코드 로드
         dong_df = pd.read_excel(DONG_CODE_PATH)
         dongs = dong_df['dong_code'].astype(int).values
@@ -35,12 +41,10 @@ class ODDataset(Dataset):
         o_idx_valid = o_indices[valid_mask].astype(int)
         d_idx_valid = d_indices[valid_mask].astype(int)
         
-        
         # (N, N)으로 합산
         purposes = ['귀가', '출근', '등교', '업무', '기타']
         calculated_total = od_df[purposes].sum(axis=1)
         self.X_OD[o_idx_valid, d_idx_valid] = calculated_total.values[valid_mask]
-
         
         # === 거리 매트릭스 로드 (N, N) ===
         self.X_dist = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
@@ -77,36 +81,31 @@ class ODDataset(Dataset):
         scaler.fit(raw_static[self.train_indices])
         self.X_static = scaler.transform(raw_static)
         
-        # 마스킹 여부를 알려주는 Indicator 컬럼 추가 (0.0으로 초기화)
-        indicator = np.zeros((self.X_static.shape[0], 1), dtype=np.float32)
-        self.X_static = np.concatenate([self.X_static, indicator], axis=1)
+        if use_nan_masking: # twostage v3
+            self.X_static[np.ix_(self.test_indices, self.masking_indices)] = np.nan
+        else:
+            # 마스킹 여부를 알려주는 Indicator 컬럼 추가 (0.0으로 초기화)
+            indicator = np.zeros((self.X_static.shape[0], 1), dtype=np.float32)
+            self.X_static = np.concatenate([self.X_static, indicator], axis=1)
+            # Test 도시의 지정된 Feature 결측 처리 (0으로 마스킹)
+            self.X_static = self.mask_static_features(self.X_static, self.test_indices, self.masking_indices)
         
-        # Test 도시의 지정된 Feature 결측 처리 (0으로 마스킹)
-        for m_idx in self.masking_indices:
-            self.X_static[self.test_indices, m_idx] = 0.0
-        self.X_static[self.test_indices, -1] = 1.0 # is_masked = 1
-        
-        ################### LGBM 위한 데이터셋 생성 ################### 
-        # 1. Train 노드 마스킹 (동탄, 위례, 검단)
-        train_mask = np.ones(self.num_nodes, dtype=bool)
-        train_mask[self.test_indices] = False
-        
-        # 2. 데이터 파싱
-        x_od = self.X_OD.copy()
-        x_od[:, ~train_mask] = 0 # Test 도착 가리기
-        x_od[~train_mask, :] = 0 # Test 출발 가리기
-        
-        # 2.1. 자기동 내부 통행량, 타 지역 간 통행량 계산
-        y_self = np.diag(x_od) # 자기동 내부 통행량 (N,)
-        y_inter = np.sum(x_od, axis=1) - y_self # 타 지역 간 통행량 (N,)
-        
-        # 3.  학습용 데이터셋 생성
-        self.X_static_lgb = self.X_static[train_mask]
-        self.y_self_train = y_self[train_mask]
-        self.y_inter_train = y_inter[train_mask]
-        ###########################################################
-        
+        # 정규화 (거리 및 통행량 로그 변환)
+        if use_log_transform:
+            self.X_dist = np.log1p(self.X_dist)
+            self.X_OD = np.log1p(self.X_OD)
+
         print("Dataset 초기화 완료")
+        
+    def mask_static_features(self, X_static, mask_row_indices, mask_col_indices):
+        """
+        Validation 도시의 종사자수, 사업체 수를 마스킹
+        """
+        X_masked = X_static.copy()
+        X_masked[np.ix_(mask_row_indices, mask_col_indices)] = 0.0
+        # 마지막 컬럼을 1로 세팅 (마스킹되었다는 플래그 역할)
+        X_masked[mask_row_indices, -1] = 1.0
+        return X_masked
         
     def _find_dong_indices(self, idx_map):
         test_city_indices = []
@@ -140,17 +139,14 @@ class ODDataset(Dataset):
         mask = np.zeros(self.num_nodes, dtype=bool)
         mask[mask_indices] = True
         
-        # Target OD (N, N, 5)
-        # mae1인 경우 (N,N)
+        # (N,N)
         y_OD = self.X_OD.copy()
         
         # Masked OD 
         X_OD_masked = self.X_OD.copy()
-        
-        # mask
         X_OD_masked[mask, :] = 0
         X_OD_masked[:, mask] = 0
-
+        
         # Static Feature Dynamic Masking
         X_static_masked = self.X_static.copy()
         for m_idx in self.masking_indices:
@@ -164,3 +160,51 @@ class ODDataset(Dataset):
             'y_OD': torch.tensor(y_OD, dtype=torch.float32),
             'mask': torch.tensor(mask, dtype=torch.bool)
         }
+        
+    # twostage용 코드
+    def get_stage1_training_data(self, val_indices):
+        # Train 노드 마스킹 (동탄, 위례, 검단 등 + 현재 val_indices)
+        train_mask = np.ones(self.num_nodes, dtype=bool)
+        train_mask[self.test_indices] = False
+        if val_indices is not None:
+            train_mask[val_indices] = False
+            
+        x_od = self.X_OD.copy()
+        x_od[:, ~train_mask] = 0 # Test 도착 가리기
+        x_od[~train_mask, :] = 0 # Test 출발 가리기
+        
+        if not self.use_od: # v2, v3: 자기동 내부 통행량, 타 지역 간 통행량 계산 (use_od=False)
+            y1 = np.diag(x_od) # y_self
+            y2 = np.sum(x_od, axis=1) - y1 # y_inter
+        else:   # v4, v5: 총 발생량, 총 도착량 계산 (use_od=True)
+            y1 = np.sum(x_od, axis=1) # y_o
+            y2 = np.sum(x_od, axis=0) # y_d
+            
+        X_static_lgb = self.X_static[train_mask]
+        y1_train = y1[train_mask]
+        y2_train = y2[train_mask]
+        
+        return X_static_lgb, y1_train, y2_train, train_mask
+
+    def get_validation_data(self, val_indices):
+        X_static_masked = self.X_static.copy()
+        if self.use_nan_masking:
+            X_static_masked[np.ix_(self.test_indices, self.masking_indices)] = np.nan
+        else:
+            self.mask_static_features(X_static_masked, val_indices, self.masking_indices)
+            
+        x_s = torch.tensor(X_static_masked, dtype=torch.float32).unsqueeze(0)
+        x_d = torch.tensor(self.X_dist, dtype=torch.float32).unsqueeze(0)
+        
+        val_mask_1d = np.zeros(self.num_nodes, dtype=bool)
+        val_mask_1d[val_indices] = True
+        val_mask_1d_tensor = torch.tensor(val_mask_1d, dtype=torch.bool).unsqueeze(0)
+        val_mask_2d = val_mask_1d_tensor.unsqueeze(1) | val_mask_1d_tensor.unsqueeze(2)
+        
+        y_od = torch.tensor(self.X_OD, dtype=torch.float32).unsqueeze(0)
+        y_od_log = torch.log1p(y_od)
+        
+        if self.use_residual or self.predict_only_masked: 
+            return X_static_masked, x_s, x_d, y_od, y_od_log, val_mask_1d_tensor, val_mask_2d
+        else:
+            return X_static_masked, x_s, x_d, y_od, y_od_log, val_mask_2d

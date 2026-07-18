@@ -5,73 +5,35 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import TRAIN_CONFIG
 
 import argparse
-import numpy as np
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from mae.dataset import ODDataset
 from mae.models import SpatialODMAE
 from tqdm import tqdm
-from mae.loss import WeightedMSELossWrapper
+from KTDB.src.loss import WeightedMSELoss, HybridWeightedMSELoss, HuberLoss
+import wandb
+from KTDB.src.validation import validate_mae
 
-def cpc_score(y_true, y_pred):
-    numerator   = 2 * np.sum(np.minimum(y_true, y_pred))
-    denominator = np.sum(y_true) + np.sum(y_pred)
-    if denominator == 0:
-        return 0.0
-    return numerator / denominator
-
-
-def validate(model, dataset, val_indices, criterion, device):
-    """
-    Validation 도시를 마스킹하여 모델 성능 평가.
-    반환: (val_loss, rmse, cpc)
-    """
-    # Validation 마스크 구성
-    val_mask_np = np.zeros(dataset.num_nodes, dtype=bool)
-    val_mask_np[val_indices] = True
-
-    X_static_masked = dataset.X_static.copy()
-    for m_idx in dataset.masking_indices:
-        X_static_masked[val_indices, m_idx] = 0.0
-    X_static_masked[val_indices, -1] = 1.0  
-
-    X_OD_masked = dataset.X_OD.copy()
-    X_OD_masked[val_mask_np, :] = 0
-    X_OD_masked[:, val_mask_np] = 0
-
-    x_s = torch.tensor(X_static_masked, dtype=torch.float32, device=device).unsqueeze(0)
-    x_d = torch.tensor(dataset.X_dist,  dtype=torch.float32, device=device).unsqueeze(0)
-    x_o = torch.tensor(X_OD_masked, dtype=torch.float32, device=device).unsqueeze(0)
-    y_o = torch.tensor(dataset.X_OD, dtype=torch.float32, device=device).unsqueeze(0)
-    mask = torch.tensor(val_mask_np, dtype=torch.bool, device=device).unsqueeze(0)
-
-    model.train()
-    for m in model.modules():
-        if isinstance(m, torch.nn.Dropout):
-            m.eval()
-
-    with torch.no_grad():
-        v_pred = model(x_s, x_o, x_d, mask)
-
-    m2d = mask.unsqueeze(1) | mask.unsqueeze(2)
-    v_loss = criterion(v_pred, y_o, 1.0, m2d).item()  # alpha=1.0, mask=m2d로 수정
-
-    p_real = np.maximum(torch.expm1(v_pred[m2d]).cpu().numpy(), 0)
-    y_real = torch.expm1(y_o[m2d]).cpu().numpy()
-
-    rmse = np.sqrt(np.mean((y_real - p_real) ** 2))
-    cpc = cpc_score(y_real, p_real)
-
-    return v_loss, rmse, cpc
-
+def str2bool(v):
+    return str(v).lower() in ("yes", "true", "t", "1")
 
 def main():
-    print("test"+str(2))
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
+    parser.add_argument('--loss_type', type=str, default='weighted_mse', choices=['weighted_mse', 'hybrid', 'huber']) # v1, v2, v3: weighted_mse
+    parser.add_argument('--od_embed_layers', type=int, default=3)                   # v1: 1, v2: 2, v3: 3
+    parser.add_argument('--use_friction', type=str2bool, default=True)              # v1, v2: False, v3: True
+    parser.add_argument('--use_self_loop_predictor', type=str2bool, default=True)   # v1: False, v2, v3: True
+    parser.add_argument('--use_wandb', type=str2bool, default=False)
     args = parser.parse_args()
+    
+    if args.use_wandb: wandb.init(project="SpatialODMAE", config=vars(args))
+    
+    print("선택된 argument:")
+    for arg in vars(args):
+        print(f"  {arg}: {getattr(args, arg)}")
 
     dataset = ODDataset(mode='train')
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps'  if torch.backends.mps.is_available() else 'cpu')
@@ -80,14 +42,14 @@ def main():
     min_mask = TRAIN_CONFIG['min_mask_size']
     max_mask = TRAIN_CONFIG['max_mask_size']
 
-    print(f"\n{'='*20} Fast Validation Mode (Test Set) {'='*20}")
-    
     # Validation 대상은 Test 도시 전체
     val_indices = dataset.test_indices
-
     train_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-
-    model = SpatialODMAE(num_nodes=dataset.num_nodes, num_features=dataset.X_static.shape[1]).to(device)
+    model = SpatialODMAE(num_nodes=dataset.num_nodes, 
+                         num_features=dataset.X_static.shape[1],
+                         od_embed_layers=args.od_embed_layers,
+                         use_distance_friction=args.use_friction,
+                         use_self_loop_predictor=args.use_self_loop_predictor).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
     total_steps = args.epochs * len(train_loader)
     scheduler = optim.lr_scheduler.OneCycleLR(
@@ -96,7 +58,10 @@ def main():
         pct_start=0.3, 
         anneal_strategy='cos'
     )
-    criterion = WeightedMSELossWrapper().to(device)
+    
+    if args.loss_type == 'hybrid': criterion = HybridWeightedMSELoss().to(device)
+    elif args.loss_type == 'huber': criterion = HuberLoss().to(device)
+    else: criterion = WeightedMSELoss().to(device)
 
     best_val_rmse = float('inf')
     best_cpc = 0.0
@@ -132,12 +97,22 @@ def main():
             train_loss += loss.item()
             pbar.set_postfix({'loss': f"{loss.item():.4f}", 'lr': f"{scheduler.get_last_lr()[0]:.1e}"})
 
-        print(f"Epoch {epoch+1} Train Loss: {train_loss/len(train_loader):.4f}")
+        avg_train_loss = train_loss / len(train_loader)
+        print(f"Epoch {epoch+1} Train Loss: {avg_train_loss:.4f}")
 
         # Validation (2 epoch 마다)
         if epoch % 2 == 1 or epoch == args.epochs - 1:
-            v_loss, rmse, cpc = validate(model, dataset, val_indices, criterion, device)
+            v_loss, rmse, cpc = validate_mae(model, dataset, val_indices, criterion, device)
             print(f"  ➜ [Val] Loss: {v_loss:.4f} | RMSE: {rmse:.2f} | CPC: {cpc:.4f}")
+            
+            if args.use_wandb:
+                wandb.log({
+                    "epoch": epoch + 1,
+                    "train_loss": avg_train_loss,
+                    "val_loss": v_loss,
+                    "val_rmse": rmse,
+                    "val_cpc": cpc
+                })
 
             if rmse < best_val_rmse:
                 best_val_rmse = rmse
@@ -156,6 +131,8 @@ def main():
             model.train()
 
     print(f"\nTraining Complete. Best RMSE: {best_val_rmse:.2f} | Best CPC: {best_cpc:.4f}")
+    
+    if args.use_wandb: wandb.finish()
 
 if __name__ == '__main__':
     main()

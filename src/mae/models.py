@@ -2,8 +2,13 @@ import torch
 import torch.nn as nn
 
 class SpatialODMAE(nn.Module):
-    def __init__(self, num_nodes, num_features=13, d_model=128, nhead=8, num_layers=4):
+    def __init__(self, num_nodes, num_features=13, d_model=128, nhead=8, num_layers=4,
+                 od_embed_layers=2, use_distance_friction=True, use_self_loop_predictor=True):
         super().__init__()
+        self.use_distance_friction = use_distance_friction
+        self.od_embed_layers = od_embed_layers
+        self.use_self_loop_predictor = use_self_loop_predictor
+
         # X_static embeding: (B, N, F) -> (B, N, D) - leanable
         # OD feature embedding: (B, N, 2N) -> (B, N, D) - leanable
         self.feature_embed = nn.Sequential(
@@ -11,13 +16,23 @@ class SpatialODMAE(nn.Module):
             nn.GELU(),
             nn.Linear(d_model, d_model)
         )
-        self.od_embed = nn.Sequential(
-            nn.Linear(num_nodes * 2, d_model * 2),
-            nn.GELU(),
-            nn.Linear(d_model * 2, d_model),
-            nn.GELU(),
-            nn.Linear(d_model, d_model)
-        )
+        
+        if self.od_embed_layers == 3:
+            self.od_embed = nn.Sequential(
+                nn.Linear(num_nodes * 2, d_model * 2),
+                nn.GELU(),
+                nn.Linear(d_model * 2, d_model),
+                nn.GELU(),
+                nn.Linear(d_model, d_model)
+            )
+        elif self.od_embed_layers == 2:
+            self.od_embed = nn.Sequential(
+                nn.Linear(num_nodes * 2, d_model * 2),
+                nn.GELU(),
+                nn.Linear(d_model * 2, d_model)
+            )
+        else:
+            self.od_embed = nn.Linear(num_nodes * 2, d_model)
         
         # OD 정보의 반영 비율을 조절하는 Learnable Gating Network
         self.od_gate = nn.Sequential(
@@ -26,13 +41,14 @@ class SpatialODMAE(nn.Module):
         )
         
         # 자기동 내부 통행량 직접 예측을 위한 작은 MLP
-        self.self_loop_predictor = nn.Sequential(
-            nn.Linear(d_model, d_model),
-            nn.GELU(),
-            nn.Linear(d_model, d_model // 2),
-            nn.GELU(),
-            nn.Linear(d_model // 2, 1)
-        )
+        if self.use_self_loop_predictor:
+            self.self_loop_predictor = nn.Sequential(
+                nn.Linear(d_model, d_model),
+                nn.GELU(),
+                nn.Linear(d_model, d_model // 2),
+                nn.GELU(),
+                nn.Linear(d_model // 2, 1)
+            )
         
         # distance based 상대 positional bias 및 최종 Friction
         self.nhead = nhead
@@ -105,20 +121,20 @@ class SpatialODMAE(nn.Module):
         out = self.decoder(x) 
         
         # 디코딩 결과를 Outgoing과 Incoming으로 나누고, Symmetric Agreement를 위해 평균
-        pred_outgoing = out[..., :N] # (B, N, N) -> pred_outgoing[b, i, j] is trip from i to j
-        pred_incoming = out[..., N:].transpose(1, 2) # (B, N, N) -> pred_incoming[b, i, j] is trip from i to j
-        pred_od = (pred_outgoing + pred_incoming) / 2.0
+        pred_od = (out[..., :N] + out[..., N:].transpose(1, 2)) / 2.0
         
-        # --- 거리 제약 (Distance Friction) 직접 주입 ---
-        friction = self.distance_friction(distance_bins).squeeze(-1) # (B, N, N)
-        pred_od = pred_od + friction
+        if self.use_distance_friction:
+            friction = self.distance_friction(distance_bins).squeeze(-1) # (B, N, N)
+            pred_od = pred_od + friction
         
-        self_loop_pred = self.self_loop_predictor(feat_emb).squeeze(-1) # (B, N, D) -> (B, N)
-        
+        if self.use_self_loop_predictor:
+            self_loop_pred = self.self_loop_predictor(feat_emb).squeeze(-1) # (B, N, D) -> (B, N)
+        else:
+            self_loop_pred = 0
+
         # Batch 차원과 Node 차원을 위한 인덱스 생성
         b_idx = torch.arange(B).unsqueeze(-1) # (B, 1)
         n_idx = torch.arange(N).unsqueeze(0)  # (1, N)
-        
         
         pred_od[b_idx, n_idx, n_idx] += self_loop_pred
         

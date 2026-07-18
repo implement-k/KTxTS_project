@@ -80,15 +80,23 @@ class ODDataset(Dataset):
         self.X_static = np.concatenate([self.X_static, indicator], axis=1)
         
         # Test 도시의 지정된 Feature 결측 처리 (0으로 마스킹)
-        for m_idx in self.masking_indices:
-            self.X_static[self.test_indices, m_idx] = 0.0
-        self.X_static[self.test_indices, -1] = 1.0 # is_masked = 1
+        self.X_static = self.masking_static_features(self.X_static, self.test_indices, self.masking_indices)
         
         # 정규화 (거리 및 통행량 로그 변환)
         self.X_dist = np.log1p(self.X_dist)
         self.X_OD = np.log1p(self.X_OD)
 
         print("Dataset 초기화 완료")
+        
+    def masking_static_features(self, X_static, mask_row_indices, mask_col_indices):
+        """
+        Validation 도시의 종사자수, 사업체 수를 마스킹
+        """
+        X_masked = X_static.copy()
+        X_masked[np.ix_(mask_row_indices, mask_col_indices)] = 0.0
+        # 마지막 컬럼을 1로 세팅 (마스킹되었다는 플래그 역할)
+        X_masked[mask_row_indices, -1] = 1.0
+        return X_masked
         
     def _find_dong_indices(self, idx_map):
         test_city_indices = []

@@ -22,12 +22,43 @@ def cpc_score(y_true, y_pred):
     return numerator / denominator
 
 
-def test_model(model_path=None):
+def test_model(model_path=None, use_friction=True, od_embed_layers=2):
     current_dir = os.path.dirname(os.path.abspath(__file__))
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    best_model_dir = os.path.join(BASE_DIR, 'best_model')
+    result_dir = os.path.join(BASE_DIR, 'result')
+    os.makedirs(result_dir, exist_ok=True)
 
     # 모델 경로 결정
     if model_path is None:
-        model_path = os.path.join(current_dir, 'best_model_mae.pth')
+        if not os.path.exists(best_model_dir):
+            print(f"Error: {best_model_dir} 디렉토리가 없습니다.")
+            return
+        
+        pth_files = [f for f in os.listdir(best_model_dir) if f.endswith('.pth')]
+        if not pth_files:
+            print(f"Error: {best_model_dir} 내에 .pth 가중치 파일이 없습니다.")
+            return
+            
+        print("\n==================================")
+        print("테스트할 가중치 파일을 선택하세요:")
+        for idx, f in enumerate(pth_files):
+            print(f"[{idx+1}] {f}")
+        print("==================================")
+        
+        try:
+            sel = int(input("번호 입력: ")) - 1
+            if sel < 0 or sel >= len(pth_files):
+                raise ValueError
+            model_name = pth_files[sel]
+            model_path = os.path.join(best_model_dir, model_name)
+        except Exception:
+            print("잘못된 입력입니다. 종료합니다.")
+            return
+    else:
+        model_name = os.path.basename(model_path)
+        
+    model_base_name = os.path.splitext(model_name)[0]
 
     # ── 데이터 로드 ──────────────────────────────────────────────────────────
     test_dataset = ODDataset(mode='test')
@@ -39,7 +70,9 @@ def test_model(model_path=None):
 
     # ── 모델 로드 ─────────────────────────────────────────────────────────────
     model = SpatialODMAE(num_nodes=test_dataset.num_nodes,
-                          num_features=test_dataset.X_static.shape[1]).to(device)
+                          num_features=test_dataset.X_static.shape[1],
+                          od_embed_layers=od_embed_layers,
+                          use_distance_friction=use_friction).to(device)
 
     if not os.path.exists(model_path):
         print(f"Error: {model_path} not found! Please train the model first.")
@@ -171,7 +204,7 @@ def test_model(model_path=None):
         fontsize=13, fontweight='bold'
     )
 
-    save_path = os.path.join(current_dir, f'test_analysis.png')
+    save_path = os.path.join(result_dir, f'result_{model_base_name}.png')
     plt.savefig(save_path, dpi=150, bbox_inches='tight')
     plt.close()
     print(f"Visualization saved -> {save_path}")
@@ -183,7 +216,7 @@ def test_model(model_path=None):
         dong_df   = pd.read_excel(dong_path)
         dongs     = dong_df['dong_code'].values
         df_pred   = pd.DataFrame(np.maximum(pred_full, 0), index=dongs, columns=dongs)
-        csv_path  = os.path.join(current_dir, 'predicted_OD_matrix.csv')
+        csv_path  = os.path.join(result_dir, f'predicted_OD_matrix_{model_base_name}.csv')
         df_pred.to_csv(csv_path)
         print(f"Full OD matrix saved -> {csv_path}")
     except Exception as e:
@@ -196,6 +229,10 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_path', type=str, default=None, help='가중치 경로 직접 지정 (선택)')
+    parser.add_argument('--od_embed_layers', type=int, default=2)
+    parser.add_argument('--use_friction', type=str, default='True')
     args = parser.parse_args()
+    
+    use_friction_bool = str(args.use_friction).lower() in ("yes", "true", "t", "1")
 
-    test_model(model_path=args.model_path)
+    test_model(model_path=args.model_path, use_friction=use_friction_bool, od_embed_layers=args.od_embed_layers)

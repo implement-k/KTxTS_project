@@ -11,7 +11,11 @@ class SpatialODMAE(nn.Module):
             nn.GELU(),
             nn.Linear(d_model, d_model)
         )
-        self.od_embed = nn.Linear(num_nodes * 2, d_model)
+        self.od_embed = nn.Sequential(
+            nn.Linear(num_nodes * 2, d_model * 2),
+            nn.GELU(),
+            nn.Linear(d_model * 2, d_model)       
+        )
         
         # OD 정보의 반영 비율을 조절하는 Learnable Gating Network
         self.od_gate = nn.Sequential(

@@ -23,9 +23,9 @@ def main():
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
     parser.add_argument('--loss_type', type=str, default='weighted_mse', choices=['weighted_mse', 'hybrid', 'huber']) # v1, v2, v3: weighted_mse
-    parser.add_argument('--od_embed_layers', type=int, default=3)                   # v1: 1, v2: 2, v3: 3
-    parser.add_argument('--use_friction', type=str2bool, default=True)              # v1, v2: False, v3: True
-    parser.add_argument('--use_self_loop_predictor', type=str2bool, default=True)   # v1: False, v2, v3: True
+    parser.add_argument('--od_embed_layers', type=int, default=3)                   # v1: 1, v2: 2, v3, v4: 3
+    parser.add_argument('--use_friction', type=str2bool, default=True)              # v1, v2, v3: False, v4: True
+    parser.add_argument('--use_self_loop_predictor', type=str2bool, default=True)   # v1: False, v2, v3, v4: True
     parser.add_argument('--use_wandb', type=str2bool, default=False)
     args = parser.parse_args()
     

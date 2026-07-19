@@ -32,6 +32,15 @@ if __name__ == '__main__':
         elif model_version == 'v3':
             sys.argv = [
                 'main.py',
+                '--use_friction', 'False',         
+                '--od_embed_layers', '3',     
+                '--use_self_loop_predictor', 'True',
+                '--loss_type', 'weighted_mse',
+                '--use_wandb', 'True'          
+            ]
+        elif model_version == 'v4':
+            sys.argv = [
+                'main.py',
                 '--use_friction', 'True',         
                 '--od_embed_layers', '3',     
                 '--use_self_loop_predictor', 'True',

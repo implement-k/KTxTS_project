@@ -17,7 +17,7 @@ def validate_mae(model, dataset, val_indices, criterion, device):
     val_mask_np = np.zeros(dataset.num_nodes, dtype=bool)
     val_mask_np[val_indices] = True
 
-    X_static_masked = dataset.masking_static_features(dataset.X_static, val_indices, dataset.masking_indices)
+    X_static_masked = dataset.mask_static_features(dataset.X_static, val_indices, dataset.masking_indices)
 
     X_OD_masked = dataset.X_OD.copy()
     X_OD_masked[val_mask_np, :] = 0

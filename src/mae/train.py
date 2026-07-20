@@ -24,7 +24,7 @@ def str2bool(v):
     return str(v).lower() in ("yes", "true", "t", "1")
 
 def main():
-    print("test v9")
+    print("test v9.2")
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
@@ -92,7 +92,7 @@ def main():
         train_loss = 0
 
         pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs} " f"[Mask:{current_mask_size} α:{current_alpha:.1f}]")
-        for step, batch in enumerate(train_loader):
+        for step, batch in enumerate(pbar):
             # DataLoader가 반환한 값은 (1, B, N, ...) 형태이므로 squeeze(0) 수행
             x_static = batch['X_static'].squeeze(0).to(device)
             x_dist = batch['X_dist'].squeeze(0).to(device)

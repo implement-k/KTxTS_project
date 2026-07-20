@@ -29,14 +29,12 @@ def main():
     code2name = dict(zip(dongs, names))
     
     pred_path_v7 = os.path.join(current_dir, 'result', 'predicted_OD_matrix_mae_cpc:v7.csv')
-    pred_path_v2 = os.path.join(current_dir, 'result', 'predicted_OD_matrix_mae:v2.csv')
     
-    if not os.path.exists(pred_path_v7) or not os.path.exists(pred_path_v2):
+    if not os.path.exists(pred_path_v7):
         print("Error: Required prediction CSV not found.")
         return
         
-    pred_matrix_v7 = pd.read_csv(pred_path_v7, header=None).values
-    pred_matrix_v2 = pd.read_csv(pred_path_v2, header=None).values
+    pred_matrix_v7 = pd.read_csv(pred_path_v7, index_col=0, header=0).values
     true_matrix = dataset.X_OD
     
     test_indices = dataset.test_indices
@@ -58,13 +56,11 @@ def main():
         # 1. Outgoing (출발) 통행량 비교
         true_out = true_matrix[idx, :]
         pred_out_v7 = pred_matrix_v7[idx, :]
-        pred_out_v2 = pred_matrix_v2[idx, :]
         
         # 통행량이 많은 상위 50개 타겟 동만 정렬해서 시각화
         sort_out_idx = np.argsort(true_out)[::-1][:50]
         
         axes[i, 0].plot(true_out[sort_out_idx], label='True (실제)', color='blue', alpha=0.7, marker='o', markersize=3)
-        axes[i, 0].plot(pred_out_v2[sort_out_idx], label='mae:v2 예측', color='green', alpha=0.7, linestyle='--', marker='s', markersize=3)
         axes[i, 0].plot(pred_out_v7[sort_out_idx], label='mae:v7 (하이브리드) 예측', color='red', alpha=0.7, marker='x', markersize=3)
         axes[i, 0].set_title(f'[{dong_name}] 출발(Outgoing) 통행량 - 상위 50개 타겟')
         axes[i, 0].set_ylabel('통행량')
@@ -74,12 +70,10 @@ def main():
         # 2. Incoming (도착) 통행량 비교
         true_in = true_matrix[:, idx]
         pred_in_v7 = pred_matrix_v7[:, idx]
-        pred_in_v2 = pred_matrix_v2[:, idx]
         
         sort_in_idx = np.argsort(true_in)[::-1][:50]
         
         axes[i, 1].plot(true_in[sort_in_idx], label='True (실제)', color='blue', alpha=0.7, marker='o', markersize=3)
-        axes[i, 1].plot(pred_in_v2[sort_in_idx], label='mae:v2 예측', color='green', alpha=0.7, linestyle='--', marker='s', markersize=3)
         axes[i, 1].plot(pred_in_v7[sort_in_idx], label='mae:v7 (하이브리드) 예측', color='red', alpha=0.7, marker='x', markersize=3)
         axes[i, 1].set_title(f'[{dong_name}] 도착(Incoming) 통행량 - 상위 50개 타겟')
         axes[i, 1].set_ylabel('통행량')

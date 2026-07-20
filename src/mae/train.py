@@ -90,22 +90,29 @@ def main():
             y_od = batch['y_OD'].to(device)
 
             optimizer.zero_grad()
-            pred = model(x_static, x_od_masked, x_dist, mask)
+            pred_od, pred_static = model(x_static, x_od_masked, x_dist, mask)
             
-            diag_mask = torch.eye(dataset.num_nodes, device=device, dtype=torch.bool).unsqueeze(0).expand(pred.shape[0], -1, -1)
+            diag_mask = torch.eye(dataset.num_nodes, device=device, dtype=torch.bool).unsqueeze(0).expand(pred_od.shape[0], -1, -1)
             mask_2d = mask.unsqueeze(1) | mask.unsqueeze(2)
 
             if args.lambda_diag < 0:
-                # 원래 방식: 대각/비대각 구분 없이 한 번에 평균
-                loss = criterion(pred, y_od, current_alpha, mask_2d)
+                loss_od = criterion(pred_od, y_od, current_alpha, mask_2d)
             else:
                 valid_diag_mask = diag_mask & mask_2d
                 valid_offdiag_mask = (~diag_mask) & mask_2d
                 
-                loss_diag = criterion(pred, y_od, current_alpha, valid_diag_mask) if valid_diag_mask.any() else 0.0
-                loss_offdiag = criterion(pred, y_od, current_alpha, valid_offdiag_mask) if valid_offdiag_mask.any() else 0.0
+                loss_diag = criterion(pred_od, y_od, current_alpha, valid_diag_mask) if valid_diag_mask.any() else 0.0
+                loss_offdiag = criterion(pred_od, y_od, current_alpha, valid_offdiag_mask) if valid_offdiag_mask.any() else 0.0
                 
-                loss = loss_offdiag + (args.lambda_diag * loss_diag)
+                loss_od = loss_offdiag + (args.lambda_diag * loss_diag)
+                
+            # Static Feature Loss (MSE on masked nodes)
+            if mask.any():
+                loss_static = torch.nn.functional.mse_loss(pred_static[mask], x_static[mask])
+            else:
+                loss_static = 0.0
+                
+            loss = loss_od + loss_static
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)

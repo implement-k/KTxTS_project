@@ -2,40 +2,30 @@ import torch
 import torch.nn as nn
 
 class SpatialODMAE(nn.Module):
-    def __init__(self, num_nodes, num_features=13, d_model=128, nhead=8, num_layers=4,
-                 od_embed_layers=2, use_distance_friction=True, use_self_loop_predictor=True, use_mask_channel=False):
+    def __init__(self, num_features=16, d_model=128, nhead=8, num_layers=4,
+                 use_distance_friction=True, use_self_loop_predictor=True):
+        """
+        Inductive Architecture for SpatialODMAE.
+        Does not depend on the number of nodes (N).
+        """
         super().__init__()
         self.use_distance_friction = use_distance_friction
-        self.od_embed_layers = od_embed_layers
         self.use_self_loop_predictor = use_self_loop_predictor
-        self.use_mask_channel = use_mask_channel
 
-        # X_static embeding: (B, N, F) -> (B, N, D) - leanable
-        # OD feature embedding: (B, N, 2N or 3N) -> (B, N, D) - leanable
+        # X_static embeding: (B, N, F) -> (B, N, D)
         self.feature_embed = nn.Sequential(
             nn.Linear(num_features, d_model),
             nn.GELU(),
             nn.Linear(d_model, d_model)
         )
         
-        od_in_dim = num_nodes * 3 if self.use_mask_channel else num_nodes * 2
-        
-        if self.od_embed_layers == 3:
-            self.od_embed = nn.Sequential(
-                nn.Linear(od_in_dim, d_model * 2),
-                nn.GELU(),
-                nn.Linear(d_model * 2, d_model),
-                nn.GELU(),
-                nn.Linear(d_model, d_model)
-            )
-        elif self.od_embed_layers == 2:
-            self.od_embed = nn.Sequential(
-                nn.Linear(od_in_dim, d_model * 2),
-                nn.GELU(),
-                nn.Linear(d_model * 2, d_model)
-            )
-        else:
-            self.od_embed = nn.Linear(od_in_dim, d_model)
+        # Structural OD feature embedding (Self-loop, Out-degree, In-degree, Mask indicator)
+        od_in_dim = 4
+        self.od_embed = nn.Sequential(
+            nn.Linear(od_in_dim, d_model * 2),
+            nn.GELU(),
+            nn.Linear(d_model * 2, d_model)
+        )
         
         # OD 정보의 반영 비율을 조절하는 Learnable Gating Network
         self.od_gate = nn.Sequential(
@@ -67,11 +57,18 @@ class SpatialODMAE(nn.Module):
         encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=d_model*4, batch_first=True)
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         
-        # decoder: (B, N, D) -> (B, N, 2N)
-        self.decoder = nn.Sequential(
+        # --- Auxiliary Task: Static Feature Decoder ---
+        self.static_decoder = nn.Sequential(
             nn.Linear(d_model, d_model),
             nn.GELU(),
-            nn.Linear(d_model, num_nodes * 2)
+            nn.Linear(d_model, num_features)
+        )
+        
+        # --- Inductive Task: Pairwise OD Decoder ---
+        self.pairwise_decoder = nn.Sequential(
+            nn.Linear(d_model * 2, d_model),
+            nn.GELU(),
+            nn.Linear(d_model, 1)
         )
 
     def forward(self, x_static, x_od_masked, x_dist, mask):
@@ -83,52 +80,43 @@ class SpatialODMAE(nn.Module):
         """
         B, N, _ = x_static.shape
             
-        row_feat = x_od_masked
-        col_feat = x_od_masked.transpose(1, 2)
+        # --- 1. Extract Structural Features from x_od_masked ---
+        idx = torch.arange(N, device=x_static.device)
+        self_loop = x_od_masked[:, idx, idx].unsqueeze(-1) # (B, N, 1)
+        out_degree = x_od_masked.sum(dim=-1).unsqueeze(-1) - self_loop # (B, N, 1)
+        in_degree = x_od_masked.sum(dim=-2).unsqueeze(-1) - self_loop  # (B, N, 1)
+        mask_feat = mask.float().unsqueeze(-1) # (B, N, 1)
         
-        if self.use_mask_channel:
-            mask_feat = mask.float().unsqueeze(1).expand_as(row_feat)
-            node_od_feat = torch.cat([row_feat, col_feat, mask_feat], dim=-1) # (B, N, 3N)
-        else:
-            node_od_feat = torch.cat([row_feat, col_feat], dim=-1) # (B, N, 2N)
+        node_od_feat = torch.cat([self_loop, out_degree, in_degree, mask_feat], dim=-1) # (B, N, 4)
         
-        # feat_emb: (B, N, D), od_emb: (B, N, D) - 임베딩
+        # --- 2. Embedding & Gating ---
         feat_emb = self.feature_embed(x_static) 
         od_emb = self.od_embed(node_od_feat)   
         
-        # mask_expanded = (B, N, D) 
         mask_expanded = mask.unsqueeze(-1).expand_as(od_emb)
         mask_token_expanded = self.mask_token.expand(B, N, -1)
-        
-        # 가려진 도시는 OD 정보만 마스크 토큰으로 치환
         od_emb_masked = torch.where(mask_expanded, mask_token_expanded, od_emb)
         
-        # combined: (B, N, 2D)
         combined = torch.cat([feat_emb, od_emb_masked], dim=-1)
-        
-        # (B, N, 2D) -> (B, N, D)
         gate_val = self.od_gate(combined) 
-        
-        # (B, N, D) - OD 정보의 반영 비율을 조절
         x = feat_emb + (gate_val * od_emb_masked)
         
-        # Bucketize distance
+        # --- 3. Transformer with Distance Bias ---
         distance_bins = torch.bucketize(x_dist, self.boundaries) # (B, N, N)
-        
-        # bias: (B, N, N, nhead) - 각 distance bin에 대해 nhead 차원의 bias를 가져옴
         bias = self.distance_bias(distance_bins) 
-        
-        # bias: (B, N, N, nhead) -> (B * nhead, N, N)
         bias = bias.permute(0, 3, 1, 2).reshape(B * self.nhead, N, N)
         
-        # Transformer (bias 적용)
         x = self.transformer(x, mask=bias) # (B, N, D)
         
-        # out: (B, N, 2N) - decode
-        out = self.decoder(x) 
+        # --- 4. Auxiliary Task: Predict Static Features ---
+        pred_static = self.static_decoder(x) # (B, N, F)
         
-        # 디코딩 결과를 Outgoing과 Incoming으로 나누고, Symmetric Agreement를 위해 평균
-        pred_od = (out[..., :N] + out[..., N:].transpose(1, 2)) / 2.0
+        # --- 5. Pairwise OD Decoding ---
+        x_row = x.unsqueeze(2).expand(B, N, N, -1) # (B, N, N, D)
+        x_col = x.unsqueeze(1).expand(B, N, N, -1) # (B, N, N, D)
+        pair_feat = torch.cat([x_row, x_col], dim=-1) # (B, N, N, 2D)
+        
+        pred_od = self.pairwise_decoder(pair_feat).squeeze(-1) # (B, N, N)
         
         if self.use_distance_friction:
             friction = self.distance_friction(distance_bins).squeeze(-1) # (B, N, N)
@@ -139,10 +127,8 @@ class SpatialODMAE(nn.Module):
         else:
             self_loop_pred = 0
 
-        # Batch 차원과 Node 차원을 위한 인덱스 생성
-        b_idx = torch.arange(B).unsqueeze(-1) # (B, 1)
-        n_idx = torch.arange(N).unsqueeze(0)  # (1, N)
-        
+        b_idx = torch.arange(B).unsqueeze(-1)
+        n_idx = torch.arange(N).unsqueeze(0)
         pred_od[b_idx, n_idx, n_idx] += self_loop_pred
         
-        return pred_od
+        return pred_od, pred_static

@@ -100,10 +100,10 @@ def test_model(model_path=None, use_friction=True, od_embed_layers=3, use_mask_c
             x_od_masked = batch['X_OD_masked'].to(device)
             y_od        = batch['y_OD'].to(device)
 
-            pred    = model(x_static, x_od_masked, x_dist, mask)
+            pred_od, _ = model(x_static, x_od_masked, x_dist, mask)
             mask_2d = mask.unsqueeze(1) | mask.unsqueeze(2)
 
-            pred_full = torch.expm1(pred[0]).cpu().numpy()  # (N, N) full matrix
+            pred_full = torch.expm1(pred_od[0]).cpu().numpy()  # (N, N) full matrix
             y_full = torch.expm1(y_od[0]).cpu().numpy()
 
             if use_lgbm_self_loop:

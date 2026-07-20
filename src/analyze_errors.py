@@ -26,6 +26,11 @@ def main():
     # 정적 변수 데이터프레임 로드
     static_df = pd.read_csv(STATIC_DATA_PATH)
     
+    # 밀도 파생변수 생성
+    static_df['worker_density'] = static_df['worker_count'] / (static_df['행정동전체면적_m2'] + 1e-5)
+    static_df['business_density'] = static_df['business_count'] / (static_df['행정동전체면적_m2'] + 1e-5)
+    static_df['station_density_지하철'] = static_df['station_count_지하철'] / (static_df['행정동전체면적_m2'] + 1e-5)
+    
     test_indices = dataset.test_indices
     
     results = []
@@ -41,19 +46,21 @@ def main():
         sort_out_idx = np.argsort(true_out)[::-1]
         mid_targets = sort_out_idx[5:50]
         
-        # 5~50 타겟에 대한 성능 (MAE)
         if len(mid_targets) > 0:
-            mae_5_50 = np.mean(np.abs(true_out[mid_targets] - pred_out[mid_targets]))
+            log_true = np.log1p(true_out[mid_targets])
+            log_pred = np.log1p(pred_out[mid_targets])
+            male_5_50 = np.mean(np.abs(log_true - log_pred))
+            mape_5_50 = np.mean(np.abs(true_out[mid_targets] - pred_out[mid_targets]) / (true_out[mid_targets] + 1e-5))
             mean_true = np.mean(true_out[mid_targets])
-            mape_5_50 = mae_5_50 / (mean_true + 1e-5)
         else:
-            mae_5_50 = 0
+            male_5_50 = 0
             mape_5_50 = 0
+            mean_true = 0
             
         results.append({
             'idx': idx,
             'dong_name': dong_name,
-            'mae_5_50': mae_5_50,
+            'male_5_50': male_5_50,
             'mape_5_50': mape_5_50,
             'mean_true_5_50': mean_true
         })
@@ -61,18 +68,18 @@ def main():
     res_df = pd.DataFrame(results)
     res_df = res_df.sort_values(by='mape_5_50', ascending=False)
     
-    print("=== Top 10 Dongs with Highest Error in Targets 5~50 ===")
-    print(res_df.head(10)[['dong_name', 'mae_5_50', 'mape_5_50', 'mean_true_5_50']])
+    print("=== Top 10 Dongs with Highest Error (MAPE) in Targets 5~50 ===")
+    print(res_df.head(10)[['dong_name', 'mape_5_50', 'male_5_50', 'mean_true_5_50']])
     
-    print("\n=== Top 10 Dongs with Lowest Error in Targets 5~50 ===")
-    print(res_df.tail(10)[['dong_name', 'mae_5_50', 'mape_5_50', 'mean_true_5_50']])
+    print("\n=== Top 10 Dongs with Lowest Error (MAPE) in Targets 5~50 ===")
+    print(res_df.tail(10)[['dong_name', 'mape_5_50', 'male_5_50', 'mean_true_5_50']])
     
     # Feature 비교
     high_err_indices = res_df.head(10)['idx'].values
     low_err_indices = res_df.tail(10)['idx'].values
     
-    high_err_features = static_df.iloc[high_err_indices].mean()
-    low_err_features = static_df.iloc[low_err_indices].mean()
+    high_err_features = static_df.iloc[high_err_indices].mean(numeric_only=True)
+    low_err_features = static_df.iloc[low_err_indices].mean(numeric_only=True)
     
     diff = (high_err_features - low_err_features) / (low_err_features.abs() + 1e-5)
     

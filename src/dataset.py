@@ -66,6 +66,11 @@ class ODDataset(Dataset):
         static_df = static_df.set_index('dong_code').reindex(dongs).reset_index()
         static_df.fillna(0, inplace=True)
         
+        # 밀도 파생변수 추가
+        static_df['worker_density'] = static_df['worker_count'] / (static_df['행정동전체면적_m2'] + 1e-5)
+        static_df['business_density'] = static_df['business_count'] / (static_df['행정동전체면적_m2'] + 1e-5)
+        static_df['station_density_지하철'] = static_df['station_count_지하철'] / (static_df['행정동전체면적_m2'] + 1e-5)
+        
         feature_cols = [c for c in static_df.columns if c not in ['dong_code', 'dong_name']]
         
         # 마스킹할 컬럼의 인덱스 탐색

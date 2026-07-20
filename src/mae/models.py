@@ -3,23 +3,26 @@ import torch.nn as nn
 
 class SpatialODMAE(nn.Module):
     def __init__(self, num_nodes, num_features=13, d_model=128, nhead=8, num_layers=4,
-                 od_embed_layers=2, use_distance_friction=True, use_self_loop_predictor=True):
+                 od_embed_layers=2, use_distance_friction=True, use_self_loop_predictor=True, use_mask_channel=False):
         super().__init__()
         self.use_distance_friction = use_distance_friction
         self.od_embed_layers = od_embed_layers
         self.use_self_loop_predictor = use_self_loop_predictor
+        self.use_mask_channel = use_mask_channel
 
         # X_static embeding: (B, N, F) -> (B, N, D) - leanable
-        # OD feature embedding: (B, N, 2N) -> (B, N, D) - leanable
+        # OD feature embedding: (B, N, 2N or 3N) -> (B, N, D) - leanable
         self.feature_embed = nn.Sequential(
             nn.Linear(num_features, d_model),
             nn.GELU(),
             nn.Linear(d_model, d_model)
         )
         
+        od_in_dim = num_nodes * 3 if self.use_mask_channel else num_nodes * 2
+        
         if self.od_embed_layers == 3:
             self.od_embed = nn.Sequential(
-                nn.Linear(num_nodes * 2, d_model * 2),
+                nn.Linear(od_in_dim, d_model * 2),
                 nn.GELU(),
                 nn.Linear(d_model * 2, d_model),
                 nn.GELU(),
@@ -27,12 +30,12 @@ class SpatialODMAE(nn.Module):
             )
         elif self.od_embed_layers == 2:
             self.od_embed = nn.Sequential(
-                nn.Linear(num_nodes * 2, d_model * 2),
+                nn.Linear(od_in_dim, d_model * 2),
                 nn.GELU(),
                 nn.Linear(d_model * 2, d_model)
             )
         else:
-            self.od_embed = nn.Linear(num_nodes * 2, d_model)
+            self.od_embed = nn.Linear(od_in_dim, d_model)
         
         # OD 정보의 반영 비율을 조절하는 Learnable Gating Network
         self.od_gate = nn.Sequential(
@@ -80,10 +83,14 @@ class SpatialODMAE(nn.Module):
         """
         B, N, _ = x_static.shape
             
-        # Note: Since x_od_masked is symmetric conceptually in how we gather, we just transpose
         row_feat = x_od_masked
         col_feat = x_od_masked.transpose(1, 2)
-        node_od_feat = torch.cat([row_feat, col_feat], dim=-1) # (B, N, 2N)
+        
+        if self.use_mask_channel:
+            mask_feat = mask.float().unsqueeze(1).expand_as(row_feat)
+            node_od_feat = torch.cat([row_feat, col_feat, mask_feat], dim=-1) # (B, N, 3N)
+        else:
+            node_od_feat = torch.cat([row_feat, col_feat], dim=-1) # (B, N, 2N)
         
         # feat_emb: (B, N, D), od_emb: (B, N, D) - 임베딩
         feat_emb = self.feature_embed(x_static) 

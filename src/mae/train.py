@@ -14,6 +14,8 @@ from tqdm import tqdm
 from loss import WeightedMSELoss, HybridWeightedMSELoss, HuberLoss
 import wandb
 from validation import validate_mae
+import lightgbm as lgb
+import numpy as np
 
 def str2bool(v):
     return str(v).lower() in ("yes", "true", "t", "1")
@@ -26,6 +28,9 @@ def main():
     parser.add_argument('--od_embed_layers', type=int, default=3)                   # v1: 1, v2: 2, v3, v4: 3
     parser.add_argument('--use_friction', type=str2bool, default=True)              # v1, v2, v3: False, v4: True
     parser.add_argument('--use_self_loop_predictor', type=str2bool, default=True)   # v1: False, v2, v3, v4: True
+    parser.add_argument('--lambda_diag', type=float, default=1.0)                   # v6: 50(수치상으로는 130이 맞긴함)
+    parser.add_argument('--use_lgbm_self_loop', type=str2bool, default=False)       # v7: True
+    parser.add_argument('--use_mask_channel', type=str2bool, default=False)         # v6~: True  
     parser.add_argument('--use_wandb', type=str2bool, default=False)
     args = parser.parse_args()
     
@@ -48,7 +53,8 @@ def main():
                          num_features=dataset.X_static.shape[1],
                          od_embed_layers=args.od_embed_layers,
                          use_distance_friction=args.use_friction,
-                         use_self_loop_predictor=args.use_self_loop_predictor).to(device)
+                         use_self_loop_predictor=args.use_self_loop_predictor,
+                         use_mask_channel=args.use_mask_channel).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
     total_steps = args.epochs * len(train_loader)
     scheduler = optim.lr_scheduler.OneCycleLR(
@@ -85,8 +91,21 @@ def main():
 
             optimizer.zero_grad()
             pred = model(x_static, x_od_masked, x_dist, mask)
+            
+            diag_mask = torch.eye(dataset.num_nodes, device=device, dtype=torch.bool).unsqueeze(0).expand(pred.shape[0], -1, -1)
             mask_2d = mask.unsqueeze(1) | mask.unsqueeze(2)
-            loss = criterion(pred, y_od, current_alpha, mask_2d)
+
+            if args.lambda_diag < 0:
+                # 원래 방식: 대각/비대각 구분 없이 한 번에 평균
+                loss = criterion(pred, y_od, current_alpha, mask_2d)
+            else:
+                valid_diag_mask = diag_mask & mask_2d
+                valid_offdiag_mask = (~diag_mask) & mask_2d
+                
+                loss_diag = criterion(pred, y_od, current_alpha, valid_diag_mask) if valid_diag_mask.any() else 0.0
+                loss_offdiag = criterion(pred, y_od, current_alpha, valid_offdiag_mask) if valid_offdiag_mask.any() else 0.0
+                
+                loss = loss_offdiag + (args.lambda_diag * loss_diag)
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -131,6 +150,22 @@ def main():
 
     print(f"\nTraining Complete. Best RMSE: {best_val_rmse:.2f} | Best CPC: {best_cpc:.4f}")
     
+    if args.use_lgbm_self_loop:
+        print("\nLGBM 모델 학습 시작")
+        
+        train_idx = dataset.train_indices
+        X_train_lgb = dataset.X_static[train_idx]
+        y_train_lgb = np.diag(dataset.X_OD)[train_idx]
+        
+        lgbm_model = lgb.LGBMRegressor(n_estimators=100, random_state=42)
+        lgbm_model.fit(X_train_lgb, y_train_lgb)
+        
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        lgbm_path = os.path.join(current_dir, '../best_model/best_lgbm_self_loop.txt')
+        os.makedirs(os.path.dirname(lgbm_path), exist_ok=True)
+        lgbm_model.booster_.save_model(lgbm_path)
+        print(f"LGBM 모델 저장: {lgbm_path}")
+
     if args.use_wandb: wandb.finish()
 
 if __name__ == '__main__':

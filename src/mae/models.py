@@ -104,12 +104,11 @@ class SpatialODMAE(nn.Module):
         mask_token_expanded = self.mask_token.expand(B, N, -1)
         x = torch.where(mask_expanded, mask_token_expanded, x)
         
-        # --- 3. Transformer with Distance Bias ---
-        distance_bins = torch.bucketize(x_dist, self.boundaries) # (B, N, N)
-        bias = self.distance_bias(distance_bins) 
-        bias = bias.permute(0, 3, 1, 2).reshape(B * self.nhead, N, N)
-        
-        x = self.transformer(x, mask=bias) # (B, N, D)
+        # --- 3. Transformer ---
+        # 주의: TransformerEncoderLayer에 3D mask(bias)를 전달하면 PyTorch의 FlashAttention 연산이 
+        # 비활성화되고 느린 연산(MathAttention)으로 fallback되어 OOM이나 엄청난 지연(30초+/배치)이 발생함.
+        # 공간적 거리 패널티는 디코더의 최종 예측값(distance_friction)에서 부여하므로 여기선 제거합니다.
+        x = self.transformer(x) # (B, N, D)
         
         # --- 4. Auxiliary Task: Predict Static Features ---
         pred_static = self.static_decoder(x) # (B, N, F)
@@ -122,6 +121,7 @@ class SpatialODMAE(nn.Module):
         pred_od = torch.bmm(q, k.transpose(1, 2)) / (q.size(-1) ** 0.5)
         
         if self.use_distance_friction:
+            distance_bins = torch.bucketize(x_dist, self.boundaries) # (B, N, N)
             friction = self.distance_friction(distance_bins).squeeze(-1) # (B, N, N)
             pred_od = pred_od + friction
         

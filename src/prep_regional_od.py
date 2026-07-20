@@ -3,6 +3,8 @@ import pandas as pd
 from config import DATA_DIR
 
 RAW_DIR = os.path.join(DATA_DIR, 'raw')
+PROCESSED_DIR = os.path.join(DATA_DIR, 'processed')
+os.makedirs(PROCESSED_DIR, exist_ok=True)
 regions = ['jeju', 'busan', 'daegu', 'daejeon', 'gwangju']
 
 def prep_regional_od():
@@ -12,7 +14,7 @@ def prep_regional_od():
             print(f"Skipping {region}, file not found: {od_path}")
             continue
             
-        out_path = os.path.join(DATA_DIR, f'od_{region}.csv')
+        out_path = os.path.join(PROCESSED_DIR, f'od_{region}.csv')
         if os.path.exists(out_path):
             print(f"Already exists: {out_path}")
             continue

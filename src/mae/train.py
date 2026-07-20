@@ -45,7 +45,7 @@ def main():
     all_regions = ['seoul', 'jeju', 'busan', 'daegu', 'daejeon', 'gwangju']
     regions = []
     for r in all_regions:
-        if r == 'seoul' or os.path.exists(os.path.join(DATA_DIR, f'od_{r}.csv')):
+        if r == 'seoul' or os.path.exists(os.path.join(DATA_DIR, 'processed', f'od_{r}.csv')):
             regions.append(r)
     
     print(f"학습에 사용할 지역 목록: {regions}")

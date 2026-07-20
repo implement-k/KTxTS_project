@@ -28,7 +28,7 @@ class ODDataset(Dataset):
 
     def _init_regional(self, region, use_log_transform):
         # 1. OD 데이터 로드
-        od_path = os.path.join(DATA_DIR, f'od_{region}.csv')
+        od_path = os.path.join(DATA_DIR, 'processed', f'od_{region}.csv')
         od_df = pd.read_csv(od_path)
         
         zones = sorted(list(set(od_df['출발'].unique()) | set(od_df['도착'].unique())))
@@ -51,7 +51,7 @@ class ODDataset(Dataset):
         
         self.X_OD[o_idx, d_idx] = calculated_total.values
         
-        # 2. Distance 매트릭스 로드
+        # Distance 매트릭스 로드
         dist_path = os.path.join(DATA_DIR, 'processed', f'{region}_dist.csv')
         dist_df = pd.read_csv(dist_path, index_col=0)
         self.X_dist = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
@@ -61,7 +61,7 @@ class ODDataset(Dataset):
                 if str(z1) in dist_df.index.astype(str) and str(z2) in dist_df.columns.astype(str):
                     self.X_dist[i, j] = dist_df.loc[z1, str(z2)] if str(z2) in dist_df.columns else dist_df.loc[str(z1), str(z2)]
         
-        # 3. Static Features 로드 (타 지역은 데이터가 없으므로 0으로 패딩)
+        # Static Features 로드 (타 지역은 데이터가 없으므로 0으로 패딩)
         seoul_static = pd.read_csv(STATIC_DATA_PATH)
         feature_cols = [c for c in seoul_static.columns if c not in ['dong_code', 'dong_name'] and not c.startswith('station_density') and c not in ['worker_density', 'business_density']]
         
@@ -238,6 +238,7 @@ class MultiRegionDataset(Dataset):
         for r in regions:
             self.datasets[r] = ODDataset(mode=mode, use_log_transform=use_log_transform, region_name=r)
             
+        # 서울 아닌 지역은 static feature 0으로 설정
         F = self.datasets['seoul'].X_static.shape[1]
         for r in regions:
             if r != 'seoul':
@@ -249,13 +250,14 @@ class MultiRegionDataset(Dataset):
         return self.length
         
     def __getitem__(self, idx):
+        # 학습 시에는 다른 지역의 od를 학습하도록
         if self.mode == 'train':
-            # seoul 50%, 타 지역 50% 정도 섞기
             if np.random.rand() < 0.5 or len(self.regions) == 1:
                 region = 'seoul'
             else:
                 other_regions = [r for r in self.regions if r != 'seoul']
                 region = np.random.choice(other_regions)
+        # test 시에는 수도권만 예측
         else:
             region = 'seoul'
             

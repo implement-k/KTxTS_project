@@ -152,14 +152,11 @@ class ODDataset(Dataset):
         X_OD_masked[mask, :] = 0
         X_OD_masked[:, mask] = 0
         
-        # Static Feature Dynamic Masking
-        X_static_masked = self.X_static.copy()
-        for m_idx in self.masking_indices:
-            X_static_masked[mask, m_idx] = 0.0
-        X_static_masked[mask, -1] = 1.0 # is_masked indicator
+        # Static Feature Dynamic Masking (실제 마스킹은 모델 내부에서 mask_token으로 대체됨)
+        # Loss 계산을 위해 Ground Truth(원본) 그대로 반환
         
         return {
-            'X_static': torch.tensor(X_static_masked, dtype=torch.float32),
+            'X_static': torch.tensor(self.X_static, dtype=torch.float32),
             'X_dist': torch.tensor(self.X_dist, dtype=torch.float32),
             'X_OD_masked': torch.tensor(X_OD_masked, dtype=torch.float32),
             'y_OD': torch.tensor(y_OD, dtype=torch.float32),

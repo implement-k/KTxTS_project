@@ -266,6 +266,7 @@ class MultiRegionDataset(Dataset):
         b_x_od_masked = []
         b_y_od = []
         b_mask = []
+        b_has_static = []
         
         B = self.batch_size if self.mode == 'train' else 1
         
@@ -276,11 +277,13 @@ class MultiRegionDataset(Dataset):
             b_x_od_masked.append(item['X_OD_masked'])
             b_y_od.append(item['y_OD'])
             b_mask.append(item['mask'])
+            b_has_static.append(torch.tensor(region == 'seoul', dtype=torch.bool))
             
         return {
             'X_static': torch.stack(b_x_static),
             'X_dist': torch.stack(b_x_dist),
             'X_OD_masked': torch.stack(b_x_od_masked),
             'y_OD': torch.stack(b_y_od),
-            'mask': torch.stack(b_mask)
+            'mask': torch.stack(b_mask),
+            'has_static': torch.stack(b_has_static)
         }

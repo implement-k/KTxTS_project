@@ -93,6 +93,7 @@ def main():
             x_od_masked = batch['X_OD_masked'].squeeze(0).to(device)
             y_od = batch['y_OD'].squeeze(0).to(device)
             mask = batch['mask'].squeeze(0).to(device)
+            has_static = batch['has_static'].squeeze(0).to(device)
             
             optimizer.zero_grad()
             pred_od, pred_static = model(x_static, x_od_masked, x_dist, mask)
@@ -111,8 +112,8 @@ def main():
                 
                 loss_od = loss_offdiag + (args.lambda_diag * loss_diag)
                 
-            # Static Feature Loss (MSE on masked nodes)
-            if mask.any():
+            # Static Feature Loss (MSE on masked nodes) - Only for regions with static features (Seoul)
+            if mask.any() and has_static.any():
                 loss_static = torch.nn.functional.mse_loss(pred_static[mask], x_static[mask])
             else:
                 loss_static = 0.0

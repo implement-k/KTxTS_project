@@ -149,6 +149,12 @@ class ODDataset(Dataset):
         
         # Masked OD 
         X_OD_masked = self.X_OD.copy()
+        
+        # 1. 치팅 방지: Test 지역의 OD는 항상 무조건 가리기
+        X_OD_masked[self.test_indices, :] = 0
+        X_OD_masked[:, self.test_indices] = 0
+        
+        # 2. 이번 Epoch에서 학습 타겟으로 선정된 랜덤 노드 가리기
         X_OD_masked[mask, :] = 0
         X_OD_masked[:, mask] = 0
         

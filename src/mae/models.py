@@ -64,12 +64,10 @@ class SpatialODMAE(nn.Module):
             nn.Linear(d_model, num_features)
         )
         
-        # --- Inductive Task: Pairwise OD Decoder ---
-        self.pairwise_decoder = nn.Sequential(
-            nn.Linear(d_model * 2, d_model),
-            nn.GELU(),
-            nn.Linear(d_model, 1)
-        )
+        # --- Inductive Task: Pairwise OD Decoder (Memory Efficient) ---
+        # OOM 방지를 위해 (B, N, N, 2D)를 생성하는 MLP 대신 Bilinear 내적(Q-K) 방식 사용
+        self.decoder_q = nn.Linear(d_model, d_model)
+        self.decoder_k = nn.Linear(d_model, d_model)
 
     def forward(self, x_static, x_od_masked, x_dist, mask):
         """
@@ -111,12 +109,12 @@ class SpatialODMAE(nn.Module):
         # --- 4. Auxiliary Task: Predict Static Features ---
         pred_static = self.static_decoder(x) # (B, N, F)
         
-        # --- 5. Pairwise OD Decoding ---
-        x_row = x.unsqueeze(2).expand(B, N, N, -1) # (B, N, N, D)
-        x_col = x.unsqueeze(1).expand(B, N, N, -1) # (B, N, N, D)
-        pair_feat = torch.cat([x_row, x_col], dim=-1) # (B, N, N, 2D)
+        # --- 5. Pairwise OD Decoding (Memory Efficient) ---
+        q = self.decoder_q(x) # (B, N, D)
+        k = self.decoder_k(x) # (B, N, D)
         
-        pred_od = self.pairwise_decoder(pair_feat).squeeze(-1) # (B, N, N)
+        # (B, N, D) @ (B, D, N) -> (B, N, N)
+        pred_od = torch.bmm(q, k.transpose(1, 2)) / (q.size(-1) ** 0.5)
         
         if self.use_distance_friction:
             friction = self.distance_friction(distance_bins).squeeze(-1) # (B, N, N)

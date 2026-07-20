@@ -104,7 +104,7 @@ def main():
             optimizer.zero_grad()
             pred_od, pred_static = model(x_static, x_od_masked, x_dist, mask)
             
-            diag_mask = torch.eye(dataset.num_nodes, device=device, dtype=torch.bool).unsqueeze(0).expand(pred_od.shape[0], -1, -1)
+            diag_mask = torch.eye(pred_od.shape[1], device=device, dtype=torch.bool).unsqueeze(0).expand(pred_od.shape[0], -1, -1)
             mask_2d = mask.unsqueeze(1) | mask.unsqueeze(2)
 
             if args.lambda_diag < 0:

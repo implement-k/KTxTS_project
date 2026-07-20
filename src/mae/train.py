@@ -2,7 +2,7 @@ import os
 os.environ["OMP_NUM_THREADS"] = "1"
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import TRAIN_CONFIG
+from config import TRAIN_CONFIG, DATA_DIR
 
 import argparse
 import torch
@@ -24,15 +24,15 @@ def str2bool(v):
     return str(v).lower() in ("yes", "true", "t", "1")
 
 def main():
-    print("test v8")
+    print("test v9")
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
-    parser.add_argument('--loss_type', type=str, default='weighted_mse', choices=['weighted_mse', 'hybrid', 'huber']) # v1, v2, v3: weighted_mse
-    parser.add_argument('--use_friction', type=str2bool, default=True)              # v1, v2, v3: False, v4: True
-    parser.add_argument('--use_self_loop_predictor', type=str2bool, default=True)   # v1: False, v2, v3, v4: True
-    parser.add_argument('--lambda_diag', type=float, default=1.0)                   # v6: 50(수치상으로는 130이 맞긴함)
-    parser.add_argument('--use_lgbm_self_loop', type=str2bool, default=False)       # v7: True
+    parser.add_argument('--loss_type', type=str, default='weighted_mse', choices=['weighted_mse', 'hybrid', 'huber']) 
+    parser.add_argument('--use_friction', type=str2bool, default=True)             
+    parser.add_argument('--use_self_loop_predictor', type=str2bool, default=True)  
+    parser.add_argument('--lambda_diag', type=float, default=1.0)                   
+    parser.add_argument('--use_lgbm_self_loop', type=str2bool, default=False)       
     parser.add_argument('--use_wandb', type=str2bool, default=False)
     args = parser.parse_args()
     
@@ -41,8 +41,14 @@ def main():
     print("선택된 argument:")
     for arg in vars(args): print(f"  {arg}: {getattr(args, arg)}")
 
-    # 사용 가능한 지역들 추가
-    regions = ['seoul', 'jeju', 'busan', 'daegu', 'daejeon', 'gwangju']
+    # 사용 가능한 지역들 추가 (실제 CSV 파일이 있는 지역만 필터링)
+    all_regions = ['seoul', 'jeju', 'busan', 'daegu', 'daejeon', 'gwangju']
+    regions = []
+    for r in all_regions:
+        if r == 'seoul' or os.path.exists(os.path.join(DATA_DIR, f'od_{r}.csv')):
+            regions.append(r)
+    
+    print(f"학습에 사용할 지역 목록: {regions}")
     dataset = MultiRegionDataset(regions=regions, batch_size=args.batch_size, mode='train')
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps'  if torch.backends.mps.is_available() else 'cpu')
     print(f"Using device: {device}")

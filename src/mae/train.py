@@ -8,11 +8,14 @@ import argparse
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from dataset import ODDataset
+from dataset import MultiRegionDataset
 from mae.models import SpatialODMAE
 from tqdm import tqdm
+try:
+    import wandb
+except ImportError:
+    wandb = None
 from loss import WeightedMSELoss, HybridWeightedMSELoss, HuberLoss
-import wandb
 from validation import validate_mae
 import lightgbm as lgb
 import numpy as np
@@ -21,16 +24,15 @@ def str2bool(v):
     return str(v).lower() in ("yes", "true", "t", "1")
 
 def main():
+    print("test v8")
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
     parser.add_argument('--loss_type', type=str, default='weighted_mse', choices=['weighted_mse', 'hybrid', 'huber']) # v1, v2, v3: weighted_mse
-    parser.add_argument('--od_embed_layers', type=int, default=3)                   # v1: 1, v2: 2, v3, v4: 3
     parser.add_argument('--use_friction', type=str2bool, default=True)              # v1, v2, v3: False, v4: True
     parser.add_argument('--use_self_loop_predictor', type=str2bool, default=True)   # v1: False, v2, v3, v4: True
     parser.add_argument('--lambda_diag', type=float, default=1.0)                   # v6: 50(수치상으로는 130이 맞긴함)
     parser.add_argument('--use_lgbm_self_loop', type=str2bool, default=False)       # v7: True
-    parser.add_argument('--use_mask_channel', type=str2bool, default=False)         # v6~: True  
     parser.add_argument('--use_wandb', type=str2bool, default=False)
     args = parser.parse_args()
     
@@ -39,22 +41,24 @@ def main():
     print("선택된 argument:")
     for arg in vars(args): print(f"  {arg}: {getattr(args, arg)}")
 
-    dataset = ODDataset(mode='train')
+    # 사용 가능한 지역들 추가
+    regions = ['seoul', 'jeju', 'busan', 'daegu', 'daejeon', 'gwangju']
+    dataset = MultiRegionDataset(regions=regions, batch_size=args.batch_size, mode='train')
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps'  if torch.backends.mps.is_available() else 'cpu')
     print(f"Using device: {device}")
 
     min_mask = TRAIN_CONFIG['min_mask_size']
     max_mask = TRAIN_CONFIG['max_mask_size']
 
-    # Validation 대상은 Test 도시 전체
-    val_indices = dataset.test_indices
-    train_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    model = SpatialODMAE(num_nodes=dataset.num_nodes, 
-                         num_features=dataset.X_static.shape[1],
-                         od_embed_layers=args.od_embed_layers,
+    # Validation 대상은 Test 도시 전체 (MultiRegionDataset의 seoul dataset에서 추출)
+    val_indices = dataset.datasets['seoul'].test_indices
+    # Dataset 내부에서 batch_size를 처리하므로 DataLoader는 batch_size=1로 둔다.
+    train_loader = DataLoader(dataset, batch_size=1, shuffle=True)
+    
+    # 모델 초기화 (seoul의 정적 피처 개수 기준)
+    model = SpatialODMAE(num_features=dataset.datasets['seoul'].X_static.shape[1],
                          use_distance_friction=args.use_friction,
-                         use_self_loop_predictor=args.use_self_loop_predictor,
-                         use_mask_channel=args.use_mask_channel).to(device)
+                         use_self_loop_predictor=args.use_self_loop_predictor).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
     total_steps = args.epochs * len(train_loader)
     scheduler = optim.lr_scheduler.OneCycleLR(
@@ -82,13 +86,14 @@ def main():
         train_loss = 0
 
         pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs} " f"[Mask:{current_mask_size} α:{current_alpha:.1f}]")
-        for batch in pbar:
-            x_static = batch['X_static'].to(device)
-            x_dist = batch['X_dist'].to(device)
-            mask = batch['mask'].to(device)
-            x_od_masked = batch['X_OD_masked'].to(device)
-            y_od = batch['y_OD'].to(device)
-
+        for step, batch in enumerate(train_loader):
+            # DataLoader가 반환한 값은 (1, B, N, ...) 형태이므로 squeeze(0) 수행
+            x_static = batch['X_static'].squeeze(0).to(device)
+            x_dist = batch['X_dist'].squeeze(0).to(device)
+            x_od_masked = batch['X_OD_masked'].squeeze(0).to(device)
+            y_od = batch['y_OD'].squeeze(0).to(device)
+            mask = batch['mask'].squeeze(0).to(device)
+            
             optimizer.zero_grad()
             pred_od, pred_static = model(x_static, x_od_masked, x_dist, mask)
             
@@ -127,7 +132,8 @@ def main():
 
         # Validation (2 epoch 마다)
         if epoch % 2 == 1 or epoch == args.epochs - 1:
-            v_loss, rmse, cpc = validate_mae(model, dataset, val_indices, criterion, device)
+            # validation은 seoul 데이터셋에 대해서만 평가
+            v_loss, rmse, cpc = validate_mae(model, dataset.datasets['seoul'], val_indices, criterion, device)
             print(f"  ➜ [Val] Loss: {v_loss:.4f} | RMSE: {rmse:.2f} | CPC: {cpc:.4f}")
             
             if args.use_wandb:

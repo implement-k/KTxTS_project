@@ -24,7 +24,7 @@ def str2bool(v):
     return str(v).lower() in ("yes", "true", "t", "1")
 
 def main():
-    print("test v9.2")
+    print("test v9.3")
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])

@@ -43,6 +43,10 @@ class SpatialODMAE(nn.Module):
         # Structural OD feature embedding (GCN)
         self.od_gcn = ODGCNLayer(d_model, d_model)
         
+        # Spatial Positional Encoding (물리적 거리를 활용한 위치 인코딩)
+        self.distance_scale = nn.Parameter(torch.tensor(1.0))
+        self.spe_proj = nn.Linear(d_model, d_model)
+        
         # 자기동 내부 통행량 직접 예측을 위한 작은 MLP
         if self.use_self_loop_predictor:
             self.self_loop_predictor = nn.Sequential(
@@ -87,27 +91,32 @@ class SpatialODMAE(nn.Module):
         mask: (B, N) boolean mask where True means masked (predict this)
         """
         B, N, _ = x_static.shape
-            
-        # --- 1. Embedding Static Features ---
-        feat_emb = self.feature_embed(x_static) # (B, N, D)
         
-        # --- 2. GCN 기반 Structural Features 추출 ---
-        # x_od_masked를 인접 행렬(A)로 사용하여 feat_emb를 섞음
-        od_emb = self.od_gcn(x_od_masked, feat_emb) # (B, N, D)
+        # 1. Static Features Embedding & Masking
+        feat_emb_raw = self.feature_embed(x_static) # (B, N, D)
         
-        # Residual Connection
-        x = feat_emb + od_emb
-        
-        
-        # Masking: 마스킹된 노드는 정적 변수와 구조적 특성을 모두 숨기고 mask_token으로 대체
-        mask_expanded = mask.unsqueeze(-1).expand_as(x)
+        # 마스킹된 노드는 정적 변수를 숨기고 mask_token으로 대체
+        mask_expanded = mask.unsqueeze(-1)
         mask_token_expanded = self.mask_token.expand(B, N, -1)
-        x = torch.where(mask_expanded, mask_token_expanded, x)
+        feat_emb = torch.where(mask_expanded, mask_token_expanded, feat_emb_raw)
+        
+        # 2. Structural Features 추출
+        # 마스킹된 노드는 x_od_masked에 연결이 끊겨 있으므로 메시지를 받지 못함
+        od_emb = self.od_gcn(x_od_masked, feat_emb) 
+        
+        # 3. Spatial Positional Encoding (SPE)
+        # 물리적 거리(x_dist)를 기반으로 주변 노드들의 feat_emb를 가중합하여 위치 정체성 부여
+        # 가까울수록 큰 가중치를 가짐 (마스킹된 노드도 물리적 위치 정보 획득 가능)
+        A_dist = torch.exp(- x_dist / (self.distance_scale ** 2 + 1e-5))
+        deg_dist = A_dist.sum(dim=-1, keepdim=True) + 1e-5
+        A_dist_norm = A_dist / deg_dist
+        spe = self.spe_proj(torch.bmm(A_dist_norm, feat_emb))
+        
+        # 4. 결합
+        x = feat_emb + od_emb + spe
         
         # --- 3. Transformer ---
-        # 주의: TransformerEncoderLayer에 3D mask(bias)를 전달하면 PyTorch의 FlashAttention 연산이 
-        # 비활성화되고 느린 연산(MathAttention)으로 fallback되어 OOM이나 엄청난 지연(30초+/배치)이 발생함.
-        # 공간적 거리 패널티는 디코더의 최종 예측값(distance_friction)에서 부여하므로 여기선 제거합니다.
+        # 공간적 위치 정체성(SPE)이 이미 부여되었으므로, FlashAttention을 정상적으로 사용
         x = self.transformer(x) # (B, N, D)
         
         # --- 4. Auxiliary Task: Predict Static Features ---

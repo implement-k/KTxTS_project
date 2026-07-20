@@ -91,13 +91,14 @@ class SpatialODMAE(nn.Module):
         feat_emb = self.feature_embed(x_static) 
         od_emb = self.od_embed(node_od_feat)   
         
-        mask_expanded = mask.unsqueeze(-1).expand_as(od_emb)
-        mask_token_expanded = self.mask_token.expand(B, N, -1)
-        od_emb_masked = torch.where(mask_expanded, mask_token_expanded, od_emb)
-        
-        combined = torch.cat([feat_emb, od_emb_masked], dim=-1)
+        combined = torch.cat([feat_emb, od_emb], dim=-1)
         gate_val = self.od_gate(combined) 
-        x = feat_emb + (gate_val * od_emb_masked)
+        x = feat_emb + (gate_val * od_emb)
+        
+        # Masking: 마스킹된 노드는 정적 변수와 구조적 특성을 모두 숨기고 mask_token으로 대체
+        mask_expanded = mask.unsqueeze(-1).expand_as(x)
+        mask_token_expanded = self.mask_token.expand(B, N, -1)
+        x = torch.where(mask_expanded, mask_token_expanded, x)
         
         # --- 3. Transformer with Distance Bias ---
         distance_bins = torch.bucketize(x_dist, self.boundaries) # (B, N, N)

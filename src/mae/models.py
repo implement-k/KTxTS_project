@@ -1,6 +1,27 @@
 import torch
 import torch.nn as nn
 
+class ODGCNLayer(nn.Module):
+    def __init__(self, in_dim, out_dim):
+        super().__init__()
+        self.W = nn.Linear(in_dim, out_dim, bias=False)
+        self.act = nn.GELU()
+
+    def forward(self, A, H):
+        """
+        A: (B, N, N) Weighted adjacency matrix (e.g. OD flows)
+        H: (B, N, in_dim) Node features
+        """
+        # 정규화: out-degree(row sum) 기준으로 메시지 스케일을 맞춥니다.
+        # +1e-5는 분모가 0이 되는 것을 방지
+        deg = A.sum(dim=-1, keepdim=True) + 1e-5
+        A_norm = A / deg
+        
+        # 메시지 패싱: (B, N, N) @ (B, N, in_dim) -> (B, N, in_dim)
+        msg = torch.bmm(A_norm, H)
+        out = self.act(self.W(msg))
+        return out
+
 class SpatialODMAE(nn.Module):
     def __init__(self, num_features=16, d_model=128, nhead=8, num_layers=4,
                  use_distance_friction=True, use_self_loop_predictor=True):
@@ -19,19 +40,8 @@ class SpatialODMAE(nn.Module):
             nn.Linear(d_model, d_model)
         )
         
-        # Structural OD feature embedding (Self-loop, Out-degree, In-degree, Mask indicator)
-        od_in_dim = 4
-        self.od_embed = nn.Sequential(
-            nn.Linear(od_in_dim, d_model * 2),
-            nn.GELU(),
-            nn.Linear(d_model * 2, d_model)
-        )
-        
-        # OD 정보의 반영 비율을 조절하는 Learnable Gating Network
-        self.od_gate = nn.Sequential(
-            nn.Linear(d_model * 2, d_model),
-            nn.Sigmoid()
-        )
+        # Structural OD feature embedding (GCN)
+        self.od_gcn = ODGCNLayer(d_model, d_model)
         
         # 자기동 내부 통행량 직접 예측을 위한 작은 MLP
         if self.use_self_loop_predictor:
@@ -78,22 +88,16 @@ class SpatialODMAE(nn.Module):
         """
         B, N, _ = x_static.shape
             
-        # --- 1. Extract Structural Features from x_od_masked ---
-        idx = torch.arange(N, device=x_static.device)
-        self_loop = x_od_masked[:, idx, idx].unsqueeze(-1) # (B, N, 1)
-        out_degree = x_od_masked.sum(dim=-1).unsqueeze(-1) - self_loop # (B, N, 1)
-        in_degree = x_od_masked.sum(dim=-2).unsqueeze(-1) - self_loop  # (B, N, 1)
-        mask_feat = mask.float().unsqueeze(-1) # (B, N, 1)
+        # --- 1. Embedding Static Features ---
+        feat_emb = self.feature_embed(x_static) # (B, N, D)
         
-        node_od_feat = torch.cat([self_loop, out_degree, in_degree, mask_feat], dim=-1) # (B, N, 4)
+        # --- 2. GCN 기반 Structural Features 추출 ---
+        # x_od_masked를 인접 행렬(A)로 사용하여 feat_emb를 섞음
+        od_emb = self.od_gcn(x_od_masked, feat_emb) # (B, N, D)
         
-        # --- 2. Embedding & Gating ---
-        feat_emb = self.feature_embed(x_static) 
-        od_emb = self.od_embed(node_od_feat)   
+        # Residual Connection
+        x = feat_emb + od_emb
         
-        combined = torch.cat([feat_emb, od_emb], dim=-1)
-        gate_val = self.od_gate(combined) 
-        x = feat_emb + (gate_val * od_emb)
         
         # Masking: 마스킹된 노드는 정적 변수와 구조적 특성을 모두 숨기고 mask_token으로 대체
         mask_expanded = mask.unsqueeze(-1).expand_as(x)

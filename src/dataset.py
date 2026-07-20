@@ -54,13 +54,13 @@ class ODDataset(Dataset):
         # Distance 매트릭스 로드
         dist_path = os.path.join(DATA_DIR, 'processed', f'{region}_dist.csv')
         dist_df = pd.read_csv(dist_path, index_col=0)
-        self.X_dist = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
+        # Convert index and columns to string for safe matching
+        dist_df.index = dist_df.index.astype(str)
+        dist_df.columns = dist_df.columns.astype(str)
+        str_zones = [str(z) for z in zones]
         
-        for i, z1 in enumerate(zones):
-            for j, z2 in enumerate(zones):
-                if str(z1) in dist_df.index.astype(str) and str(z2) in dist_df.columns.astype(str):
-                    self.X_dist[i, j] = dist_df.loc[z1, str(z2)] if str(z2) in dist_df.columns else dist_df.loc[str(z1), str(z2)]
-        
+        # Extract the submatrix efficiently using reindex
+        self.X_dist = dist_df.reindex(index=str_zones, columns=str_zones, fill_value=0.0).values.astype(np.float32)
         # Static Features 로드 (타 지역은 데이터가 없으므로 0으로 패딩)
         seoul_static = pd.read_csv(STATIC_DATA_PATH)
         feature_cols = [c for c in seoul_static.columns if c not in ['dong_code', 'dong_name'] and not c.startswith('station_density') and c not in ['worker_density', 'business_density']]

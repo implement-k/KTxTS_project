@@ -248,6 +248,16 @@ class MultiRegionDataset(Dataset):
 
     def __len__(self):
         return self.length
+
+    @property
+    def max_mask_size(self):
+        return getattr(self, '_max_mask_size', 1)
+
+    @max_mask_size.setter
+    def max_mask_size(self, value):
+        self._max_mask_size = value
+        for ds in self.datasets.values():
+            ds.max_mask_size = value
         
     def __getitem__(self, idx):
         # 학습 시에는 다른 지역의 od를 학습하도록

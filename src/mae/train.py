@@ -24,7 +24,7 @@ def str2bool(v):
     return str(v).lower() in ("yes", "true", "t", "1")
 
 def main():
-    print("test v9.4")
+    print("test v9-1")
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
@@ -34,7 +34,7 @@ def main():
     parser.add_argument('--lambda_diag', type=float, default=1.0)                   
     parser.add_argument('--use_lgbm_self_loop', type=str2bool, default=False)       
     parser.add_argument('--use_wandb', type=str2bool, default=False)
-    parser.add_argument('--resume', type=str2bool, default=False, help="Resume training from latest checkpoint")
+    parser.add_argument('--resume', type=str2bool, default=False, help="이전 checkpoint로부터 이어서 시작")
     args = parser.parse_args()
     
     if args.use_wandb: wandb.init(project="SpatialODMAE", config=vars(args))
@@ -42,7 +42,7 @@ def main():
     print("선택된 argument:")
     for arg in vars(args): print(f"  {arg}: {getattr(args, arg)}")
 
-    # 사용 가능한 지역들 추가 (실제 CSV 파일이 있는 지역만 필터링)
+    # 사용 가능한 지역들 추가 (CSV 파일이 있는 지역만 필터링)
     all_regions = ['seoul', 'jeju', 'busan', 'daegu', 'daejeon', 'gwangju']
     regions = []
     for r in all_regions:
@@ -57,9 +57,9 @@ def main():
     min_mask = TRAIN_CONFIG['min_mask_size']
     max_mask = TRAIN_CONFIG['max_mask_size']
 
-    # Validation 대상은 Test 도시 전체 (MultiRegionDataset의 seoul dataset에서 추출)
+    # validation은 seoul 데이터 셋에만 있음(동탄, 위례, 검단)
     val_indices = dataset.datasets['seoul'].test_indices
-    # Dataset 내부에서 batch_size를 처리하므로 DataLoader는 batch_size=1로 둔다.
+    # Dataset 내부에서 batch_size를 처리하므로 DataLoader는 batch_size=1로 둬야함.
     train_loader = DataLoader(dataset, batch_size=1, shuffle=True)
     
     # 모델 초기화 (seoul의 정적 피처 개수 기준)
@@ -96,11 +96,12 @@ def main():
             start_epoch = checkpoint['epoch'] + 1
             best_val_rmse = checkpoint.get('best_val_rmse', float('inf'))
             best_cpc = checkpoint.get('best_cpc', 0.0)
-            print(f"Resumed successfully. Starting at epoch {start_epoch}. Best RMSE: {best_val_rmse:.2f}, Best CPC: {best_cpc:.4f}")
+            print(f"재개 성공. epoch: {start_epoch}. Best RMSE: {best_val_rmse:.2f}, Best CPC: {best_cpc:.4f}")
         else:
-            print("No checkpoint_latest.pth found. Starting from scratch.")
+            print("체크포인트 없음. 처음부터 시작")
 
     for epoch in range(start_epoch, args.epochs):
+        # mask size 결정 매 epoch 마다 (min_mask ~ current_mask_size)사이에서 마스크 크기 결정
         progress = epoch / max(1, args.epochs - 1)
         current_mask_size = int(min_mask + (max_mask - min_mask) * progress)
         dataset.max_mask_size = current_mask_size

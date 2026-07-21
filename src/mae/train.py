@@ -24,7 +24,7 @@ def str2bool(v):
     return str(v).lower() in ("yes", "true", "t", "1")
 
 def main():
-    print("test v9.3")
+    print("test v9.4")
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
@@ -113,16 +113,17 @@ def main():
                 valid_diag_mask = diag_mask & mask_2d
                 valid_offdiag_mask = (~diag_mask) & mask_2d
                 
-                loss_diag = criterion(pred_od, y_od, current_alpha, valid_diag_mask) if valid_diag_mask.any() else 0.0
-                loss_offdiag = criterion(pred_od, y_od, current_alpha, valid_offdiag_mask) if valid_offdiag_mask.any() else 0.0
+                loss_diag = criterion(pred_od, y_od, current_alpha, valid_diag_mask)
+                loss_offdiag = criterion(pred_od, y_od, current_alpha, valid_offdiag_mask)
                 
                 loss_od = loss_offdiag + (args.lambda_diag * loss_diag)
                 
             # Static Feature Loss (MSE on masked nodes) - Only for regions with static features (Seoul)
-            if mask.any() and has_static.any():
-                loss_static = torch.nn.functional.mse_loss(pred_static[mask], x_static[mask])
-            else:
-                loss_static = 0.0
+            # GPU-CPU Sync(병목) 방지를 위해 마스크를 Float로 변환하여 계산
+            B_s, N_s, F_s = x_static.shape
+            raw_loss_static = torch.nn.functional.mse_loss(pred_static, x_static, reduction='none')
+            combined_mask = mask.float().unsqueeze(-1) * has_static.float().view(B_s, 1, 1)
+            loss_static = (raw_loss_static * combined_mask).sum() / (combined_mask.sum() + 1e-8)
                 
             loss = loss_od + loss_static
 

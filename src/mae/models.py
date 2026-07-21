@@ -7,15 +7,21 @@ class ODGCNLayer(nn.Module):
         self.W = nn.Linear(in_dim, out_dim, bias=False)
         self.act = nn.GELU()
 
-    def forward(self, A, H):
+    def forward(self, A, H, observed_mask):
         """
         A: (B, N, N) Weighted adjacency matrix (e.g. OD flows)
         H: (B, N, in_dim) Node features
+        observed_mask: (B, N, N) Boolean or float mask where 1/True means observed, 0/False means masked
         """
+        # 관측된 데이터에 대해서만 메시지를 전달하도록 마스킹 적용
+        A_effective = A * observed_mask.float()
+        
         # 정규화: out-degree(row sum) 기준으로 메시지 스케일을 맞춥니다.
-        # +1e-5는 분모가 0이 되는 것을 방지
-        deg = A.sum(dim=-1, keepdim=True) + 1e-5
-        A_norm = A / deg
+        # 단순히 "흐름의 총량"으로 나누는 것이 아니라, 
+        # "관측된(유효한) 엣지들의 흐름 총량"을 기반으로 정규화하여 
+        # 마스킹으로 인해 흐름이 0이 된 경우와 원래 흐름이 없는 경우를 구분합니다.
+        deg = A_effective.sum(dim=-1, keepdim=True) + 1e-5
+        A_norm = A_effective / deg
         
         # 메시지 패싱: (B, N, N) @ (B, N, in_dim) -> (B, N, in_dim)
         msg = torch.bmm(A_norm, H)
@@ -101,8 +107,13 @@ class SpatialODMAE(nn.Module):
         feat_emb = torch.where(mask_expanded, mask_token_expanded, feat_emb_raw)
         
         # 2. Structural Features 추출
+        # 관측 여부를 나타내는 2D 마스크 생성 (마스킹된 노드와 연결된 엣지는 False(0))
+        # mask: (B, N) 여기서 True가 마스킹(결측)을 의미하므로, 관측된 것은 ~mask
+        observed_1d = ~mask
+        observed_mask_2d = observed_1d.unsqueeze(1) & observed_1d.unsqueeze(2) # (B, N, N)
+        
         # 마스킹된 노드는 x_od_masked에 연결이 끊겨 있으므로 메시지를 받지 못함
-        od_emb = self.od_gcn(x_od_masked, feat_emb) 
+        od_emb = self.od_gcn(x_od_masked, feat_emb, observed_mask_2d) 
         
         # 3. Spatial Positional Encoding (SPE)
         # 물리적 거리(x_dist)를 기반으로 주변 노드들의 feat_emb를 가중합하여 위치 정체성 부여

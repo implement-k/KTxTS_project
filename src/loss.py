@@ -22,12 +22,13 @@ class WeightedMSELoss(nn.Module):
         super().__init__()
         
     def forward(self, pred, target, current_alpha, mask=None):
-        if mask is not None:
-            pred = pred[mask]
-            target = target[mask]
-            
         weight = 1.0 + current_alpha * target
         loss = ((pred - target) ** 2) * weight
+        if mask is not None:
+            mask_float = mask.float()
+            # Calculate mean only over the masked elements to avoid CPU-GPU sync
+            loss = (loss * mask_float).sum() / (mask_float.sum() + 1e-8)
+            return loss
         return loss.mean()
 
 class HybridWeightedMSELoss(nn.Module):

@@ -34,6 +34,7 @@ def main():
     parser.add_argument('--lambda_diag', type=float, default=1.0)                   
     parser.add_argument('--use_lgbm_self_loop', type=str2bool, default=False)       
     parser.add_argument('--use_wandb', type=str2bool, default=False)
+    parser.add_argument('--resume', type=str2bool, default=False, help="Resume training from latest checkpoint")
     args = parser.parse_args()
     
     if args.use_wandb: wandb.init(project="SpatialODMAE", config=vars(args))
@@ -81,8 +82,25 @@ def main():
     best_val_rmse = float('inf')
     best_cpc = 0.0
     best_model_path = 'best_model_mae.pth'
+    start_epoch = 0
 
-    for epoch in range(args.epochs):
+    if args.resume:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        latest_ckpt_path = os.path.join(current_dir, 'checkpoint_latest.pth')
+        if os.path.exists(latest_ckpt_path):
+            print(f"Resuming from {latest_ckpt_path}...")
+            checkpoint = torch.load(latest_ckpt_path, map_location=device)
+            model.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            start_epoch = checkpoint['epoch'] + 1
+            best_val_rmse = checkpoint.get('best_val_rmse', float('inf'))
+            best_cpc = checkpoint.get('best_cpc', 0.0)
+            print(f"Resumed successfully. Starting at epoch {start_epoch}. Best RMSE: {best_val_rmse:.2f}, Best CPC: {best_cpc:.4f}")
+        else:
+            print("No checkpoint_latest.pth found. Starting from scratch.")
+
+    for epoch in range(start_epoch, args.epochs):
         progress = epoch / max(1, args.epochs - 1)
         current_mask_size = int(min_mask + (max_mask - min_mask) * progress)
         dataset.max_mask_size = current_mask_size
@@ -168,6 +186,17 @@ def main():
                 print(f"  ➜ [Checkpoint] Best CPC saved! (RMSE:{rmse:.2f} CPC:{cpc:.4f})")
 
             model.train()
+            
+        # Save latest checkpoint for resuming
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state_dict': scheduler.state_dict(),
+            'best_val_rmse': best_val_rmse,
+            'best_cpc': best_cpc,
+        }, os.path.join(current_dir, 'checkpoint_latest.pth'))
 
     print(f"\nTraining Complete. Best RMSE: {best_val_rmse:.2f} | Best CPC: {best_cpc:.4f}")
     

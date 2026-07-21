@@ -133,7 +133,14 @@ class SpatialODMAE(nn.Module):
         
         # --- 3. Transformer ---
         # 사용자가 속도 차이가 크지 않다고 판단하여 distance_bias를 부활시킴 (FlashAttention 대신 MathAttention 사용)
-        x = self.transformer(x, distance_bias=x_dist) # (B, N, D)
+        distance_bins = torch.bucketize(x_dist, self.boundaries) # (B, N, N)
+        bias = self.distance_bias(distance_bins) # (B, N, N, nhead)
+        
+        # PyTorch TransformerEncoder mask shape requirement: (B * nhead, N, N)
+        B, N, _ = x_static.shape
+        bias = bias.permute(0, 3, 1, 2).reshape(B * self.nhead, N, N)
+        
+        x = self.transformer(x, mask=bias) # (B, N, D)
         
         # --- 4. Auxiliary Task: Predict Static Features ---
         pred_static = self.static_decoder(x) # (B, N, F)

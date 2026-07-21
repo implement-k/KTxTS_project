@@ -117,8 +117,13 @@ class SpatialODMAE(nn.Module):
         
         # 3. Spatial Positional Encoding (SPE)
         # 물리적 거리(x_dist)를 기반으로 주변 노드들의 feat_emb를 가중합하여 위치 정체성 부여
-        # 가까울수록 큰 가중치를 가짐 (마스킹된 노드도 물리적 위치 정보 획득 가능)
-        A_dist = torch.exp(- x_dist / (self.distance_scale ** 2 + 1e-5))
+        # 자기 자신(대각선)의 거리가 0이 되어 가중치가 1이 되는 현상(self-loop 붕괴) 방지
+        # 대각선을 0이 아닌 작은 근사값(0.5)으로 처리하여 지배적인 영향을 완화
+        x_dist_eff = x_dist.clone()
+        idx = torch.arange(N, device=x_dist.device)
+        x_dist_eff[:, idx, idx] = 0.5
+        
+        A_dist = torch.exp(- x_dist_eff / (self.distance_scale ** 2 + 1e-5))
         deg_dist = A_dist.sum(dim=-1, keepdim=True) + 1e-5
         A_dist_norm = A_dist / deg_dist
         spe = self.spe_proj(torch.bmm(A_dist_norm, feat_emb))
@@ -127,8 +132,8 @@ class SpatialODMAE(nn.Module):
         x = feat_emb + od_emb + spe
         
         # --- 3. Transformer ---
-        # 공간적 위치 정체성(SPE)이 이미 부여되었으므로, FlashAttention을 정상적으로 사용
-        x = self.transformer(x) # (B, N, D)
+        # 사용자가 속도 차이가 크지 않다고 판단하여 distance_bias를 부활시킴 (FlashAttention 대신 MathAttention 사용)
+        x = self.transformer(x, distance_bias=x_dist) # (B, N, D)
         
         # --- 4. Auxiliary Task: Predict Static Features ---
         pred_static = self.static_decoder(x) # (B, N, F)

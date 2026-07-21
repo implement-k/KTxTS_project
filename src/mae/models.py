@@ -4,7 +4,8 @@ import torch.nn as nn
 class ODGCNLayer(nn.Module):
     def __init__(self, in_dim, out_dim):
         super().__init__()
-        self.W = nn.Linear(in_dim, out_dim, bias=False)
+        self.W_out = nn.Linear(in_dim, out_dim // 2, bias=False)
+        self.W_in = nn.Linear(in_dim, out_dim // 2, bias=False)
         self.act = nn.GELU()
 
     def forward(self, A, H, observed_mask):
@@ -13,20 +14,23 @@ class ODGCNLayer(nn.Module):
         H: (B, N, in_dim) Node features
         observed_mask: (B, N, N) Boolean or float mask where 1/True means observed, 0/False means masked
         """
-        # 관측된 데이터에 대해서만 메시지를 전달하도록 마스킹 적용
-        A_effective = A * observed_mask.float()
+        # 1. Outgoing Message Passing (내가 어디로 나가는가)
+        A_out = A * observed_mask.float()
+        deg_out = A_out.sum(dim=-1, keepdim=True) + 1e-5
+        A_out_norm = A_out / deg_out
+        msg_out = torch.bmm(A_out_norm, H)
+        out_emb = self.act(self.W_out(msg_out))
         
-        # 정규화: out-degree(row sum) 기준으로 메시지 스케일을 맞춥니다.
-        # 단순히 "흐름의 총량"으로 나누는 것이 아니라, 
-        # "관측된(유효한) 엣지들의 흐름 총량"을 기반으로 정규화하여 
-        # 마스킹으로 인해 흐름이 0이 된 경우와 원래 흐름이 없는 경우를 구분합니다.
-        deg = A_effective.sum(dim=-1, keepdim=True) + 1e-5
-        A_norm = A_effective / deg
+        # 2. Incoming Message Passing (나에게 어디서 들어오는가)
+        # Transpose to get incoming edges
+        A_in = A.transpose(1, 2) * observed_mask.transpose(1, 2).float()
+        deg_in = A_in.sum(dim=-1, keepdim=True) + 1e-5
+        A_in_norm = A_in / deg_in
+        msg_in = torch.bmm(A_in_norm, H)
+        in_emb = self.act(self.W_in(msg_in))
         
-        # 메시지 패싱: (B, N, N) @ (B, N, in_dim) -> (B, N, in_dim)
-        msg = torch.bmm(A_norm, H)
-        out = self.act(self.W(msg))
-        return out
+        # Concat (B, N, out_dim // 2) + (B, N, out_dim // 2) -> (B, N, out_dim)
+        return torch.cat([out_emb, in_emb], dim=-1)
 
 class SpatialODMAE(nn.Module):
     def __init__(self, num_features=16, d_model=128, nhead=8, num_layers=4,
@@ -165,5 +169,9 @@ class SpatialODMAE(nn.Module):
         b_idx = torch.arange(B).unsqueeze(-1)
         n_idx = torch.arange(N).unsqueeze(0)
         pred_od[b_idx, n_idx, n_idx] += self_loop_pred
+        
+        # 딥러닝 내적 연산 특성상 음수가 나올 수 있으나, 
+        # 타겟 값인 log1p(flow)는 항상 0 이상의 양수이므로 Softplus를 통해 깔끔하게 제어
+        pred_od = torch.nn.functional.softplus(pred_od)
         
         return pred_od, pred_static

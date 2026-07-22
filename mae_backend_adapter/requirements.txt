@@ -1,0 +1,4 @@
+# 저장소의 기존 최소 버전과 안전한 weights_only 체크포인트 로딩 기준
+torch>=2.0.0
+lightgbm
+numpy

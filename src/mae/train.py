@@ -2,20 +2,17 @@ import os
 os.environ["OMP_NUM_THREADS"] = "1"
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import TRAIN_CONFIG, DATA_DIR
+from config import TRAIN_CONFIG
 
 import argparse
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from dataset import MultiRegionDataset
+from dataset import ODDataset
 from mae.models import SpatialODMAE
 from tqdm import tqdm
-try:
-    import wandb
-except ImportError:
-    wandb = None
 from loss import WeightedMSELoss, HybridWeightedMSELoss, HuberLoss
+import wandb
 from validation import validate_mae
 import lightgbm as lgb
 import numpy as np
@@ -24,17 +21,17 @@ def str2bool(v):
     return str(v).lower() in ("yes", "true", "t", "1")
 
 def main():
-    print("test v9-1")
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
-    parser.add_argument('--loss_type', type=str, default='weighted_mse', choices=['weighted_mse', 'hybrid', 'huber']) 
-    parser.add_argument('--use_friction', type=str2bool, default=True)             
-    parser.add_argument('--use_self_loop_predictor', type=str2bool, default=True)  
-    parser.add_argument('--lambda_diag', type=float, default=1.0)                   
-    parser.add_argument('--use_lgbm_self_loop', type=str2bool, default=False)       
+    parser.add_argument('--loss_type', type=str, default='weighted_mse', choices=['weighted_mse', 'hybrid', 'huber']) # v1, v2, v3: weighted_mse
+    parser.add_argument('--od_embed_layers', type=int, default=3)                   # v1: 1, v2: 2, v3, v4: 3
+    parser.add_argument('--use_friction', type=str2bool, default=True)              # v1, v2, v3: False, v4: True
+    parser.add_argument('--use_self_loop_predictor', type=str2bool, default=True)   # v1: False, v2, v3, v4: True
+    parser.add_argument('--lambda_diag', type=float, default=1.0)                   # v6: 50(수치상으로는 130이 맞긴함)
+    parser.add_argument('--use_lgbm_self_loop', type=str2bool, default=False)       # v7: True
+    parser.add_argument('--use_mask_channel', type=str2bool, default=False)         # v6~: True  
     parser.add_argument('--use_wandb', type=str2bool, default=False)
-    parser.add_argument('--resume', type=str2bool, default=False, help="이전 checkpoint로부터 이어서 시작")
     args = parser.parse_args()
     
     if args.use_wandb: wandb.init(project="SpatialODMAE", config=vars(args))
@@ -42,30 +39,22 @@ def main():
     print("선택된 argument:")
     for arg in vars(args): print(f"  {arg}: {getattr(args, arg)}")
 
-    # 사용 가능한 지역들 추가 (CSV 파일이 있는 지역만 필터링)
-    all_regions = ['seoul', 'jeju', 'busan', 'daegu', 'daejeon', 'gwangju']
-    regions = []
-    for r in all_regions:
-        if r == 'seoul' or os.path.exists(os.path.join(DATA_DIR, 'processed', f'od_{r}.csv')):
-            regions.append(r)
-    
-    print(f"학습에 사용할 지역 목록: {regions}")
-    dataset = MultiRegionDataset(regions=regions, batch_size=args.batch_size, mode='train')
+    dataset = ODDataset(mode='train')
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps'  if torch.backends.mps.is_available() else 'cpu')
     print(f"Using device: {device}")
 
     min_mask = TRAIN_CONFIG['min_mask_size']
     max_mask = TRAIN_CONFIG['max_mask_size']
 
-    # validation은 seoul 데이터 셋에만 있음(동탄, 위례, 검단)
-    val_indices = dataset.datasets['seoul'].test_indices
-    # Dataset 내부에서 batch_size를 처리하므로 DataLoader는 batch_size=1로 둬야함.
-    train_loader = DataLoader(dataset, batch_size=1, shuffle=True)
-    
-    # 모델 초기화 (seoul의 정적 피처 개수 기준)
-    model = SpatialODMAE(num_features=dataset.datasets['seoul'].X_static.shape[1],
+    # Validation 대상은 Test 도시 전체
+    val_indices = dataset.test_indices
+    train_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    model = SpatialODMAE(num_nodes=dataset.num_nodes, 
+                         num_features=dataset.X_static.shape[1],
+                         od_embed_layers=args.od_embed_layers,
                          use_distance_friction=args.use_friction,
-                         use_self_loop_predictor=args.use_self_loop_predictor).to(device)
+                         use_self_loop_predictor=args.use_self_loop_predictor,
+                         use_mask_channel=args.use_mask_channel).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
     total_steps = args.epochs * len(train_loader)
     scheduler = optim.lr_scheduler.OneCycleLR(
@@ -82,26 +71,8 @@ def main():
     best_val_rmse = float('inf')
     best_cpc = 0.0
     best_model_path = 'best_model_mae.pth'
-    start_epoch = 0
 
-    if args.resume:
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        latest_ckpt_path = os.path.join(current_dir, 'checkpoint_latest.pth')
-        if os.path.exists(latest_ckpt_path):
-            print(f"Resuming from {latest_ckpt_path}...")
-            checkpoint = torch.load(latest_ckpt_path, map_location=device)
-            model.load_state_dict(checkpoint['model_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-            start_epoch = checkpoint['epoch'] + 1
-            best_val_rmse = checkpoint.get('best_val_rmse', float('inf'))
-            best_cpc = checkpoint.get('best_cpc', 0.0)
-            print(f"재개 성공. epoch: {start_epoch}. Best RMSE: {best_val_rmse:.2f}, Best CPC: {best_cpc:.4f}")
-        else:
-            print("체크포인트 없음. 처음부터 시작")
-
-    for epoch in range(start_epoch, args.epochs):
-        # mask size 결정 매 epoch 마다 (min_mask ~ current_mask_size)사이에서 마스크 크기 결정
+    for epoch in range(args.epochs):
         progress = epoch / max(1, args.epochs - 1)
         current_mask_size = int(min_mask + (max_mask - min_mask) * progress)
         dataset.max_mask_size = current_mask_size
@@ -111,40 +82,30 @@ def main():
         train_loss = 0
 
         pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs} " f"[Mask:{current_mask_size} α:{current_alpha:.1f}]")
-        for step, batch in enumerate(pbar):
-            # DataLoader가 반환한 값은 (1, B, N, ...) 형태이므로 squeeze(0) 수행
-            x_static = batch['X_static'].squeeze(0).to(device)
-            x_dist = batch['X_dist'].squeeze(0).to(device)
-            x_od_masked = batch['X_OD_masked'].squeeze(0).to(device)
-            y_od = batch['y_OD'].squeeze(0).to(device)
-            mask = batch['mask'].squeeze(0).to(device)
-            has_static = batch['has_static'].squeeze(0).to(device)
-            
+        for batch in pbar:
+            x_static = batch['X_static'].to(device)
+            x_dist = batch['X_dist'].to(device)
+            mask = batch['mask'].to(device)
+            x_od_masked = batch['X_OD_masked'].to(device)
+            y_od = batch['y_OD'].to(device)
+
             optimizer.zero_grad()
-            pred_od, pred_static = model(x_static, x_od_masked, x_dist, mask)
+            pred = model(x_static, x_od_masked, x_dist, mask)
             
-            diag_mask = torch.eye(pred_od.shape[1], device=device, dtype=torch.bool).unsqueeze(0).expand(pred_od.shape[0], -1, -1)
+            diag_mask = torch.eye(dataset.num_nodes, device=device, dtype=torch.bool).unsqueeze(0).expand(pred.shape[0], -1, -1)
             mask_2d = mask.unsqueeze(1) | mask.unsqueeze(2)
 
             if args.lambda_diag < 0:
-                loss_od = criterion(pred_od, y_od, current_alpha, mask_2d)
+                # 원래 방식: 대각/비대각 구분 없이 한 번에 평균
+                loss = criterion(pred, y_od, current_alpha, mask_2d)
             else:
                 valid_diag_mask = diag_mask & mask_2d
                 valid_offdiag_mask = (~diag_mask) & mask_2d
                 
-                loss_diag = criterion(pred_od, y_od, current_alpha, valid_diag_mask)
-                loss_offdiag = criterion(pred_od, y_od, current_alpha, valid_offdiag_mask)
+                loss_diag = criterion(pred, y_od, current_alpha, valid_diag_mask) if valid_diag_mask.any() else 0.0
+                loss_offdiag = criterion(pred, y_od, current_alpha, valid_offdiag_mask) if valid_offdiag_mask.any() else 0.0
                 
-                loss_od = loss_offdiag + (args.lambda_diag * loss_diag)
-                
-            # Static Feature Loss (MSE on masked nodes) - Only for regions with static features (Seoul)
-            # GPU-CPU Sync(병목) 방지를 위해 마스크를 Float로 변환하여 계산
-            B_s, N_s, F_s = x_static.shape
-            raw_loss_static = torch.nn.functional.mse_loss(pred_static, x_static, reduction='none')
-            combined_mask = mask.float().unsqueeze(-1) * has_static.float().view(B_s, 1, 1)
-            loss_static = (raw_loss_static * combined_mask).sum() / (combined_mask.sum() + 1e-8)
-                
-            loss = loss_od + loss_static
+                loss = loss_offdiag + (args.lambda_diag * loss_diag)
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -159,8 +120,7 @@ def main():
 
         # Validation (2 epoch 마다)
         if epoch % 2 == 1 or epoch == args.epochs - 1:
-            # validation은 seoul 데이터셋에 대해서만 평가
-            v_loss, rmse, cpc = validate_mae(model, dataset.datasets['seoul'], val_indices, criterion, device)
+            v_loss, rmse, cpc = validate_mae(model, dataset, val_indices, criterion, device)
             print(f"  ➜ [Val] Loss: {v_loss:.4f} | RMSE: {rmse:.2f} | CPC: {cpc:.4f}")
             
             if args.use_wandb:
@@ -187,17 +147,6 @@ def main():
                 print(f"  ➜ [Checkpoint] Best CPC saved! (RMSE:{rmse:.2f} CPC:{cpc:.4f})")
 
             model.train()
-            
-        # Save latest checkpoint for resuming
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        torch.save({
-            'epoch': epoch,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'scheduler_state_dict': scheduler.state_dict(),
-            'best_val_rmse': best_val_rmse,
-            'best_cpc': best_cpc,
-        }, os.path.join(current_dir, 'checkpoint_latest.pth'))
 
     print(f"\nTraining Complete. Best RMSE: {best_val_rmse:.2f} | Best CPC: {best_cpc:.4f}")
     

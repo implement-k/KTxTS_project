@@ -11,7 +11,7 @@ DONG_CODE_PATH = os.path.join(DATA_DIR, 'raw', 'OD_dong_list.xlsx')
 # 테스트용 신도시 행정동 코드
 # 2026-07-12 수정: dataset/raw/OD_dong_list.xlsx에 실제 존재하는 dong_code 기준으로 갱신.
 # 기존 검단 코드는 현재 OD_dong_list.xlsx에 없어 테스트 구역에 포함되지 않았음.
-TEST_CITIES_CODES = {
+VAL_CITIES_CODES = {
     '동탄': [
         '31240600',  # 동탄2동
         '31240610',  # 동탄1동
@@ -37,12 +37,39 @@ TEST_CITIES_CODES = {
     ],
 }
 
+TEST_CITIES_CODES = {
+    '다산': [
+        '31130580',  # 다산1동
+        '31130590',  # 다산2동
+    ],
+    '미사': [
+        '31180620',  # 미사1동
+        '31180630',  # 미사2동
+    ],
+    '배곧': [
+        '31150740',  # 배곧1동
+        '31150750',  # 배곧2동
+    ],
+    '감일동': [
+        '31180670',  # 감일동
+    ],
+    '랜덤1': [
+        '11150590', '11040560', '23310320', '23060690', '23040600'
+    ],
+    '랜덤2': [
+        '11140630', '31350360', '11120550'
+    ],
+    '랜덤3': [
+        '31130150', '11050530', '11040700', '11120740', '23020640'
+    ],
+}
+
 # 마스킹 대상 컬럼
 MASKING_COLUMNS = ['worker_count', 'business_count']
 
 TRAIN_CONFIG = {
-    'min_mask_size': 3,
-    'max_mask_size': 10,
+    'min_mask_size': 1,
+    'max_mask_size': 6,
     'batch_size': 32,
     'epochs': 70,
     'learning_rate': 1e-3,

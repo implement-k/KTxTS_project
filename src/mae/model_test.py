@@ -21,7 +21,8 @@ def cpc_score(y_true, y_pred):
         return 0.0
     return numerator / denominator
 
-def test_model(model_path=None, use_friction=True, use_lgbm_self_loop=False):
+
+def test_model(model_path=None, use_friction=True, od_embed_layers=3, use_mask_channel=False, use_lgbm_self_loop=False):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     best_model_dir = os.path.join(BASE_DIR, '../best_model')
@@ -68,8 +69,11 @@ def test_model(model_path=None, use_friction=True, use_lgbm_self_loop=False):
     print(f"Using device: {device}")
 
     # ── 모델 로드 ─────────────────────────────────────────────────────────────
-    model = SpatialODMAE(num_features=test_dataset.X_static.shape[1],
-                          use_distance_friction=use_friction).to(device)
+    model = SpatialODMAE(num_nodes=test_dataset.num_nodes,
+                          num_features=test_dataset.X_static.shape[1],
+                          od_embed_layers=od_embed_layers,
+                          use_distance_friction=use_friction,
+                          use_mask_channel=use_mask_channel).to(device)
 
     if not os.path.exists(model_path):
         print(f"Error: {model_path} not found! Please train the model first.")
@@ -96,10 +100,10 @@ def test_model(model_path=None, use_friction=True, use_lgbm_self_loop=False):
             x_od_masked = batch['X_OD_masked'].to(device)
             y_od        = batch['y_OD'].to(device)
 
-            pred_od, _ = model(x_static, x_od_masked, x_dist, mask)
+            pred    = model(x_static, x_od_masked, x_dist, mask)
             mask_2d = mask.unsqueeze(1) | mask.unsqueeze(2)
 
-            pred_full = torch.expm1(pred_od[0]).cpu().numpy()  # (N, N) full matrix
+            pred_full = torch.expm1(pred[0]).cpu().numpy()  # (N, N) full matrix
             y_full = torch.expm1(y_od[0]).cpu().numpy()
 
             if use_lgbm_self_loop:
@@ -239,15 +243,20 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_path', type=str, default=None, help='가중치 경로 직접 지정 (선택)')
+    parser.add_argument('--od_embed_layers', type=int, default=3)
     parser.add_argument('--use_friction', type=str, default='True')
+    parser.add_argument('--use_mask_channel', type=str, default='False')
     parser.add_argument('--use_lgbm_self_loop', type=str, default='False')
     args = parser.parse_args()
     
     use_friction_bool = str(args.use_friction).lower() in ("yes", "true", "t", "1")
+    use_mask_channel_bool = str(args.use_mask_channel).lower() in ("yes", "true", "t", "1")
     use_lgbm_self_loop_bool = str(args.use_lgbm_self_loop).lower() in ("yes", "true", "t", "1")
 
     test_model(
         model_path=args.model_path, 
         use_friction=use_friction_bool, 
+        od_embed_layers=args.od_embed_layers, 
+        use_mask_channel=use_mask_channel_bool,
         use_lgbm_self_loop=use_lgbm_self_loop_bool
     )

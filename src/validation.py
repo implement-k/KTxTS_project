@@ -35,7 +35,7 @@ def validate_mae(model, dataset, val_indices, criterion, device):
             m.eval()
 
     with torch.no_grad():
-        v_pred, v_pred_static = model(x_s, x_o, x_d, mask)
+        v_pred = model(x_s, x_o, x_d, mask)
 
     m2d = mask.unsqueeze(1) | mask.unsqueeze(2)
     v_loss = criterion(v_pred, y_o, 1.0, m2d).item()  # alpha=1.0, mask=m2d로 수정

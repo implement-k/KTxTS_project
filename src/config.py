@@ -65,7 +65,7 @@ TEST_CITIES_CODES = {
 }
 
 # 마스킹 대상 컬럼
-MASKING_COLUMNS = ['worker_count', 'business_count']
+MASKING_COLUMNS = ['worker_count', 'business_count', 'worker_density', 'business_density']
 
 TRAIN_CONFIG = {
     'min_mask_size': 1,

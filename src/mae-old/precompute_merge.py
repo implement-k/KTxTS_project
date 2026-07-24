@@ -29,6 +29,10 @@ def main():
     static_df['business_density'] = static_df['business_count'] / (static_df['행정동전체면적_m2'] + 1e-5)
     static_df['station_density_지하철'] = static_df['station_count_지하철'] / (static_df['행정동전체면적_m2'] + 1e-5)
     
+    # 기타지역비율_pct 추가
+    static_df['기타지역비율_pct'] = 100.0 - (static_df['상업업무지역비율_pct'] + static_df['공공시설지역비율_pct'] + static_df['주거지역비율_pct'])
+    static_df['기타지역비율_pct'] = static_df['기타지역비율_pct'].clip(lower=0.0)
+    
     # 2.2. 진짜 feature만 추출 및 indexing
     feature_cols = [c for c in static_df.columns if c not in ['dong_code', 'dong_name']]
     raw_static = static_df[feature_cols].values

@@ -9,7 +9,7 @@ BASE_DIR = os.path.dirname(current_dir)
 if BASE_DIR not in sys.path:
     sys.path.append(BASE_DIR)
 
-from KTDB.src.mae.dataset import ODDataset
+from dataset import ODDataset
 
 def main():
     print("Dataset 로딩 중...")

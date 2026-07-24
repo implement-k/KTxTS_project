@@ -22,6 +22,8 @@ def main():
     dataset = ODDataset(mode='test', use_log_transform=False)
     
     # 동 이름 매핑 가져오기
+    
+    
     dong_df = pd.read_excel(DONG_CODE_PATH)
     dongs = dong_df['dong_code'].astype(int).values
     names = dong_df['dong_name'].values

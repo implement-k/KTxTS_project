@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import math
+import torch.nn.functional as F
 
 class ODGCNLayer(nn.Module):
     def __init__(self, in_features, out_features):
@@ -8,14 +10,13 @@ class ODGCNLayer(nn.Module):
         self.linear_out = nn.Linear(in_features, out_features)
         
     def forward(self, x_od, feat_emb, observed_mask):
-        # x_od: (B, N, N)
-        # feat_emb: (B, N, D)
-        # observed_mask: (B, N, N) boolean mask
+        # x_od: (B, N, N) - od matrix
+        # feat_emb: (B, N, D) - 각 노드의 임베딩 벡터
+        # observed_mask: (B, N, N) - boolean mask, 관측 가능한 노드 쌍만 True
         
-        # OD 매트릭스 자체를 adjacency로 사용
-        # 단, mask된 노드끼리의 가짜(0) 연결성을 차단하기 위해 observed_mask 적용
         A = x_od.clone()
-        A.diagonal(dim1=-2, dim2=-1).zero_() # Self-loop 방지
+        # self-loop 제거 및 관측되지 않은 노드 0으로
+        A.diagonal(dim1=-2, dim2=-1).zero_() 
         A[~observed_mask] = 0.0 
         
         # Outgoing Normalize adjacency
@@ -34,9 +35,11 @@ class ODGCNLayer(nn.Module):
         return self.linear_out(msg_out) + self.linear_in(msg_in)
 
 class SpatialODMAE(nn.Module):
-    def __init__(self, num_nodes, num_features=14, d_model=128, nhead=8, num_layers=4, use_self_loop_predictor=True):
+    def __init__(self, num_nodes, num_features=14, d_model=128, nhead=8, num_layers=4, use_self_loop_predictor=True, loss_type='weibull'):
         super().__init__()
+        self.num_nodes = num_nodes
         self.use_self_loop_predictor = use_self_loop_predictor
+        self.loss_type = loss_type
 
         # X_static embeding: (B, N, F) -> (B, N, D) - leanable
         # OD feature embedding: (B, N, 2N or 3N) -> (B, N, D) - leanable
@@ -58,12 +61,11 @@ class SpatialODMAE(nn.Module):
             nn.Linear(d_model, d_model)
         )
         
-        # OD 정보의 반영 비율을 조절하는 Learnable Gating Network
-        self.od_gate = nn.Sequential(
-            nn.Linear(d_model * 2, d_model),
-            nn.Sigmoid()
-        )
+        # Learnable Temperature for CrossEntropy Logits
+        # sqrt(d_model)=11.3은 너무 커서 softmax가 균등분포로 죽음. 2.0에서 시작.
+        self.temperature = nn.Parameter(torch.ones(1) * 2.0)
         
+
         # 자기동 내부 통행량 직접 예측을 위한 작은 MLP
         if self.use_self_loop_predictor:
             self.self_loop_predictor = nn.Sequential(
@@ -73,12 +75,25 @@ class SpatialODMAE(nn.Module):
                 nn.GELU(),
                 nn.Linear(d_model // 2, 1)
             )
+            # Initialize last layer bias to jump-start the optimization.
+            # For weibull, the raw output softplus becomes the mean OD flow (~30000).
+            # For mse/huber/hybrid, the raw output directly models log1p OD flow (~10-11).
+            if self.loss_type == 'weibull':
+                target_self_loop_mean = 30000
+                bias_init = math.log(math.exp(target_self_loop_mean) - 1) if target_self_loop_mean < 20 else target_self_loop_mean
+            else:
+                bias_init = 11.0 # log1p(30000) ~ 10.3
+                
+            nn.init.constant_(self.self_loop_predictor[-1].bias, bias_init)
         
         # distance based 상대 positional bias 및 최종 Friction
         self.nhead = nhead
         self.distance_bias = nn.Embedding(50, nhead)
         # 0부터 5.5 구간을 49개로 나눔
         self.register_buffer('boundaries', torch.linspace(0, 5.5, 49))
+        
+        # 디코더 최종 출력에 직접 더해지는 거리 편향 (Friction)
+        self.distance_decode_bias = nn.Embedding(50, 1)
         
         # Mask Token
         self.mask_token = nn.Parameter(torch.zeros(1, 1, d_model))
@@ -143,14 +158,9 @@ class SpatialODMAE(nn.Module):
         # 가려진 도시는 OD 정보만 마스크 토큰으로 치환
         od_emb_masked = torch.where(mask_expanded, mask_token_expanded, od_emb)
         
-        # combined: (B, N, 2D)
-        combined = torch.cat([feat_emb, od_emb_masked], dim=-1)
-        
-        # (B, N, 2D) -> (B, N, D)
-        gate_val = self.od_gate(combined) 
-        
-        # (B, N, D) - OD 정보의 반영 비율을 조절
-        x = feat_emb + (gate_val * od_emb_masked)
+        # 단순 덧셈으로 결합 (Ablation Test: Gate 제거)
+        # 트랜스포머의 Token + Position Embedding 결합 방식과 동일하게 합칩니다.
+        x = feat_emb + od_emb_masked
         
         # Bucketize distance
         distance_bins = torch.bucketize(x_dist, self.boundaries) # (B, N, N) # type: ignore
@@ -158,19 +168,30 @@ class SpatialODMAE(nn.Module):
         # bias: (B, N, N, nhead) - 각 distance bin에 대해 nhead 차원의 bias를 가져옴
         bias = self.distance_bias(distance_bins) 
         
+        # padding mask 적용 (Key 차원인 3번째 차원을 -inf로 덮어씌움)
+        padding_mask = ~active_node_mask # (B, N), True인 위치가 가려져야 함
+        # bias의 shape가 (B, Query, Key, nhead) 이므로 (B, 1, N, 1) 로 브로드캐스팅
+        bias = bias.masked_fill(padding_mask.unsqueeze(1).unsqueeze(-1), float('-inf'))
+        
         # bias: (B, N, N, nhead) -> (B * nhead, N, N)
         bias = bias.permute(0, 3, 1, 2).reshape(B * self.nhead, N, N)
         
         # Transformer (bias 적용 및 padding mask 적용)
-        padding_mask = ~active_node_mask # True인 위치가 Attention에서 무시됨
-        x = self.transformer(x, mask=bias, src_key_padding_mask=padding_mask) # (B, N, D)
+        # Warning 방지: src_key_padding_mask 대신 additive float mask에 통합 적용함
+        x = self.transformer(x, mask=bias) # (B, N, D)
         
         # Bilinear Decode
         queries = self.query_proj(x)
         keys = self.key_proj(x)
         
         # pred_od: (B, N, N)
-        pred_od = torch.bmm(queries, keys.transpose(1, 2)) / (self.query_proj.out_features ** 0.5)
+        # Learnable temperature 적용 (기존의 무조건적인 sqrt(d_model) 나누기 대신)
+        pred_od = torch.bmm(queries, keys.transpose(1, 2)) / self.temperature.clamp(min=0.1)
+        
+        # 거리 기반 마찰력(Friction) 명시적 추가
+        # Transformer가 내적(Dot Product)만으로 거리 역제곱을 흉내내는 구조적 병목 해소
+        dist_friction = self.distance_decode_bias(distance_bins).squeeze(-1) # (B, N, N)
+        pred_od = pred_od + dist_friction
         
         if self.use_self_loop_predictor:
             self_loop_pred = self.self_loop_predictor(feat_emb).squeeze(-1) # (B, N, D) -> (B, N)
@@ -184,7 +205,7 @@ class SpatialODMAE(nn.Module):
         
         pred_od[b_idx, n_idx, n_idx] += self_loop_pred
         
-        import torch.nn.functional as F
+        
         pred_od_scale = F.softplus(pred_od)
         
         return pred_od_scale, pred_od

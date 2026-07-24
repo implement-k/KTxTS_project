@@ -11,8 +11,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-from KTDB.src.mae.dataset import ODDataset
-from mae.models import SpatialODMAE
+from dataset import ODDataset
+from models import SpatialODMAE
 
 def cpc_score(y_true, y_pred):
     numerator   = 2 * np.sum(np.minimum(y_true, y_pred))
@@ -22,7 +22,7 @@ def cpc_score(y_true, y_pred):
     return numerator / denominator
 
 
-def test_model(model_path=None, use_friction=True, od_embed_layers=3, use_mask_channel=False, use_lgbm_self_loop=False):
+def test_model(model_path=None, use_self_loop_predictor=True, loss_type='hybrid'):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     best_model_dir = os.path.join(BASE_DIR, '../best_model')
@@ -69,17 +69,22 @@ def test_model(model_path=None, use_friction=True, od_embed_layers=3, use_mask_c
     print(f"Using device: {device}")
 
     # ── 모델 로드 ─────────────────────────────────────────────────────────────
-    model = SpatialODMAE(num_nodes=test_dataset.num_nodes,
-                          num_features=test_dataset.X_static.shape[1],
-                          od_embed_layers=od_embed_layers,
-                          use_distance_friction=use_friction,
-                          use_mask_channel=use_mask_channel).to(device)
+    model = SpatialODMAE(num_nodes=test_dataset.num_nodes, 
+                         num_features=test_dataset.X_static.shape[1],
+                         use_self_loop_predictor=use_self_loop_predictor,
+                         loss_type=loss_type).to(device)
 
     if not os.path.exists(model_path):
         print(f"Error: {model_path} not found! Please train the model first.")
         return
 
-    model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True), strict=False)
+    state_dict = torch.load(model_path, map_location=device, weights_only=True)
+    missing, unexpected = model.load_state_dict(state_dict, strict=False)
+    
+    if 'distance_decode_bias.weight' in missing:
+        print("Note: 'distance_decode_bias' not found in checkpoint. Zeroing it out for backward compatibility.")
+        model.distance_decode_bias.weight.data.zero_()
+        
     print(f"Loaded: {model_path}")
 
     # Dropout은 eval, BatchNorm은 train 유지
@@ -100,21 +105,17 @@ def test_model(model_path=None, use_friction=True, od_embed_layers=3, use_mask_c
             x_od_masked = batch['X_OD_masked'].to(device)
             y_od        = batch['y_OD'].to(device)
 
-            pred    = model(x_static, x_od_masked, x_dist, mask)
+            v_pred_scale, v_pred_raw = model(x_static, x_od_masked, x_dist, mask)
             mask_2d = mask.unsqueeze(1) | mask.unsqueeze(2)
 
-            pred_full = torch.expm1(pred[0]).cpu().numpy()  # (N, N) full matrix
+            if loss_type == 'weibull':
+                pred_full = v_pred_scale[0].cpu().numpy()  # Weibull scale is the OD estimate
+            else:
+                v_pred_raw_clamped = torch.clamp(v_pred_raw[0], max=20.0)
+                pred_full = torch.expm1(v_pred_raw_clamped).cpu().numpy()
             y_full = torch.expm1(y_od[0]).cpu().numpy()
 
-            if use_lgbm_self_loop:
-                lgbm_path = os.path.join(best_model_dir, 'best_lgbm_self_loop.txt')
-                if os.path.exists(lgbm_path):
-                    import lightgbm as lgb
-                    lgbm_model = lgb.Booster(model_file=lgbm_path)
-                    lgbm_pred = lgbm_model.predict(test_dataset.X_static)
-                    lgbm_pred_real = np.expm1(np.maximum(lgbm_pred, 0))
-                    np.fill_diagonal(pred_full, lgbm_pred_real)
-                    print("[LGBM] PyTorch 모델의 자기동(대각성분) 예측값을 LGBM 예측값으로 덮어씌웠습니다.")
+
 
             mask_2d_np = mask_2d[0].cpu().numpy()
             
@@ -126,6 +127,10 @@ def test_model(model_path=None, use_friction=True, od_embed_layers=3, use_mask_c
 
     all_y_true = np.concatenate(all_y_true)
     all_y_pred = np.concatenate(all_y_pred)
+    
+    valid_idx = np.isfinite(all_y_true) & np.isfinite(all_y_pred)
+    all_y_true = all_y_true[valid_idx]
+    all_y_pred = all_y_pred[valid_idx]
 
     # ── 지표 계산 ─────────────────────────────────────────────────────────────
     rmse = np.sqrt(np.mean((all_y_true - all_y_pred) ** 2))
@@ -243,20 +248,14 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_path', type=str, default=None, help='가중치 경로 직접 지정 (선택)')
-    parser.add_argument('--od_embed_layers', type=int, default=3)
-    parser.add_argument('--use_friction', type=str, default='True')
-    parser.add_argument('--use_mask_channel', type=str, default='False')
-    parser.add_argument('--use_lgbm_self_loop', type=str, default='False')
+    parser.add_argument('--use_self_loop_predictor', type=str, default='True')
+    parser.add_argument('--loss_type', type=str, default='hybrid')
     args = parser.parse_args()
     
-    use_friction_bool = str(args.use_friction).lower() in ("yes", "true", "t", "1")
-    use_mask_channel_bool = str(args.use_mask_channel).lower() in ("yes", "true", "t", "1")
-    use_lgbm_self_loop_bool = str(args.use_lgbm_self_loop).lower() in ("yes", "true", "t", "1")
+    use_self_loop_predictor_bool = str(args.use_self_loop_predictor).lower() in ("yes", "true", "t", "1")
 
     test_model(
         model_path=args.model_path, 
-        use_friction=use_friction_bool, 
-        od_embed_layers=args.od_embed_layers, 
-        use_mask_channel=use_mask_channel_bool,
-        use_lgbm_self_loop=use_lgbm_self_loop_bool
+        use_self_loop_predictor=use_self_loop_predictor_bool,
+        loss_type=args.loss_type
     )

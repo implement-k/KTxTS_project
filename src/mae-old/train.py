@@ -44,6 +44,19 @@ def main():
     for arg in vars(args): print(f"  {arg}: {getattr(args, arg)}")
 
     dataset = ODDataset(mode='train')
+    
+    print("\n" + "="*50)
+    print("--- Dataset Feature Info ---")
+    if hasattr(dataset, 'feature_cols'):
+        print(f"Total Static Features ({len(dataset.feature_cols)}):")
+        print(dataset.feature_cols)
+        print("\nMasked Features:")
+        masked_cols = [dataset.feature_cols[i] for i in dataset.masking_indices]
+        print(masked_cols)
+    else:
+        print("Feature cols attribute not found.")
+    print("="*50 + "\n")
+    
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps'  if torch.backends.mps.is_available() else 'cpu')
     print(f"Using device: {device}")
 

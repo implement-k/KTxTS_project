@@ -134,6 +134,20 @@ def make_static_feature(isFull='n'):
     # 임시 컬럼 제거
     merged_df.drop(columns=['sigungu_code', 'sido_code'], inplace=True)
     
+    print("추가 파생 변수(밀도, 기타지역비율 등) 생성 중...")
+    # 밀도 추가
+    if 'worker_count' in merged_df.columns and '행정동전체면적_m2' in merged_df.columns:
+        merged_df['worker_density'] = merged_df['worker_count'] / (merged_df['행정동전체면적_m2'] + 1e-5)
+    if 'business_count' in merged_df.columns and '행정동전체면적_m2' in merged_df.columns:
+        merged_df['business_density'] = merged_df['business_count'] / (merged_df['행정동전체면적_m2'] + 1e-5)
+    if 'station_count_지하철' in merged_df.columns and '행정동전체면적_m2' in merged_df.columns:
+        merged_df['station_density_지하철'] = merged_df['station_count_지하철'] / (merged_df['행정동전체면적_m2'] + 1e-5)
+        
+    # 기타지역비율_pct 추가 (비율 총합 100% 맞추기 위함)
+    if all(col in merged_df.columns for col in ['상업업무지역비율_pct', '공공시설지역비율_pct', '주거지역비율_pct']):
+        merged_df['기타지역비율_pct'] = 100.0 - (merged_df['상업업무지역비율_pct'] + merged_df['공공시설지역비율_pct'] + merged_df['주거지역비율_pct'])
+        merged_df['기타지역비율_pct'] = merged_df['기타지역비율_pct'].clip(lower=0.0)
+    
     # 결과 저장
     merged_df.to_csv(output_path, index=False, encoding='utf-8-sig')
     print(f"\n최종 데이터셋(총 {len(merged_df)}행, {len(merged_df.columns)}열)이 다음 경로에 저장되었습니다:")

@@ -72,8 +72,7 @@ class ODDataset(Dataset):
         static_df['기타지역비율_pct'] = static_df['기타지역비율_pct'].clip(lower=0.0)
                 
         feature_cols = [c for c in static_df.columns if c not in ['dong_code', 'dong_name']]
-        
-        # 마스킹할 컬럼의 인덱스 탐색
+        self.feature_cols = feature_cols
         self.masking_indices = [feature_cols.index(c) for c in MASKING_COLUMNS if c in feature_cols]
         raw_static = static_df[feature_cols].values
         

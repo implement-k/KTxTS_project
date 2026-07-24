@@ -18,7 +18,7 @@ def run_evaluation_pipeline(model, data_dict, device, model_type='mae', criterio
     if model is not None:
         model.eval()
     is_hybrid_od = False
-    if criterion is not None and criterion.__class__.__name__ == 'HybridWeightedODLoss':
+    if criterion is not None and criterion.__class__.__name__ == 'HybridWeightedMSELoss':
         is_hybrid_od = True
         
     results = {}
@@ -41,6 +41,9 @@ def run_evaluation_pipeline(model, data_dict, device, model_type='mae', criterio
                     loss_mask = batch['loss_mask'].unsqueeze(0).to(device)
                     
                     if model_type == 'mae':
+                        if model is None:
+                            continue
+                            
                         if is_hybrid_od:
                             pred_scale, pred_raw = model(x_static, x_o, x_d, input_mask, active_node_mask)
                             m2d = loss_mask.unsqueeze(1) | loss_mask.unsqueeze(2)

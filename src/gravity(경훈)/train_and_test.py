@@ -1,13 +1,17 @@
 import os
 os.environ['KMP_DUPLICATE_OK'] = 'True'
 import numpy as np
+import argparse
 from dataset import ODDataset
 from model import DoublyConstrainedGravityModel
 
-
-
-
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model_type', type=str, default='lgbm',
+                        choices=['lgbm', 'trip_rate', 'cross_class', 'linear_regression'],
+                        help='통행발생량 예측 모델 유형 선택')
+    args = parser.parse_args()
+    
     dataset = ODDataset()
     
     # 1. Train 노드 마스킹 (동탄, 위례, 검단)
@@ -41,9 +45,9 @@ def main():
     '''
         beta: 마찰계수 지수, max_iter: IPF 최대 반복 횟수
         마찰계수 지수는 일반적으로 1~2 값이라는데 조정하면서 성능이 가장 좋게 나오도록 설정해
-        - beta=2.0d으로 수정했음
     '''
-    model = DoublyConstrainedGravityModel(beta=2.0, max_iter=100)
+    print(f"Initializing DoublyConstrainedGravityModel with generation_model_type='{args.model_type}'")
+    model = DoublyConstrainedGravityModel(beta=2.0, max_iter=100, tol=1e-4, generation_model_type=args.model_type)
     
     # 4. LGBM 학습 및 이중제약 적용
     # 주의: IPF 알고리즘은 전체 노드에 대해 수행되어야 하므로 X_dist가 아닌 전체 dataset.X_dist를 전달해야함

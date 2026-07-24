@@ -2,33 +2,120 @@ import os
 os.environ['KMP_DUPLICATE_OK'] = 'True'
 import numpy as np
 import lightgbm as lgb
+from sklearn.linear_model import LinearRegression
 
+class TripRateModel:
+    """원단위법 (Trip Rate): 상수항 없이 고정 비율(계수)을 피처에 곱하여 통행량을 예측"""
+    def __init__(self):
+        self.model = LinearRegression(fit_intercept=False)
+        
+    def fit(self, X, y):
+        self.model.fit(X, y)
+        
+    def predict(self, X):
+        return self.model.predict(X)
 
+class LinearRegressionModel:
+    """선형회귀분석 (Linear Regression): 상수항을 포함하여 다중 선형회귀식 적용"""
+    def __init__(self):
+        self.model = LinearRegression(fit_intercept=True)
+        
+    def fit(self, X, y):
+        self.model.fit(X, y)
+        
+    def predict(self, X):
+        return self.model.predict(X)
 
+class CrossClassificationModel:
+    """
+    교차분류분석 (Cross-classification): 
+    주요 피처를 기반으로 데이터를 N개의 구간(Bin)으로 나누고, 
+    각 Bin 조합(Cell)별 평균 통행발생량을 학습하여 예측.
+    """
+    def __init__(self, num_features_to_use=3, bins_per_feature=3):
+        self.num_features_to_use = num_features_to_use
+        self.bins_per_feature = bins_per_feature
+        self.cell_means = {}
+        self.global_mean = 0.0
+        self.bin_edges = []
+        
+    def fit(self, X, y):
+        self.global_mean = np.mean(y)
+        # 차원의 저주를 피하기 위해 상위 K개의 피처만 사용
+        n_feats = min(self.num_features_to_use, X.shape[1])
+        X_used = X[:, :n_feats]
+        
+        self.bin_edges = []
+        X_binned = np.zeros_like(X_used, dtype=int)
+        
+        for i in range(n_feats):
+            # Equal width binning
+            min_v, max_v = np.min(X_used[:, i]), np.max(X_used[:, i])
+            # min_v와 max_v가 같을 경우 방어 코드
+            if min_v == max_v:
+                edges = np.array([-np.inf, np.inf])
+            else:
+                edges = np.linspace(min_v, max_v, self.bins_per_feature + 1)
+                edges[0] = -np.inf
+                edges[-1] = np.inf
+            self.bin_edges.append(edges)
+            X_binned[:, i] = np.digitize(X_used[:, i], edges) - 1
+            
+        from collections import defaultdict
+        sums = defaultdict(float)
+        counts = defaultdict(int)
+        
+        for i in range(len(y)):
+            cell = tuple(X_binned[i])
+            sums[cell] += y[i]
+            counts[cell] += 1
+            
+        self.cell_means = {cell: sums[cell]/counts[cell] for cell in sums}
+        
+    def predict(self, X):
+        n_feats = min(self.num_features_to_use, X.shape[1])
+        X_used = X[:, :n_feats]
+        preds = []
+        for i in range(len(X)):
+            cell = []
+            for j in range(n_feats):
+                c = np.digitize(X_used[i, j], self.bin_edges[j]) - 1
+                cell.append(c)
+            preds.append(self.cell_means.get(tuple(cell), self.global_mean))
+        return np.array(preds)
 
 class DoublyConstrainedGravityModel:
-    def __init__(self, beta=2.0, max_iter=100, tol=1e-4):
+    def __init__(self, beta=2.0, max_iter=100, tol=1e-4, generation_model_type='lgbm'):
         """
-            LightGBM + 이중제약 중력모델 초기화
+            이중제약 중력모델 초기화
 
-            beta: 거리저항 계수. f(d_ij) = 1 / d_ij^beta 형태로 사용.
-                  값이 클수록 가까운 동에 더 강하게 배분됨.
-                  
-                  .
+            beta: 거리저항 계수.
             max_iter: IPF(Balancing) 최대 반복 횟수.
             tol: IPF 수렴 허용 오차.
+            generation_model_type: 통행발생량 예측 모델 유형 
+                ('lgbm', 'trip_rate', 'cross_class', 'linear_regression')
         """
         self.beta = beta
         self.max_iter = max_iter
         self.tol = tol
+        self.generation_model_type = generation_model_type
         
-        # O_i (발생량), D_j (도착량) 예측용 LGBM 모델
-        self.model_O = lgb.LGBMRegressor(n_estimators=300, num_leaves=15, min_child_samples=10)
-        self.model_D = lgb.LGBMRegressor(n_estimators=300, num_leaves=15, min_child_samples=10)
+        def create_model():
+            if generation_model_type == 'trip_rate':
+                return TripRateModel()
+            elif generation_model_type == 'linear_regression':
+                return LinearRegressionModel()
+            elif generation_model_type == 'cross_class':
+                return CrossClassificationModel()
+            else: # lgbm 기본
+                return lgb.LGBMRegressor(n_estimators=300, num_leaves=15, min_child_samples=10)
         
-        # 자기동 내부 통행량, 타 지역 간 통행량 예측용 LGBM 모델
-        self.model_self = lgb.LGBMRegressor(n_estimators=300, num_leaves=15, min_child_samples=10)
-        self.model_inter = lgb.LGBMRegressor(n_estimators=300, num_leaves=15, min_child_samples=10)
+        self.model_O = create_model()
+        self.model_D = create_model()
+        
+        # 자기동 내부 통행량 예측도 동일한 모델 유형 사용
+        self.model_self = create_model()
+        self.model_inter = create_model()
 
     # ------------------------------------------------------------------
     # 1단계. 외부 유출/유입 총량 학습 및 예측

@@ -6,8 +6,8 @@ from sklearn.preprocessing import StandardScaler
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (
-    TEST_CITIES_CODES, TRAIN_CONFIG, DONG_CODE_PATH,
-    DIST_DATA_PATH, STATIC_DATA_PATH, OD_DATA_PATH
+    TEST_CITIES_CODES, VAL_CITIES_CODES, TRAIN_CONFIG, DONG_CODE_PATH,
+    DIST_DATA_PATH, STATIC_DATA_PATH, OD_DATA_PATH, MASKING_COLUMNS
 )
 
 '''
@@ -16,10 +16,8 @@ from config import (
 
 
 class ODDataset:
-    def __init__(self):
-        self.max_mask_size = TRAIN_CONFIG['min_mask_size']
-        
-        # 행정동 코드 로드
+    def __init__(self):        
+        # === 행정동 코드 로드 ===
         dong_df = pd.read_excel(DONG_CODE_PATH)
         dongs = dong_df['dong_code'].astype(int).values
         self.num_nodes = len(dongs)   # 전체 동 개수
@@ -34,25 +32,25 @@ class ODDataset:
         d_indices = od_df['D_dong_code'].map(dong2idx_map).values
         valid_mask = pd.notna(o_indices) & pd.notna(d_indices)
         
-        o_idx_valid = o_indices[valid_mask].astype(int)
-        d_idx_valid = d_indices[valid_mask].astype(int)
+        o_idx_valid = np.asarray(o_indices[valid_mask].astype(int))
+        d_idx_valid = np.asarray(d_indices[valid_mask].astype(int))
         
         # (N, N)으로 합산
         purposes = ['귀가', '출근', '등교', '업무', '기타']
         calculated_total = od_df[purposes].sum(axis=1)
-        self.X_OD[o_idx_valid, d_idx_valid] = calculated_total.values[valid_mask]
+        self.X_OD[o_idx_valid, d_idx_valid] = np.asarray(calculated_total.values[valid_mask])
 
         # === 거리 매트릭스 로드 (N, N) ===
         self.X_dist = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
         dist_df = pd.read_csv(DIST_DATA_PATH)
         
         # dist에서 유효한 행정동만 필터링
-        o_dist = dist_df['O_dong_code'].map(dong2idx_map).values
-        d_dist = dist_df['D_dong_code'].map(dong2idx_map).values
+        o_dist = np.asarray(dist_df['O_dong_code'].map(dong2idx_map).values.astype(int))
+        d_dist = np.asarray(dist_df['D_dong_code'].map(dong2idx_map).values.astype(int))
         dist_mask = pd.notna(o_dist) & pd.notna(d_dist)
         
         # 거리 매트릭스에 값 채우기
-        self.X_dist[o_dist[dist_mask].astype(int), d_dist[dist_mask].astype(int)] = dist_df['distance'].values[dist_mask]
+        self.X_dist[o_dist[dist_mask], d_dist[dist_mask]] = np.asarray(dist_df['distance'].values[dist_mask])
         
         # === Static Feature 로드 ===
         static_df = pd.read_csv(STATIC_DATA_PATH)
@@ -62,16 +60,24 @@ class ODDataset:
         static_df = static_df.set_index('dong_code').reindex(dongs).reset_index()
         static_df.fillna(0, inplace=True)
         
-        # 선택한 도시의 인덱스 찾기 및 train/test 분리
-        self.test_indices = self._find_dong_indices(dong2idx_map)
-        self.all_indices = np.arange(self.num_nodes)
-        self.train_indices = np.setdiff1d(self.all_indices, self.test_indices)
-        
-        
         feature_cols = [c for c in static_df.columns if c not in ['dong_code', 'dong_name']]
         raw_static = static_df[feature_cols].values
         self.masking_indices = [feature_cols.index(c) for c in MASKING_COLUMNS if c in feature_cols]
         
+        # === 선택한 도시의 인덱스 찾기 및 train/val/test 분리 ===
+        self.test_indices = self._find_dong_indices(dong2idx_map, TEST_CITIES_CODES)
+        self.val_indices = self._find_dong_indices(dong2idx_map, VAL_CITIES_CODES)
+        self.all_indices = np.arange(self.num_nodes)
+        
+        self.val_city_indices = {
+            city: np.array([dong2idx_map[int(c)] for c in codes if int(c) in dong2idx_map])
+            for city, codes in VAL_CITIES_CODES.items()
+        }
+        
+        # Test와 Val을 제외한 나머지를 Train으로 설정
+        exclude_indices = np.union1d(self.test_indices, self.val_indices)
+        self.train_indices = np.setdiff1d(self.all_indices, exclude_indices)
+
         # 피처 정규화
         scaler = StandardScaler()
         scaler.fit(raw_static[self.train_indices])
@@ -83,12 +89,6 @@ class ODDataset:
         
         print("Dataset 초기화 완료")
         
-    def _find_dong_indices(self, idx_map):
-        test_city_indices = []
-        for _, codes in TEST_CITIES_CODES.items():
-            for str_code in codes:
-                code_int = int(str_code)
-                if code_int in idx_map:
-                    test_city_indices.append(idx_map[code_int])
-        return np.array(test_city_indices)
-        
+    def _find_dong_indices(self, idx_map, cities_codes):
+        all_codes = (int(code) for codes in cities_codes.values() for code in codes)
+        return np.array([idx_map[c] for c in all_codes if c in idx_map])

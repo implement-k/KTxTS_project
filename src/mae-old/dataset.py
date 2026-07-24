@@ -61,20 +61,10 @@ class ODDataset(Dataset):
         # 행정동 코드 기준으로 결측치 0으로 채우기
         static_df = static_df.set_index('dong_code').reindex(dongs).reset_index()
         static_df.fillna(0, inplace=True)
-        
-        # 밀도 추가
-        static_df['worker_density'] = static_df['worker_count'] / (static_df['행정동전체면적_m2'] + 1e-5)
-        static_df['business_density'] = static_df['business_count'] / (static_df['행정동전체면적_m2'] + 1e-5)
-        static_df['station_density_지하철'] = static_df['station_count_지하철'] / (static_df['행정동전체면적_m2'] + 1e-5)
-        
-        # 기타지역비율_pct 추가 (비율 총합 100% 맞추기 위함)
-        static_df['기타지역비율_pct'] = 100.0 - (static_df['상업업무지역비율_pct'] + static_df['공공시설지역비율_pct'] + static_df['주거지역비율_pct'])
-        static_df['기타지역비율_pct'] = static_df['기타지역비율_pct'].clip(lower=0.0)
                 
         feature_cols = [c for c in static_df.columns if c not in ['dong_code', 'dong_name']]
-        self.feature_cols = feature_cols
-        self.masking_indices = [feature_cols.index(c) for c in MASKING_COLUMNS if c in feature_cols]
         raw_static = static_df[feature_cols].values
+        self.masking_indices = [feature_cols.index(c) for c in MASKING_COLUMNS if c in feature_cols]
         
         # === 선택한 도시의 인덱스 찾기 및 train/val/test 분리 ===
         self.test_indices = self._find_dong_indices(dong2idx_map, TEST_CITIES_CODES)

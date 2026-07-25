@@ -25,3 +25,4 @@ dataset/raw/od_*.xlsx
 dataset/raw/mountain/
 dataset/od_*.csv
 dataset/processed/od_*.csv
+*.OUT

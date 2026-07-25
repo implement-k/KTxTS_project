@@ -1,26 +1,30 @@
 import pandas as pd
 import glob
 import os
-import KTDB.dataset.preprocessing.process.process_apartment_ratio as par
-import KTDB.dataset.preprocessing.process.process_land_ratio as plr
-import KTDB.dataset.preprocessing.process.process_pop_worker_business as pwb
-import KTDB.dataset.preprocessing.process.process_stations as ps
+import sys
+
+# 프로젝트 루트 디렉토리를 경로에 추가하여 import 에러 방지
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+import dataset.preprocessing.process.process_apartment_ratio as par
+import dataset.preprocessing.process.process_land_ratio as plr
+import dataset.preprocessing.process.process_pop_worker_business as pwb
+import dataset.preprocessing.process.process_stations as ps
 
 def make_static_feature(isFull='n', year='2023'):
     base_dir = "/Users/implement/KT/KTDB/dataset"
     processed_dir = os.path.join(base_dir, "processed")
     
     if year == '2019':
-        od_dong_path = os.path.join(base_dir, "raw", "OD_dong_list_2019.xlsx")
+        od_dong_path = os.path.join(base_dir, "raw", "dong", "OD_dong_list_2019.xlsx")
         output_path = os.path.join(processed_dir, "final_static_features_2019.csv")
     else:
-        od_dong_path = os.path.join(base_dir, "raw", "OD_dong_list.xlsx")
+        od_dong_path = os.path.join(base_dir, "raw", "dong", "OD_dong_list_2023.xlsx")
         output_path = os.path.join(processed_dir, "final_static_features_2023.csv")
     
     # isFull이면 기존 파일 생성
     if (isFull == 'y'):
         if year == '2023':
-            ps_input_file = "/Users/implement/KT/KTDB/dataset/raw/Station Line Admin Dataset.csv"
+            ps_input_file = "/Users/implement/KT/KTDB/dataset/raw/Station Line Admin Dataset_2023.csv"
             ps_output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_subway_count.csv" #2023
             par_input_file = "/Users/implement/KT/KTDB/dataset/raw/서울 인천 경기 아파트 비율 2024.csv" # 2023
             par_output_file = "/Users/implement/KT/KTDB/dataset/processed/processed_apartment_ratio.csv" # 2023
@@ -41,7 +45,7 @@ def make_static_feature(isFull='n', year='2023'):
             ps.process_subway_data(ps_input_file, ps_output_file, 2019) # 2019
         
         par.process_apartment_ratio(par_input_file, par_output_file, year)
-        plr.process_land_ratio(plr_input_file, plr_output_file)
+        plr.process_land_ratio(plr_input_file, plr_output_file, year)
         pwb.process_pop_worker_business(pwb_input_file, pwb_output_file)
         
     
@@ -51,6 +55,9 @@ def make_static_feature(isFull='n', year='2023'):
         raise ValueError("OD_dong_list.xlsx에 'dong_code' 컬럼이 없습니다.")
     
     # 병합할 데이터프레임 초기화
+    if 'dong_name_orig' in base_df.columns and 'dong_name' not in base_df.columns:
+        base_df.rename(columns={'dong_name_orig': 'dong_name'}, inplace=True)
+        
     merged_df = base_df[['dong_code', 'dong_name']].copy()
     
     # processed 폴더의 모든 csv 파일 병합 (년도에 따라 필터링)

@@ -2,33 +2,56 @@ import pandas as pd
 import numpy as np
 import os
 
-def process_apartment_ratio(input_path,output_path, year):
+def process_apartment_ratio(input_path, output_path, year='2023'):
     # 파일 불러오기
-    mismatch_df = pd.read_excel(f"/Users/implement/KT/KTDB/dataset/raw/dong/mismatch_report_{year}.xlsx")
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    mismatch_df = pd.read_excel(os.path.join(base_dir, "raw", "dong", f"mismatch_report_{year}.xlsx"))
     apt_df = pd.read_csv(input_path)
-    od_dong_df = pd.read_excel(f"/Users/implement/KT/KTDB/dataset/raw/dong/OD_dong_list_{year}.xlsx")
+    od_dong_df = pd.read_excel(os.path.join(base_dir, "raw", "dong", f"OD_dong_list_{year}.xlsx"))
     valid_od_dongs = set(od_dong_df['dong_code'])
     
-    # 신 행정동: 구 행정동 딕셔너리 생성
     mapping_dict = {}
     
-    for _, row in mismatch_df.iterrows():
-        od_code = row['OD데이터']
-        apt_codes_str = str(row['수도권 아파트 비율'])
-        
-        if pd.isna(od_code) or apt_codes_str == 'nan':
-            continue
+    if str(year) == '2019':
+        # 2019년: mismatch_report의 OD데이터 컬럼이 8자리/10자리가 혼재되어 있으므로 둘 다 rep_code로 매핑하도록 딕셔너리 구성
+        od10_to_rep = dict(zip(pd.to_numeric(od_dong_df['dong_code_10'], errors='coerce'), od_dong_df['dong_code']))
+        od8_to_rep = dict(zip(pd.to_numeric(od_dong_df['dong_code'], errors='coerce'), od_dong_df['dong_code']))
+        od_to_rep = {**od10_to_rep, **od8_to_rep}
+                
+        for _, row in mismatch_df.iterrows():
+            od_code = row['OD데이터']
+            apt_codes_str = str(row.get('수도권_아파트_비율_2019', row.get('수도권 아파트 비율', 'nan')))
             
-        od_code_int = int(float(od_code))
-        
-        # 새로 바뀐 행정동 코드의 경우 리스트 추출
-        tokens = apt_codes_str.split('/')
-        for token in tokens:
-            token = token.strip()
-            if token.startswith('신'):
-                new_code_str = token[1:]
+            if pd.isna(od_code) or apt_codes_str == 'nan':
+                continue
+                
+            od_code_int = int(float(od_code))
+            if od_code_int not in od_to_rep:
+                continue
+            rep_code = od_to_rep[od_code_int]
+            
+            tokens = apt_codes_str.split('/')
+            for token in tokens:
+                token = token.strip()
+                new_code_str = token.replace('신', '') if token.startswith('신') else token
                 if new_code_str.isdigit():
-                    mapping_dict[int(new_code_str)] = od_code_int
+                    mapping_dict[int(new_code_str)] = rep_code
+    else:
+        for _, row in mismatch_df.iterrows():
+            od_code = row['OD데이터']
+            apt_codes_str = str(row['수도권 아파트 비율'])
+            
+            if pd.isna(od_code) or apt_codes_str == 'nan':
+                continue
+                
+            od_code_int = int(float(od_code))
+            tokens = apt_codes_str.split('/')
+            for token in tokens:
+                token = token.strip()
+                if token.startswith('신'):
+                    new_code_str = token[1:]
+                    if new_code_str.isdigit():
+                        mapping_dict[int(new_code_str)] = od_code_int
                     
     apt_df['행정구역코드'] = pd.to_numeric(apt_df['행정구역코드'], errors='coerce')
     apt_df['mapped_code'] = apt_df['행정구역코드'].map(lambda x: mapping_dict.get(x, x))
@@ -75,4 +98,6 @@ def process_apartment_ratio(input_path,output_path, year):
     print(f"저장 위치: {output_path}")
 
 if __name__ == "__main__":
-    process_apartment_ratio()
+    process_apartment_ratio(
+        "/Users/implement/KT/KTDB/dataset/processed/processed_apartment_ratio.csv",
+        "/Users/implement/KT/KTDB/dataset/raw/수도권 행정동 상업 공공 주거 비율.csv")

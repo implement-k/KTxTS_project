@@ -45,7 +45,6 @@ def process_subway_data(input_path, output_path, year = 2023):
             ('하남검단산역', '5호선'),
         ]
         
-    
     print(f"Original dataset size: {len(df)}")
     
     # 제외 대상 마스킹
@@ -61,9 +60,38 @@ def process_subway_data(input_path, output_path, year = 2023):
     df_filtered = df[~mask].copy()
     print(f"필터 처리된 데이터셋 크기: {len(df_filtered)}")
     
-    # 각 역마다 500m 이내 행정동 목록 파싱
     dong_station_count = {}
     
+    # 2019년 10자리 -> 8자리 변환 매핑 준비
+    mapping_dict = {}
+    if year == 2019:
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        mapping_df = pd.read_excel(os.path.join(base_dir, "raw", "dong", "OD_dong_list_2019.xlsx"))
+        
+        name_to_code = {}
+        for _, row in mapping_df.iterrows():
+            name = str(row['dong_name']).strip()
+            if name != 'nan':
+                name_to_code[name] = int(row['dong_code'])
+        
+        # 행정동코드명_500m에서 10자리 코드와 동 이름 추출하여 매핑 생성
+        for _, row in df.iterrows():
+            names_str = str(row['행정동코드명_500m']).strip('[]')
+            if names_str and names_str != 'nan':
+                for item in names_str.split(','):
+                    if ':' in item:
+                        code_str, full_name = item.split(':')
+                        try:
+                            code_10 = int(code_str.strip())
+                            dong_name = full_name.strip().replace("'", "").replace('"', '').split()[-1]
+                            
+                            if dong_name in name_to_code:
+                                mapping_dict[code_10] = name_to_code[dong_name]
+                            elif '제' in dong_name and dong_name.replace('제', '') in name_to_code:
+                                mapping_dict[code_10] = name_to_code[dong_name.replace('제', '')]
+                        except ValueError:
+                            pass
+
     for _, row in df_filtered.iterrows():
         # 결측치 처리
         if pd.isna(row['행정동코드_500m']):
@@ -78,6 +106,21 @@ def process_subway_data(input_path, output_path, year = 2023):
             continue
             
         dongs = [x.strip() for x in dongs_str.split(',')]
+        
+        # 2019년인 경우 10자리 동코드를 매핑 테이블을 참고해 8자리 대표 코드로 변환
+        if year == 2019:
+            mapped_dongs = []
+            for d in dongs:
+                try:
+                    code_10 = int(d)
+                    if code_10 in mapping_dict and pd.notna(mapping_dict[code_10]):
+                        mapped_dongs.append(str(int(mapping_dict[code_10])))
+                except ValueError:
+                    pass
+            dongs = list(set(mapped_dongs))
+            if not dongs:
+                continue
+            
         station_id = row['철도역명'] + '_' + row['노선_열차종류']
         
         if (row['구분'] not in dong_station_count):

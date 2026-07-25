@@ -1,13 +1,15 @@
-﻿import pandas as pd
+import pandas as pd
 
-def check_dong(df, dong_cal_name):
-    od_dong_list = pd.read_excel("/Users/implement/KT/KTDB/dataset/raw/OD_dong_list.xlsx")
+def check_dong(df, dong_cal_name, year='2023'):
+    od_dong_list = pd.read_excel(f"/Users/implement/KT/KTDB/dataset/raw/dong/OD_dong_list_{year}.xlsx")
     
     # 7자리 코드 8자리 코드로 변환
     df_code = pd.to_numeric(df[dong_cal_name], errors='coerce')
     df_code_8digit = df_code.mask(df_code < 10000000, df_code * 10)
     
     valid_dongs = set(od_dong_list['dong_code'])
+    if 'dong_code_10' in od_dong_list.columns:
+        valid_dongs.update(od_dong_list['dong_code_10'].dropna())
     
     invalid_mask = df_code_8digit.isna() | ~df_code_8digit.isin(valid_dongs)
     

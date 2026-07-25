@@ -13,22 +13,22 @@ def haversine(lon1, lat1, lon2, lat2):
     km = 6371 * c
     return km
 
-def make_dist_matrix():
+def make_dist_matrix(year='2023'):
     base_dir = "/Users/implement/KT/KTDB/dataset"
     raw_dir = os.path.join(base_dir, "raw")
-    output_path = os.path.join(base_dir, "dist_data.csv")
+    output_path = os.path.join(base_dir, f"dist_data_{year}.csv")
     
-    dong_file = os.path.join(raw_dir, 'OD_dong_list.xlsx')
+    if year == '2019':
+        dong_file = os.path.join(raw_dir, 'dong', 'OD_dong_list_2019.xlsx')
+        geojson_path = os.path.join(raw_dir, 'dong', 'dong_area_20220101.geojson')
+    else:
+        dong_file = os.path.join(raw_dir, 'dong', 'OD_dong_list_2023.xlsx')
+        geojson_path = os.path.join(raw_dir, 'dong', 'dong_area_20230101.geojson')
+        
     dong_df = pd.read_excel(dong_file)
     valid_dongs = dong_df['dong_code'].astype(int).values
     
-    # Load Change Review 
-    change_review_path = os.path.join(raw_dir, 'dong', 'hangjeongdong_change_review.csv')
-    od_dong_change_list = pd.read_csv(change_review_path)
-    change_map = dict(zip(od_dong_change_list['이후_행정동코드'], od_dong_change_list['이전_행정동코드']))
-    
     # Load GeoJSON 
-    geojson_path = os.path.join(raw_dir, 'dong', 'dong_area_20220101.geojson')
     gdf = gpd.read_file(geojson_path)
     
     # 7자리 -> 8자리
@@ -43,11 +43,35 @@ def make_dist_matrix():
     # 행정동 코드와 중심좌표를 매핑
     coords_dict = dict(zip(gdf['adm_cd_8digit'], zip(gdf['lat'], gdf['lon'])))
     
+    # 시군구 평균 좌표 계산 (Fallback 용)
+    sigungu_coords = {}
+    for code, (lat, lon) in coords_dict.items():
+        if pd.isna(code): continue
+        sigungu = int(code // 1000)
+        if sigungu not in sigungu_coords:
+            sigungu_coords[sigungu] = []
+        sigungu_coords[sigungu].append((lat, lon))
+        
+    sigungu_mean_coords = {
+        s: (np.mean([x[0] for x in lst]), np.mean([x[1] for x in lst]))
+        for s, lst in sigungu_coords.items()
+    }
+    overall_mean = (gdf['lat'].mean(), gdf['lon'].mean())
+    
     num_dongs = len(valid_dongs)
     coords = np.zeros((num_dongs, 2), dtype=np.float32)
     for i, code in enumerate(valid_dongs):
-        coords[i, 0] = coords_dict[code][0]
-        coords[i, 1] = coords_dict[code][1]
+        if code in coords_dict:
+            coords[i, 0] = coords_dict[code][0]
+            coords[i, 1] = coords_dict[code][1]
+        else:
+            sigungu = int(code // 1000)
+            if sigungu in sigungu_mean_coords:
+                coords[i, 0] = sigungu_mean_coords[sigungu][0]
+                coords[i, 1] = sigungu_mean_coords[sigungu][1]
+            else:
+                coords[i, 0] = overall_mean[0]
+                coords[i, 1] = overall_mean[1]
         
     # 행정동간 거리 계산
     lat1 = coords[:, 0][:, np.newaxis]
@@ -79,4 +103,8 @@ def make_dist_matrix():
     print(f"저장 위치: {output_path}")
 
 if __name__ == '__main__':
-    make_dist_matrix()
+    year = input("년도 선택 (2019/2023):")
+    if year not in ['2019', '2023']:
+        print("잘못된 입력입니다. '2019' 또는 '2023'을 입력해주세요.")
+    else:
+        make_dist_matrix(year)

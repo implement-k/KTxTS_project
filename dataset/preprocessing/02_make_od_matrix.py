@@ -14,20 +14,31 @@ def make_od_matrix(year='2023'):
 
     print(f"파일 읽기 시작: {input_file}")
     
-    columns = [
-        'O_index', 'O_dong_code', 
-        'D_index', 'D_dong_code', 
-        '귀가', '출근', '등교', '업무', '기타'
-    ]
-    
     if year == '2019':
-        df = pd.read_csv(input_file, sep=r',?\s+', names=columns, engine='python')
+        # 2019 has 14 columns: O_index, O_dong_code, O_zone, D_index, D_dong_code, D_zone, and 8 purposes
+        columns_19 = [
+            'O_index', 'O_dong_code', 'O_zone',
+            'D_index', 'D_dong_code', 'D_zone',
+            '귀가', '출근', '등교', '학원', '업무', '쇼핑', '여가', '기타'
+        ]
+        df = pd.read_csv(input_file, sep=r',?\s+', names=columns_19, engine='python')
+        
+        # '학원', '쇼핑', '여가'를 '기타'에 합침
+        df['기타'] = df['기타'] + df['학원'] + df['쇼핑'] + df['여가']
+        
+        # 불필요한 컬럼 삭제하여 2023 형식과 맞춤
+        df = df[['O_index', 'O_dong_code', 'D_index', 'D_dong_code', '귀가', '출근', '등교', '업무', '기타']]
     else:
-        df = pd.read_csv(input_file, sep=r'\s+', names=columns, engine='c')
+        columns_23 = [
+            'O_index', 'O_dong_code', 
+            'D_index', 'D_dong_code', 
+            '귀가', '출근', '등교', '업무', '기타'
+        ]
+        df = pd.read_csv(input_file, sep=r'\s+', names=columns_23, engine='c')
     
     if year == '2019':
         # 2019년은 10자리 코드이므로 8자리 코드로 매핑
-        mapping_df = pd.read_excel("dataset/raw/OD_dong_list_2019.xlsx")
+        mapping_df = pd.read_excel("/Users/implement/KT/KTDB/dataset/raw/dong/OD_dong_list_2019.xlsx")
         mapping = dict(zip(pd.to_numeric(mapping_df['dong_code_10'], errors='coerce'), mapping_df['dong_code']))
         
         o_code = pd.to_numeric(df['O_dong_code'], errors='coerce')

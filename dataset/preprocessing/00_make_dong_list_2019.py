@@ -7,8 +7,13 @@ import os
 
 def make_dong_list_2019():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    orig_path = os.path.join(base_dir, "raw", "OD_dong_list_2019.xlsx")
     report_path = os.path.join(base_dir, "raw", "dong", "mismatch_report_2019.xlsx")
-    output_path = os.path.join(base_dir, "raw", "OD_dong_list_2019.xlsx")
+    output_path = os.path.join(base_dir, "raw", "dong", "OD_dong_list_2019.xlsx")
+    
+    print(f"Reading original OD list from {orig_path} to preserve real 10-digit codes...")
+    orig_df = pd.read_excel(orig_path)
+    orig_map = dict(zip(pd.to_numeric(orig_df['dong_code_10'], errors='coerce'), orig_df['dong_code_10']))
     
     print(f"Reading mismatch report from {report_path}...")
     df = pd.read_excel(report_path)
@@ -21,28 +26,24 @@ def make_dong_list_2019():
             
         od_code = int(od_val)
         orig_name = str(row.get('동이름', 'Unknown'))
-        note = str(row.get('Unnamed: 5', '')).strip()
         static_code_str = str(row.get('수도권_행정동_용지_비율_2019', 'nan'))
         
         new_code = od_code # Default to original if no change
-        
-        # Determine the new code based on the mismatch report
+
         if static_code_str != 'nan':
-            # 신 행정동 코드가 포함된 경우, '신'을 제거하고 대표 코드를 선택
             clean_code_str = static_code_str.replace('신', '')
-            
-            # /가 포함된 경우, 대표 코드를 선택
             if '/' in clean_code_str:
-                rep_code = int(float(clean_code_str.split('/')[0]))
-                new_code = rep_code
+                new_code = int(float(clean_code_str.split('/')[0]))
             else:
                 new_code = int(float(clean_code_str))
                 
+        code_10 = orig_map.get(od_code, pd.NA)
+                
         mapping_records.append({
-            'dong_code_10': od_code,        # Original OD data dong code
-            'dong_name_orig': orig_name,
-            'dong_code': new_code,          # Changed code (Representative 8-digit)
-            'note': note                    # Modification history
+            'dong_code_10': od_code,        
+            'dong_name': orig_name,
+            'dong_code': new_code,          # 대표 8자리 코드
+            'station_code_10': code_10      # station 코드
         })
 
     mapping_df = pd.DataFrame(mapping_records)

@@ -4,9 +4,11 @@ import process_dong_code as pdc
 
 def process_land_ratio(input_path, output_path):
     print(f"processing land ratio data from {input_path} to {output_path}...")
-    df = pd.read_csv(input_path)        
-    df = df.drop(columns=['자료권역', '시도', '행정동명', '상업업무지역면적_m2', '공공시설지역면적_m2', '주거지역면적_m2'])
-    
+    df = pd.read_csv(input_path) 
+    try:       
+        df = df.drop(columns=['자료권역', '시도', '행정동명', '상업업무지역면적_m2', '공공시설지역면적_m2', '주거지역면적_m2'])
+    except:
+        pass
     # 일부 행정동 결측
     df = pdc.check_dong(df, '행정동코드')
     

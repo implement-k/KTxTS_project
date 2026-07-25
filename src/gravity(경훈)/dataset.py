@@ -16,16 +16,20 @@ from config import (
 
 
 class ODDataset:
-    def __init__(self):        
+    def __init__(self, year=2023, imputation='zero'):        
         # === 행정동 코드 로드 ===
         dong_df = pd.read_excel(DONG_CODE_PATH)
         dongs = dong_df['dong_code'].astype(int).values
         self.num_nodes = len(dongs)   # 전체 동 개수
+        self.dong_codes = dongs
         dong2idx_map = {code: i for i, code in enumerate(dongs)}
         
         # === OD 매트릭스 로드 (N,N) ===
         self.X_OD = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
-        od_df = pd.read_csv(OD_DATA_PATH)
+        od_path = os.path.join(os.path.dirname(OD_DATA_PATH), f'od_data_{year}.csv')
+        if not os.path.exists(od_path):
+            od_path = OD_DATA_PATH
+        od_df = pd.read_csv(od_path)
         
         # OD 데이터에서 유효한 행정동만 필터링
         o_indices = od_df['O_dong_code'].map(dong2idx_map).values
@@ -53,7 +57,10 @@ class ODDataset:
         self.X_dist[o_dist[dist_mask], d_dist[dist_mask]] = np.asarray(dist_df['distance'].values[dist_mask])
         
         # === Static Feature 로드 ===
-        static_df = pd.read_csv(STATIC_DATA_PATH)
+        static_path = os.path.join(os.path.dirname(STATIC_DATA_PATH), f'final_static_features_{year}.csv')
+        if not os.path.exists(static_path):
+            static_path = STATIC_DATA_PATH
+        static_df = pd.read_csv(static_path)
         static_df['dong_code'] = static_df['dong_code'].astype(int)
         
         # 행정동 코드 기준으로 결측치 0으로 채우기
@@ -82,12 +89,21 @@ class ODDataset:
         scaler = StandardScaler()
         scaler.fit(raw_static[self.train_indices])
         self.X_static = scaler.transform(raw_static)
+        self.X_static_raw = raw_static.copy()
+        
+        # 학습 데이터의 컬럼별 평균 계산 (mean imputation용)
+        train_means = np.mean(self.X_static[self.train_indices], axis=0)
+        train_means_raw = np.mean(self.X_static_raw[self.train_indices], axis=0)
         
         for m_idx in self.masking_indices:
-            self.X_static[self.test_indices, m_idx] = 0.0
-        self.X_static[self.test_indices, -1] = 1.0 # is_masked = 1
+            if imputation == 'mean':
+                self.X_static[self.test_indices, m_idx] = train_means[m_idx]
+                self.X_static_raw[self.test_indices, m_idx] = train_means_raw[m_idx]
+            else: # default: zero
+                self.X_static[self.test_indices, m_idx] = 0.0
+                self.X_static_raw[self.test_indices, m_idx] = 0.0
         
-        print("Dataset 초기화 완료")
+        print(f"Dataset 초기화 완료 (Imputation: {imputation})")
         
     def _find_dong_indices(self, idx_map, cities_codes):
         all_codes = (int(code) for codes in cities_codes.values() for code in codes)

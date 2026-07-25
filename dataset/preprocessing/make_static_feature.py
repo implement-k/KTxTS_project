@@ -6,24 +6,38 @@ import process_land_ratio as plr
 import process_pop_worker_business as pwb
 import process_stations as ps
 
-def make_static_feature(isFull='n'):
+def make_static_feature(isFull='n', year='2023'):
     base_dir = "/Users/implement/KT/KTDB/dataset"
     processed_dir = os.path.join(base_dir, "processed")
     od_dong_path = os.path.join(base_dir, "raw", "OD_dong_list.xlsx")
-    output_path = os.path.join(processed_dir, "final_static_features.csv")
+    
+    if year == '2019':
+        output_path = os.path.join(processed_dir, "final_static_features_2019.csv")
+    else:
+        output_path = os.path.join(processed_dir, "final_static_features.csv")
     
     # isFull이면 기존 파일 생성
     if (isFull == 'y'):
-        ps_input_file = "/Users/implement/KT/KTDB/dataset/raw/Station Line ADM Code Dataset.csv"
-        ps_output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_subway_count.csv"
-        par_input_file = "/Users/implement/KT/KTDB/dataset/raw/서울 인천 경기 아파트 비율 2024.csv"
-        par_output_file = "/Users/implement/KT/KTDB/dataset/processed/processed_apartment_ratio.csv"
-        plr_input_file = "/Users/implement/KT/KTDB/dataset/raw/수도권 행정동 상업 공공 주거 비율.csv"
-        plr_output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_land_ratio.csv"
-        pwb_input_file = "/Users/implement/KT/KTDB/dataset/raw/2021-2023 인구 및 사업자 데이터.csv"
-        pwb_output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_pop_worker_business_count.csv"
+        ps_input_file = "/Users/implement/KT/KTDB/dataset/raw/Station Line Admin Dataset.csv"
+        if year == '2023':
+            ps_output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_subway_count.csv" #2023
+            par_input_file = "/Users/implement/KT/KTDB/dataset/raw/서울 인천 경기 아파트 비율 2024.csv" # 2023
+            par_output_file = "/Users/implement/KT/KTDB/dataset/processed/processed_apartment_ratio.csv" # 2023
+            plr_input_file = "/Users/implement/KT/KTDB/dataset/raw/수도권 행정동 상업 공공 주거 비율.csv" # 2023
+            plr_output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_land_ratio.csv" #2023
+            pwb_input_file = "/Users/implement/KT/KTDB/dataset/raw/2021-2023 인구 및 사업자 데이터.csv" # 2023
+            pwb_output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_pop_worker_business_count.csv" #2023
+            ps.process_subway_data(ps_input_file, ps_output_file, 2023) # 2023
+        elif year == '2019':
+            ps_output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_subway_count_2019.csv" #2019
+            par_input_file = "/Users/implement/KT/KTDB/dataset/raw/서울 인천 경기 아파트 비율 2019.csv" # 2019
+            par_output_file = "/Users/implement/KT/KTDB/dataset/processed/processed_apartment_ratio_2019.csv" # 2019
+            plr_input_file = "/Users/implement/KT/KTDB/dataset/raw/수도권 행정동 용지 비율 2019.csv" # 2019
+            plr_output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_land_ratio_2019.csv" #2019
+            pwb_input_file = "/Users/implement/KT/KTDB/dataset/raw/Population Business Worker 2021 2019.csv" #2019
+            pwb_output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_pop_worker_business_count_2019.csv" #2019
+            ps.process_subway_data(ps_input_file, ps_output_file, 2019) # 2019
         
-        ps.process_subway_data(ps_input_file, ps_output_file)
         par.process_apartment_ratio(par_input_file, par_output_file)
         plr.process_land_ratio(plr_input_file, plr_output_file)
         pwb.process_pop_worker_business(pwb_input_file, pwb_output_file)
@@ -37,8 +51,12 @@ def make_static_feature(isFull='n'):
     # 병합할 데이터프레임 초기화
     merged_df = base_df[['dong_code', 'dong_name']].copy()
     
-    # processed 폴더의 모든 csv 파일 병합
-    csv_files = glob.glob(os.path.join(processed_dir, "*.csv"))
+    # processed 폴더의 모든 csv 파일 병합 (년도에 따라 필터링)
+    all_csv_files = glob.glob(os.path.join(processed_dir, "*.csv"))
+    if year == '2019':
+        csv_files = [f for f in all_csv_files if "2019" in os.path.basename(f) and "final_static_features" not in os.path.basename(f)]
+    else:
+        csv_files = [f for f in all_csv_files if "2019" not in os.path.basename(f) and "final_static_features" not in os.path.basename(f)]
     
     subway_columns = []
     other_feature_columns = []
@@ -62,7 +80,12 @@ def make_static_feature(isFull='n'):
         # 지하철(철도) 데이터 처리
         if file_name.startswith("dong_subway_count_"):
             # 파일명에서 철도 타입 추출 (예: dong_subway_count_지하철.csv -> 지하철)
-            subway_type = file_name.replace("dong_subway_count_", "").replace(".csv", "")
+            base_name = file_name.replace(".csv", "").replace("dong_subway_count_", "")
+            if base_name.startswith("2019_"):
+                subway_type = base_name.replace("2019_", "", 1)
+            else:
+                subway_type = base_name
+                
             new_col_name = f"station_count_{subway_type}"
             
             if 'station_count' in df.columns:
@@ -158,4 +181,8 @@ if __name__ == "__main__":
     if isFull.lower() not in ['y', 'n']:
         print("잘못된 입력입니다. 'y' 또는 'n'을 입력해주세요.") 
     else:
-        make_static_feature(isFull.lower())
+        year = input("년도 선택 (2019/2023):")
+        if year not in ['2019', '2023']:
+            print("잘못된 입력입니다. '2019' 또는 '2023'을 입력해주세요.")
+        else:
+            make_static_feature(isFull.lower(), year)

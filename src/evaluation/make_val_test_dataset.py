@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 from dataset import ODDataset
 import joblib
 
-def generate_samples_for_city(dataset, mask_indices, task, num_seeds=50, gravity_model=None):
+def generate_samples_for_city(dataset, mask_indices, task, num_seeds=50):
     samples = []
     
     # Pre-extract base components so we don't pollute the main dataset
@@ -32,7 +32,7 @@ def generate_samples_for_city(dataset, mask_indices, task, num_seeds=50, gravity
             
         y_OD_raw = dataset.X_OD_raw.copy()
         X_static_masked = dataset.X_static.copy()
-        X_static_grav = dataset.X_static.copy()
+        X_static_raw_masked = dataset.X_static_raw.copy()
         X_dist_curr = dataset.X_dist.copy()
         active_node_mask = np.ones(N, dtype=bool)
 
@@ -139,34 +139,39 @@ def generate_samples_for_city(dataset, mask_indices, task, num_seeds=50, gravity
             if event_type == 'known_merge':
                 mask[primary_node] = False
                 X_static_masked[primary_node, :-2] = merged_static
-                X_static_grav[primary_node, :-2] = merged_static
+                X_static_raw_masked[primary_node, :] = merged_raw_static
                 X_static_masked[primary_node, -2] = 0.0
                 X_static_masked[primary_node, -1] = 0.0
 
             elif event_type == 'mask_with_mask':
                 mask[primary_node] = True
                 X_static_masked[primary_node, :-2] = merged_static
-                X_static_grav[primary_node, :-2] = merged_static
+                X_static_raw_masked[primary_node, :] = merged_raw_static
                 X_static_masked[primary_node, dataset.masking_indices] = 0.0
+                X_static_raw_masked[primary_node, dataset.masking_indices] = 0.0
                 X_static_masked[primary_node, -2] = 1.0
                 X_static_masked[primary_node, -1] = 1.0
 
             elif event_type == 'mask_with_known':
                 mask[primary_node] = False
                 X_static_masked[primary_node, :-2] = merged_static
-                X_static_grav[primary_node, :-2] = merged_static
+                X_static_raw_masked[primary_node, :] = merged_raw_static
                 X_static_masked[primary_node, -2] = 0.0
                 X_static_masked[primary_node, -1] = 1.0
 
         if len(mask_indices) > 0:
             X_static_masked[np.ix_(mask_indices, dataset.masking_indices)] = 0.0
+            X_static_raw_masked[np.ix_(mask_indices, dataset.masking_indices)] = 0.0
             
         base_mask = mask | hide_mask
         if np.any(hide_mask):
             X_static_masked[hide_mask, :-2] = 0.0
+            X_static_raw_masked[hide_mask, :-2] = 0.0
             
         X_static_masked[base_mask, -2] = 1.0
         X_static_masked[base_mask, -1] = 0.0
+        X_static_raw_masked[base_mask, -2] = 1.0
+        X_static_raw_masked[base_mask, -1] = 0.0
 
         y_OD = np.log1p(y_OD_raw)
         X_OD_masked = y_OD.copy()
@@ -184,30 +189,18 @@ def generate_samples_for_city(dataset, mask_indices, task, num_seeds=50, gravity
 
         print(f"    Seed {seed}: {actual_merges}")
 
-        if gravity_model is not None:
-            # IPF는 val/test 데이터셋에 대해서만 수행 (거리 매트릭스도 병합된 상태 사용)
-            O_pred, D_pred = gravity_model.predict_O_D(X_static_grav)
-            y_self_pred = gravity_model.predict_self(X_static_grav)
-            dist_matrix = np.expm1(X_dist_curr)
-            
-            p_gravity = gravity_model.apply_ipf(O_pred, D_pred, dist_matrix, y_self=y_self_pred)
-            p_gravity = np.nan_to_num(p_gravity, nan=0.0, posinf=1e10, neginf=0.0)
-            p_gravity_tensor = torch.tensor(p_gravity, dtype=torch.float16)
-        else:
-            p_gravity_tensor = None
-
         sample = {
             'X_static': torch.tensor(X_static_masked, dtype=torch.float16),
+            'X_static_raw': torch.tensor(X_static_raw_masked, dtype=torch.float32),
             'X_dist': torch.tensor(X_dist_curr, dtype=torch.float16),
             'X_OD_masked': torch.tensor(X_OD_masked, dtype=torch.float16),
             'y_OD': torch.tensor(y_OD, dtype=torch.float16),
+            'y_OD_raw': torch.tensor(y_OD_raw, dtype=torch.float32),
             'mask': torch.tensor(mask, dtype=torch.bool),
             'active_node_mask': torch.tensor(active_node_mask, dtype=torch.bool),
             'loss_mask': torch.tensor(mask.copy(), dtype=torch.bool),
             'merge_stats': actual_merges
         }
-        if p_gravity_tensor is not None:
-            sample['p_gravity'] = p_gravity_tensor
             
         samples.append(sample)
     return samples
@@ -222,14 +215,6 @@ def main():
     dong_codes = dong_df['dong_code'].astype(int).values
     dong2idx_map = {code: i for i, code in enumerate(dong_codes)}
     
-    gravity_model_path = os.path.join(os.path.dirname(__file__), '../../dataset/gravity_model.pkl')
-    gravity_model = None
-    if os.path.exists(gravity_model_path):
-        print(f"중력 모델 로드: {gravity_model_path}")
-        gravity_model = joblib.load(gravity_model_path)
-    else:
-        print("중력 모델 파일이 없어서 샘플에 중력 모델 예측값을 포함하지 않습니다.")
-    
     out_dir = os.path.join(os.path.dirname(__file__), '../../dataset/fixed_eval')
     os.makedirs(out_dir, exist_ok=True)
     
@@ -240,7 +225,7 @@ def main():
         indices = val_dataset._find_dong_indices(dong2idx_map, {city_name: dong_codes}).tolist()
         val_result[city_name] = {}
         for task in [0, 1, 2, 3, 4]:
-            samples = generate_samples_for_city(val_dataset, indices, task=task, gravity_model=gravity_model)
+            samples = generate_samples_for_city(val_dataset, indices, task=task)
             val_result[city_name][task] = samples
             
     val_path = os.path.join(out_dir, 'fixed_val_dataset.pt')
@@ -255,7 +240,7 @@ def main():
         indices = test_dataset._find_dong_indices(dong2idx_map, {city_name: dong_codes}).tolist()
         test_result[city_name] = {}
         for task in [0, 1, 2, 3, 4]:
-            samples = generate_samples_for_city(test_dataset, indices, task=task, gravity_model=gravity_model)
+            samples = generate_samples_for_city(test_dataset, indices, task=task)
             test_result[city_name][task] = samples
             
     test_path = os.path.join(out_dir, 'fixed_test_dataset.pt')

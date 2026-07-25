@@ -83,7 +83,9 @@ class ODDataset(Dataset):
         # 피처 정규화
         self.scaler = StandardScaler()
         self.scaler.fit(raw_static[self.train_indices])
-        self.X_static = self.scaler.transform(raw_static)
+        
+        self.X_static = self.scaler.transform(raw_static).astype(np.float32)
+        self.X_static_raw = raw_static.astype(np.float32)
         
         # 마스킹 여부(is_masked)와 병합 여부(is_merged)를 알려주는 2D Indicator 컬럼 추가 (0.0으로 초기화)
         indicator = np.zeros((self.X_static.shape[0], 2), dtype=np.float32)

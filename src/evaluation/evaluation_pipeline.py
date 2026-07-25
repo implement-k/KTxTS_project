@@ -9,11 +9,11 @@ def cpc_score(y_true, y_pred):
         return 0.0
     return numerator / denominator
 
-def run_evaluation_pipeline(model, data_dict, device, model_type='mae', criterion=None):
+def run_evaluation_pipeline(model, data_dict, device, model_type='mae', criterion=None, **kwargs):
     """
     data_dict: {CityName: {TaskID: [sample_dict, ...]}}
     Returns:
-        results: {CityName: {TaskID: {'rmse': float, 'cpc': float, 'loss': float}}}
+        results: {CityName: {TaskID: {'rmse': float, 'cpc': float, 'prmse': float, 'loss': float}}}
     """
     if model is not None:
         model.eval()
@@ -29,6 +29,7 @@ def run_evaluation_pipeline(model, data_dict, device, model_type='mae', criterio
             for task_id, samples in tasks.items():
                 task_rmse = []
                 task_cpc = []
+                task_prmse = []
                 task_loss = []
                 
                 for batch in samples:
@@ -148,12 +149,59 @@ def run_evaluation_pipeline(model, data_dict, device, model_type='mae', criterio
                         active_m2d = active_node_mask.unsqueeze(1) & active_node_mask.unsqueeze(2)
                         valid_cells = (m2d & active_m2d).cpu().numpy()[0]
                         
-                        if 'p_gravity' in batch:
-                            p_grav = batch['p_gravity']
-                            p_real = np.maximum(p_grav[valid_cells], 0)
-                        else:
-                            p_real = np.zeros(np.sum(valid_cells))
+                        import sys
+                        import os
+                        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'gravity(경훈)'))
+                        from model import DoublyConstrainedGravityModel
+                        
+                        g_type = kwargs.get('gravity_model_type', 'lgbm')
+                        g_imp = kwargs.get('gravity_imputation', 'zero')
+                        
+                        grav_model = DoublyConstrainedGravityModel(generation_model_type=g_type, beta=2.0, max_iter=100)
+                        
+                        # Data prep
+                        mask_np = batch['mask'][0].cpu().numpy()
+                        train_mask_grav = ~mask_np
+                        y_OD_raw = batch['y_OD_raw'][0].cpu().numpy()
+                        X_dist_grav = batch['X_dist'][0].cpu().numpy()
+                        
+                        X_o = y_OD_raw[train_mask_grav].sum(axis=1) - np.diag(y_OD_raw)[train_mask_grav]
+                        X_d = y_OD_raw[:, train_mask_grav].sum(axis=0) - np.diag(y_OD_raw)[train_mask_grav]
+                        X_self = np.diag(y_OD_raw)[train_mask_grav]
+                        X_inter = X_o # For simplified self-loop fallback
+                        
+                        # Handle imputation on masking indices
+                        X_static_masked = batch['X_static'][0].cpu().numpy().copy()
+                        X_static_raw_masked = batch['X_static_raw'][0].cpu().numpy().copy()
+                        
+                        if g_imp == 'mean':
+                            import sys
+                            import os
+                            sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'mae-old'))
+                            from dataset import ODDataset
+                            dummy_ds = ODDataset(mode='val')
                             
+                            train_means = X_static_masked[train_mask_grav].mean(axis=0)
+                            train_means_raw = X_static_raw_masked[train_mask_grav].mean(axis=0)
+                            for c in dummy_ds.masking_indices:
+                                X_static_masked[mask_np, c] = train_means[c]
+                                X_static_raw_masked[mask_np, c] = train_means_raw[c]
+                        
+                        X_static_all = X_static_raw_masked if g_type in ['trip_rate', 'cross_class', 'linear_regression'] else X_static_masked
+                        
+                        # Remove indicator columns (is_masked, is_merged) before passing to model
+                        X_static_train_grav = X_static_masked[train_mask_grav, :-2]
+                        X_static_all_grav = X_static_all[:, :-2]
+                        
+                        p_grav = grav_model.fit_predict(
+                            X_static_train=X_static_train_grav,
+                            O_train=X_o,
+                            D_train=X_d,
+                            X_static_all=X_static_all_grav,
+                            dist_matrix=X_dist_grav
+                        )
+                        
+                        p_real = np.maximum(p_grav[valid_cells], 0)
                         v_loss = 0.0
                     
                     y_real = np.maximum(torch.expm1(y_o[0].cpu()).numpy()[valid_cells], 0)
@@ -163,16 +211,20 @@ def run_evaluation_pipeline(model, data_dict, device, model_type='mae', criterio
                     if len(y_real) > 0:
                         rmse = np.sqrt(mean_squared_error(y_real, p_real))
                         cpc = cpc_score(y_real, p_real)
+                        mean_y = np.mean(y_real)
+                        prmse = rmse / mean_y if mean_y > 0 else 0.0
                     else:
-                        rmse, cpc = 0.0, 0.0
+                        rmse, cpc, prmse = 0.0, 0.0, 0.0
                         
                     task_rmse.append(rmse)
                     task_cpc.append(cpc)
+                    task_prmse.append(prmse)
                     task_loss.append(v_loss)
                     
                 results[city][task_id] = {
                     'rmse': np.mean(task_rmse),
                     'cpc': np.mean(task_cpc),
+                    'prmse': np.mean(task_prmse),
                     'loss': np.mean(task_loss)
                 }
                 

@@ -14,7 +14,7 @@ def make_static_feature(isFull='n', year='2023'):
     if year == '2019':
         output_path = os.path.join(processed_dir, "final_static_features_2019.csv")
     else:
-        output_path = os.path.join(processed_dir, "final_static_features.csv")
+        output_path = os.path.join(processed_dir, "final_static_features_2023.csv")
     
     # isFull이면 기존 파일 생성
     if (isFull == 'y'):
@@ -107,6 +107,19 @@ def make_static_feature(isFull='n', year='2023'):
                 
         # land_ratio 데이터 처리
         elif "land_ratio" in file_name:
+            # 2019와 2023의 컬럼명이 달라서 통일
+            rename_dict = {
+                '행정동총면적_m2': '행정동전체면적_m2',
+                '주거용지비율': '주거지역비율_pct',
+                '상업업무용지비율': '상업업무지역비율_pct',
+                '공공시설용지비율': '공공시설지역비율_pct'
+            }
+            df.rename(columns=rename_dict, inplace=True)
+            
+            # 불필요한 컬럼 제거 (행정동명, 시도, 자료권역 등)
+            drop_cols = [c for c in ['행정동명', '시도', '자료권역'] if c in df.columns]
+            df.drop(columns=drop_cols, inplace=True)
+            
             feature_cols = [c for c in df.columns if c != 'dong_code']
             merged_df = pd.merge(merged_df, df, on='dong_code', how='left')
             other_feature_columns.extend(feature_cols)

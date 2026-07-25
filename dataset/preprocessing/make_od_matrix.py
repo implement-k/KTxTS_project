@@ -1,10 +1,17 @@
 import pandas as pd
 import os
-def make_od_matrix():
-    input_file = "/Users/implement/KT/KTDB/dataset/raw/ODTRIP23_F.OUT"
-    od_csv_output = "/Users/implement/KT/KTDB/dataset/od_data.csv"
-    od_static_output = "/Users/implement/KT/KTDB/dataset/od_static_feature.csv"
-    
+def make_od_matrix(year='2023'):
+    if year == '2023':
+        input_file = "/Users/implement/KT/KTDB/dataset/raw/ODTRIP23_F.OUT"
+        od_csv_output = "/Users/implement/KT/KTDB/dataset/od_data_2023.csv"
+        od_static_output = "/Users/implement/KT/KTDB/dataset/od_static_feature_2023.csv"
+    elif year == '2019':
+        input_file = "/Users/implement/KT/KTDB/dataset/raw/ODTRIP19_F.OUT"
+        od_csv_output = "/Users/implement/KT/KTDB/dataset/od_data_2019.csv"
+        od_static_output = "/Users/implement/KT/KTDB/dataset/od_static_feature_2019.csv"
+    else:
+        raise ValueError("Unsupported year. Please choose '2019' or '2023'.")
+
     print(f"파일 읽기 시작: {input_file}")
     
     columns = [
@@ -79,4 +86,8 @@ def make_od_matrix():
     print(f"정제된 OD 매트릭스 저장 완료: {od_csv_output}")
 
 if __name__ == "__main__":
-    make_od_matrix()
+    year = input("년도 선택 (2019/2023):")
+    if year not in ['2019', '2023']:
+        print("잘못된 입력입니다. '2019' 또는 '2023'을 입력해주세요.")
+    else:
+        make_od_matrix(year)

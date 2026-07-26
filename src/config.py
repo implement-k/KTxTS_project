@@ -9,8 +9,8 @@ STATIC_DATA_23_PATH = os.path.join(DATA_DIR, 'final_static_features_2023.csv')
 STATIC_DATA_19_PATH = os.path.join(DATA_DIR, 'final_static_features_2019.csv')
 OD_DATA_23_PATH = os.path.join(DATA_DIR, 'od_data_2023.csv')
 OD_DATA_19_PATH = os.path.join(DATA_DIR, 'od_data_2019.csv')
-DONG_CODE_23_PATH = os.path.join(DATA_DIR, 'raw', 'dong_codes', 'OD_dong_list_2023.xlsx')
-DONG_CODE_19_PATH = os.path.join(DATA_DIR, 'raw', 'dong_codes', 'OD_dong_list_2019.xlsx')
+DONG_CODE_23_PATH = os.path.join(DATA_DIR, 'raw', 'dong', 'OD_dong_list_2023.xlsx')
+DONG_CODE_19_PATH = os.path.join(DATA_DIR, 'raw', 'dong', 'OD_dong_list_2019_unique.xlsx')
 
 # 테스트용 신도시 행정동 코드
 # 2026-07-12 수정: dataset/raw/OD_dong_list.xlsx에 실제 존재하는 dong_code 기준으로 갱신.

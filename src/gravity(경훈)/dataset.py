@@ -6,8 +6,13 @@ from sklearn.preprocessing import StandardScaler
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (
-    TEST_CITIES_CODES, VAL_CITIES_CODES, TRAIN_CONFIG, DONG_CODE_PATH,
-    DIST_DATA_PATH, STATIC_DATA_PATH, OD_DATA_PATH, MASKING_COLUMNS
+    TRAIN_CONFIG, MASKING_COLUMNS,
+    TEST_CITIES_19_CODES, TEST_CITIES_23_CODES, 
+    VAL_CITIES_19_CODES, VAL_CITIES_23_CODES, 
+    DONG_CODE_19_PATH, DONG_CODE_23_PATH,
+    DIST_DATA_19_PATH, DIST_DATA_23_PATH, 
+    STATIC_DATA_19_PATH, STATIC_DATA_23_PATH, 
+    OD_DATA_19_PATH, OD_DATA_23_PATH
 )
 
 '''

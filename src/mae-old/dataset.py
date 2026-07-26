@@ -10,16 +10,36 @@ from sklearn.preprocessing import StandardScaler
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (
-    TEST_CITIES_CODES, VAL_CITIES_CODES, TRAIN_CONFIG, DONG_CODE_PATH,
-    DIST_DATA_PATH, STATIC_DATA_PATH, OD_DATA_PATH, MASKING_COLUMNS
+    TRAIN_CONFIG, MASKING_COLUMNS,
+    TEST_CITIES_19_CODES, TEST_CITIES_23_CODES, 
+    VAL_CITIES_19_CODES, VAL_CITIES_23_CODES, 
+    DONG_CODE_19_PATH, DONG_CODE_23_PATH,
+    DIST_DATA_19_PATH, DIST_DATA_23_PATH, 
+    STATIC_DATA_19_PATH, STATIC_DATA_23_PATH, 
+    OD_DATA_19_PATH, OD_DATA_23_PATH
 )
 
 class ODDataset(Dataset):
-    def __init__(self, mode='train'):
+    def __init__(self, mode='train', year='2023'):
         self.mode = mode
         self.max_mask_size = TRAIN_CONFIG['min_mask_size']
         
         # === 행정동 코드 로드 ===
+        if year == '2023':
+            DONG_CODE_PATH = DONG_CODE_23_PATH
+            DIST_DATA_PATH = DIST_DATA_23_PATH
+            STATIC_DATA_PATH = STATIC_DATA_23_PATH
+            OD_DATA_PATH = OD_DATA_23_PATH
+            TEST_CITIES_CODES = TEST_CITIES_23_CODES
+            VAL_CITIES_CODES = VAL_CITIES_23_CODES
+        else:
+            DONG_CODE_PATH = DONG_CODE_19_PATH
+            DIST_DATA_PATH = DIST_DATA_19_PATH
+            STATIC_DATA_PATH = STATIC_DATA_19_PATH
+            OD_DATA_PATH = OD_DATA_19_PATH
+            TEST_CITIES_CODES = TEST_CITIES_19_CODES
+            VAL_CITIES_CODES = VAL_CITIES_19_CODES
+            
         dong_df = pd.read_excel(DONG_CODE_PATH)
         dongs = dong_df['dong_code'].astype(int).values
         self.num_nodes = len(dongs)   # 전체 동 개수

@@ -90,16 +90,24 @@ def process_land_ratio(input_path, output_path, year='2023'):
         # 결과 저장
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         grouped.to_csv(output_path, index=False, encoding='utf-8-sig')
+        print(f"동 개수: {len(grouped)}")
     else:    
         df = pdc.check_dong(df, '행정동코드', year)
         # 결과 저장
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         df.to_csv(output_path, index=False, encoding='utf-8-sig')
+        print(f"동 개수: {len(df)}")
     print(f"처리 완료. 결과 저장: {output_path}")
 
     print("모든 처리 완료.")
     
 if __name__ == "__main__":
+    # 2023
     input_file = "/Users/implement/KT/KTDB/dataset/raw/수도권 행정동 상업 공공 주거 비율.csv"
-    output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_land_ratio.csv"
-    process_land_ratio(input_file, output_file)
+    output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_land_ratio_2023.csv"
+    process_land_ratio(input_file, output_file, '2023')
+    
+    # 2019
+    input_file = "/Users/implement/KT/KTDB/dataset/raw/수도권 행정동 용지 비율 2019.csv"
+    output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_land_ratio_2019.csv"
+    process_land_ratio(input_file, output_file, '2019')

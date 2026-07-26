@@ -95,9 +95,15 @@ def process_apartment_ratio(input_path, output_path, year='2023'):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     grouped.to_csv(output_path, index=False, encoding='utf-8-sig')
     print(f"\n처리 완료. 기존 {len(apt_df)}개 행 -> {len(grouped)}개 행으로 통합/변환됨.")
-    print(f"저장 위치: {output_path}")
+    print(f"저장 위치: {output_path}. 동 개수: {len(grouped)}")
 
 if __name__ == "__main__":
     process_apartment_ratio(
-        "/Users/implement/KT/KTDB/dataset/processed/processed_apartment_ratio.csv",
-        "/Users/implement/KT/KTDB/dataset/raw/수도권 행정동 상업 공공 주거 비율.csv")
+        "/Users/implement/KT/KTDB/dataset/raw/서울 인천 경기 아파트 비율 2024.csv",
+        "/Users/implement/KT/KTDB/dataset/processed/processed_apartment_ratio_2023.csv",
+        '2023')
+    
+    process_apartment_ratio(
+        "/Users/implement/KT/KTDB/dataset/raw/서울 인천 경기 아파트 비율 2019.csv",
+        "/Users/implement/KT/KTDB/dataset/processed/processed_apartment_ratio_2019.csv",
+        '2019')

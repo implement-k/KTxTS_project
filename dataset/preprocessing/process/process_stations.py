@@ -62,6 +62,75 @@ def process_subway_data(input_path, output_path, year = 2023):
     
     dong_station_count: dict[str, dict[str, set[str]]] = {}
 
+    name_to_code = {}
+    if year == 2019:
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        mapping_df = pd.read_excel(os.path.join(base_dir, "raw", "dong", "OD_dong_list_2019.xlsx"))
+        for _, map_row in mapping_df.iterrows():
+            name = str(map_row['dong_name']).strip()
+            if name != 'nan':
+                name_to_code[name] = int(map_row['dong_code'])
+                
+        # mismatch_report_2019.xlsx에서 규칙을 읽어와서 동 매칭
+        df_mis = pd.read_excel(os.path.join(base_dir, "raw", "dong", "mismatch_report_2019.xlsx"))
+        rules: dict[str, list[str]] = {}
+        for _, mis_row in df_mis.iterrows():
+            if len(mis_row) > 5 and pd.notna(mis_row.iloc[5]):
+                note = str(mis_row.iloc[5])
+                for rule_part in note.split(','):
+                    rule_part = rule_part.strip()
+                    if '->' in rule_part:
+                        parts = rule_part.split('->')
+                        if len(parts) >= 2:
+                            old_name = parts[0].strip()
+                            new_names_str = parts[-1].strip()
+                            new_names = [n.strip() for n in new_names_str.split('/') if n.strip()]
+                            if old_name and new_names:
+                                rules[old_name] = new_names
+                                
+        target_dongs = set(name_to_code.keys())
+        advanced_map = {d: [d] for d in target_dongs}
+        for old_name in rules.keys():
+            if old_name not in advanced_map:
+                advanced_map[old_name] = [old_name]
+                
+        changed = True
+        max_iter = 100
+        iter_count = 0
+        while changed:
+            iter_count += 1
+            if iter_count > max_iter:
+                print("W: 최대 반복 횟수 초과 — rules에 순환 참조가 있습니다. 매핑을 강제 종료합니다.")
+                break
+            changed = False
+            for d in list(advanced_map.keys()):
+                current_targets = advanced_map[d]
+                new_targets = []
+                for t in current_targets:
+                    if t in rules:
+                        split_targets = rules[t]
+                        newly_spawned = set(split_targets) - {t}
+                        
+                        # Prevent self-loop (e.g. '오류2동' -> '오류2동')
+                        if set(split_targets) == set([t]):
+                            new_targets.append(t)
+                            continue
+                            
+                        # Apply rule only if newly spawned dongs are missing from the target OD dataset
+                        if not any(n in target_dongs for n in newly_spawned):
+                            new_targets.extend(split_targets)
+                            changed = True
+                            continue
+                    new_targets.append(t)
+                
+                seen = set()
+                dedup = []
+                for nt in new_targets:
+                    if nt not in seen:
+                        seen.add(nt)
+                        dedup.append(nt)
+                advanced_map[d] = dedup
+
     for _, row in station_df.iterrows():
         # 결측치 처리
         if pd.isna(row['행정동코드_500m']):
@@ -79,15 +148,6 @@ def process_subway_data(input_path, output_path, year = 2023):
         
         # 2019년인 경우 10자리 동코드를 매핑 테이블을 참고해 8자리 대표 코드로 변환
         if year == 2019:
-            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            mapping_df = pd.read_excel(os.path.join(base_dir, "raw", "dong", "OD_dong_list_2019.xlsx"))
-            
-            name_to_code = {}
-            for _, map_row in mapping_df.iterrows():
-                name = str(map_row['dong_name']).strip()
-                if name != 'nan':
-                    name_to_code[name] = int(map_row['dong_code'])
-                    
             mapping_dict = {}
             names_str = str(row['행정동코드명_500m']).strip('[]')
             if names_str and names_str != 'nan':
@@ -96,12 +156,27 @@ def process_subway_data(input_path, output_path, year = 2023):
                         code_str, full_name = item.split(':')
                         try:
                             code_10 = int(code_str.strip())
-                            dong_name = full_name.strip().replace("'", "").replace('"', '').split()[-1]
+                            full_name_clean = full_name.strip().replace("'", "").replace('"', '').replace('용인시처인구', '용인시 처인구')
+                            words = full_name_clean.split()
                             
-                            if dong_name in name_to_code:
-                                mapping_dict[code_10] = name_to_code[dong_name]
-                            elif '제' in dong_name and dong_name.replace('제', '') in name_to_code:
-                                mapping_dict[code_10] = name_to_code[dong_name.replace('제', '')]
+                            dong_name1 = words[-1]
+                            dong_name2 = words[-2] + ' ' + words[-1] if len(words) > 1 else dong_name1
+                            
+                            candidates = [dong_name1, dong_name2]
+                            candidates += [c.replace('제', '') for c in candidates if '제' in c]
+                            candidates += [c.replace('·', ',') for c in candidates if '·' in c]
+                            
+                            for c in candidates:
+                                if c in advanced_map:
+                                    mapped_ints = []
+                                    for target_name in advanced_map[c]:
+                                        if target_name in name_to_code:
+                                            mapped_ints.append(name_to_code[target_name])
+                                        elif target_name + '동' in name_to_code:
+                                            mapped_ints.append(name_to_code[target_name + '동'])
+                                    if mapped_ints:
+                                        mapping_dict[code_10] = mapped_ints
+                                        break
                         except ValueError:
                             pass
                             
@@ -109,8 +184,9 @@ def process_subway_data(input_path, output_path, year = 2023):
             for d in dongs:
                 try:
                     code_10 = int(d.strip())
-                    if code_10 in mapping_dict and pd.notna(mapping_dict[code_10]):
-                        mapped_dongs.append(str(int(mapping_dict[code_10])))
+                    if code_10 in mapping_dict:
+                        for target_code in mapping_dict[code_10]:
+                            mapped_dongs.append(str(int(target_code)))
                 except ValueError:
                     pass
             dongs = list(set(mapped_dongs))
@@ -160,8 +236,9 @@ if __name__ == "__main__":
     # 2019년 데이터 처리
     input_file = "/Users/implement/KT/KTDB/dataset/raw/Station Line Admin Dataset_2019.csv"
     output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_subway_count_2019.csv"
+    process_subway_data(input_file, output_file, year=2019)
     
     # 2023년 데이터 처리
-    # input_file = "/Users/implement/KT/KTDB/dataset/raw/Station Line Admin Dataset_2023.csv"
-    # output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_subway_count_2023.csv"
-    process_subway_data(input_file, output_file, year=2019)
+    input_file = "/Users/implement/KT/KTDB/dataset/raw/Station Line Admin Dataset_2023.csv"
+    output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_subway_count_2023.csv"
+    process_subway_data(input_file, output_file, year=2023)

@@ -20,7 +20,8 @@ from config import (
 )
 
 class ODDataset(Dataset):
-    def __init__(self, mode='train', year='2023'):
+    def __init__(self, mode='train', year='2023', split_seed=42):
+        self.year = year
         self.mode = mode
         self.max_mask_size = TRAIN_CONFIG['min_mask_size']
         
@@ -74,15 +75,22 @@ class ODDataset(Dataset):
         # 거리 매트릭스에 값 채우기
         self.X_dist[o_dist[dist_mask], d_dist[dist_mask]] = np.asarray(dist_df['distance'].values[dist_mask])
         
-        # === Static Feature 로드 ===
+        # === Static feature 로드 (N, D) ===
         static_df = pd.read_csv(STATIC_DATA_PATH)
-        static_df['dong_code'] = static_df['dong_code'].astype(int)
         
-        # 행정동 코드 기준으로 결측치 0으로 채우기
+        # Rename 2023 specific columns to standard names
+        col_mapping = {}
+        for c in static_df.columns:
+            if c.startswith('station_count_2023_'):
+                col_mapping[c] = c.replace('station_count_2023_', 'station_count_')
+        static_df.rename(columns=col_mapping, inplace=True)
+        
+        static_df['dong_code'] = static_df['dong_code'].astype(int)
         static_df = static_df.set_index('dong_code').reindex(dongs).reset_index()
         static_df.fillna(0, inplace=True)
-                
-        feature_cols = [c for c in static_df.columns if c not in ['dong_code', 'dong_name']]
+        
+        # 진짜 feature만 추출
+        feature_cols = [c for c in static_df.columns if c not in ['dong_code', 'dong_name', '시군구']]
         raw_static = static_df[feature_cols].values
         self.masking_indices = [feature_cols.index(c) for c in MASKING_COLUMNS if c in feature_cols]
         
@@ -128,7 +136,7 @@ class ODDataset(Dataset):
         self.X_OD = np.log1p(self.X_OD)
             
         # Merge Cache Load
-        cache_path = os.path.join(os.path.dirname(__file__), 'merge_cache.pkl')
+        cache_path = os.path.join(os.path.dirname(__file__), f'merge_cache_{self.year}.pkl')
         if os.path.exists(cache_path):
             with open(cache_path, 'rb') as f:
                 self.merge_cache = pickle.load(f)

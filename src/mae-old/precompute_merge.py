@@ -4,22 +4,39 @@ import pickle
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+import json
+import argparse
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (
-    DONG_CODE_PATH, STATIC_DATA_PATH, DATA_DIR
+    DONG_CODE_19_PATH, DONG_CODE_23_PATH,
+    STATIC_DATA_19_PATH, STATIC_DATA_23_PATH,
+    DATA_DIR
 )
 
-def main():
+def compute_cache_for_year(year):
+    print(f"=== Precomputing Merge Cache for {year} ===")
+    
+    dong_code_path = DONG_CODE_19_PATH if year == '2019' else DONG_CODE_23_PATH
+    static_data_path = STATIC_DATA_19_PATH if year == '2019' else STATIC_DATA_23_PATH
+    
     # 1. dong 로드
-    dong_df = pd.read_excel(DONG_CODE_PATH)
+    dong_df = pd.read_excel(dong_code_path)
     dongs = dong_df['dong_code'].astype(int).values
     num_nodes = len(dongs)
     idx2dong = {i: code for i, code in enumerate(dongs)}
     dong2idx = {code: i for i, code in enumerate(dongs)}
     
     # 2. static feature 로드
-    static_df = pd.read_csv(STATIC_DATA_PATH)
+    static_df = pd.read_csv(static_data_path)
+    
+    # Rename 2023 specific columns to standard names
+    col_mapping = {}
+    for c in static_df.columns:
+        if c.startswith('station_count_2023_'):
+            col_mapping[c] = c.replace('station_count_2023_', 'station_count_')
+    static_df.rename(columns=col_mapping, inplace=True)
+    
     static_df['dong_code'] = static_df['dong_code'].astype(int)
     static_df = static_df.set_index('dong_code').reindex(dongs).reset_index()
     static_df.fillna(0, inplace=True)
@@ -43,10 +60,52 @@ def main():
     subway_idx = feature_cols.index('station_count_지하철')
     
     # 3. geojson 로드 및 centroid 계산
-    gdf = gpd.read_file(os.path.join(DATA_DIR, 'raw', 'dong', 'dong_area_20220101.geojson'))
-    gdf['adm_cd8'] = gdf['adm_cd8'].astype(int)
+    if year == '2019':
+        geojson_path = os.path.join(DATA_DIR, 'raw', 'dong', 'dong_area_20161231.geojson')
+    else:
+        geojson_path = os.path.join(DATA_DIR, 'raw', 'dong', 'dong_area_20230101.geojson')
+        
+    gdf = gpd.read_file(geojson_path)
     
-    # 3.1. dong 기준으로 필터링
+    if year == '2019':
+        mapping_path = os.path.join(DATA_DIR, 'preprocessing', 'process', 'mapping_2019_10_to_8.json')
+        with open(mapping_path, 'r', encoding='utf-8') as f:
+            c10_to_c8_str = json.load(f)
+        c10_to_c8 = {int(k): int(v) for k, v in c10_to_c8_str.items()}
+        
+        def convert_code(c):
+            if pd.isna(c): return 0
+            c = int(c)
+            if c in c10_to_c8: return c10_to_c8[c]
+            return c
+            
+        gdf['adm_cd'] = pd.to_numeric(gdf['adm_cd'], errors='coerce')
+        gdf['adm_cd8'] = gdf['adm_cd'].apply(convert_code).astype(int)
+    else:
+        manual_dong_mapping = {
+            11230740: [11230810],
+            31101690: [31101740, 31101750],
+            31101700: [31101720, 31101730],
+            31103520: [31103620, 31103630],
+            31104540: [31104600, 31104610],
+            31104590: [31104620, 31104630],
+            31250110: [31250600, 31250610, 31250620, 31250630],
+        }
+        reverse_map = {}
+        for old_c, new_cs in manual_dong_mapping.items():
+            for nc in new_cs:
+                reverse_map[nc] = old_c
+                
+        def convert_code_23(c):
+            if pd.isna(c): return 0
+            c = int(c) * 10
+            if c in reverse_map: return reverse_map[c]
+            return c
+            
+        gdf['adm_cd'] = pd.to_numeric(gdf['adm_cd'], errors='coerce')
+        gdf['adm_cd8'] = gdf['adm_cd'].apply(convert_code_23).astype(int)
+        
+    gdf = gdf[['adm_cd8', 'geometry']].dissolve(by='adm_cd8').reset_index()
     gdf = gdf[gdf['adm_cd8'].isin(dongs)].copy()
     
     # 3.2. EPSG:5179 (Korea TM)로 투영.
@@ -57,7 +116,6 @@ def main():
     centroids_x = np.zeros(num_nodes)
     centroids_y = np.zeros(num_nodes)
     
-    # 3.4. missing dong code 확인(여기서 없는 경우는 수도권이 아니므로 괜찮음, 모두 매칭되는 것 이전에 확인 함.)
     missing_codes = []
     missing = 0
     for i in range(num_nodes):
@@ -72,37 +130,27 @@ def main():
             centroids_x[i] = np.nan
             centroids_y[i] = np.nan
     
-    print(f"Missing geojson matches: {missing}")
+    print(f"Missing geojson matches for {year}: {missing}")
     if missing > 0:
         print(f"Missing dong codes: {missing_codes}")
     
-    # 4. 인접 동 추출
-    gdf_indexed = gdf.copy()
-    gdf_indexed['node_idx'] = gdf_indexed['adm_cd8'].map(dong2idx)
-    gdf_indexed = gdf_indexed.dropna(subset=['node_idx']).reset_index(drop=True)
-    gdf_indexed['node_idx'] = gdf_indexed['node_idx'].astype(int)
-    
-    sindex = gdf_indexed.sindex
+    # Load accurate adjacency we already computed in compute_adj.py
+    adj_path = os.path.join(DATA_DIR, 'processed', f'dong_adjacency_{year}.pkl')
+    with open(adj_path, 'rb') as f:
+        adj_dict = pickle.load(f)
+        
     candidates_list = []
-    
-    for i, row in gdf_indexed.iterrows():
-        geom = row.geometry
-        idx_i = row['node_idx']
-        
-        possible_matches_index = list(sindex.intersection(geom.bounds))
-        
-        for j in possible_matches_index:
-            if i == j:
-                continue
-            idx_j = gdf_indexed.iloc[j]['node_idx']
-            other_geom = gdf_indexed.iloc[j].geometry
-            
-            # 실제 경계를 공유하는지 (점 하나만 맞닿는 경우도 포함)
-            if geom.touches(other_geom):
-                candidates_list.append((idx_i, idx_j))
-                
+    for i in range(num_nodes):
+        code_i = idx2dong[i]
+        if code_i in adj_dict:
+            for code_j in adj_dict[code_i]:
+                if code_j in dong2idx:
+                    j = dong2idx[code_j]
+                    if i < j: # Avoid duplicates (i, j) and (j, i)
+                        candidates_list.append((i, j))
+                        
     candidates = np.array(candidates_list)
-    print(f"Found {len(candidates)} true-adjacency candidate pairs (shares border).")
+    print(f"Found {len(candidates)} true-adjacency candidate pairs (from adj_dict).")
     
     # 5. Precompute Merge Features
     merge_cache = {}
@@ -112,7 +160,6 @@ def main():
         area_b = raw_static[idx_b, area_idx]
         merged_area = area_a + area_b
         
-        # a는 아는 노드, b는 마스킹된 노드라고 가정. 따라서 worker count는 area_a의 worker count에 비례.
         merged_static = raw_static[idx_a].copy() 
         
         # 1. sum
@@ -124,7 +171,7 @@ def main():
         # 2. 면적 override
         merged_static[area_idx] = merged_area
         
-        # 3. 종사자수, 사업체 수 면적 비례 배분 (당연히 부정확함. indicator로 표시하여 모델이 학습 할 수 있도록 해야 함)
+        # 3. 종사자수, 사업체 수 면적 비례 배분
         merged_static[worker_idx] = raw_static[idx_a, worker_idx] * (area_a / (merged_area + 1e-5))
         merged_static[business_idx] = raw_static[idx_a, business_idx] * (area_a / (merged_area + 1e-5))
         
@@ -164,19 +211,15 @@ def main():
             'idx_b_to_deactivate': idx_b
         }
         
-    # Verification of unhandled features
-    handled = set(count_cols) | {'worker_count', 'business_count', '행정동전체면적_m2'} | set(pct_cols) | {'worker_density', 'business_density', 'station_density_지하철'}
-    unhandled = [c for c in feature_cols if c not in handled]
-    if len(unhandled) > 0:
-        print(f"WARNING: 병합 로직에서 명시적으로 처리되지 않은 컬럼이 있습니다: {unhandled}")
-    else:
-        print("모든 feature 컬럼이 병합 로직에 의해 명시적으로 안전하게 처리되었습니다.")
-
-    out_path = os.path.join(os.path.dirname(__file__), 'merge_cache.pkl')
+    out_path = os.path.join(os.path.dirname(__file__), f'merge_cache_{year}.pkl')
     with open(out_path, 'wb') as f:
         pickle.dump(merge_cache, f)
         
-    print(f"Saved merge_cache with {len(merge_cache)} pairs to {out_path}")
+    print(f"Saved merge_cache_{year} with {len(merge_cache)} pairs to {out_path}\n")
+
+def main():
+    compute_cache_for_year('2019')
+    compute_cache_for_year('2023')
 
 if __name__ == '__main__':
     main()

@@ -140,3 +140,14 @@ def make_base_data(dataset):
         'X_dist_raw': dataset.X_dist_raw,
         'X_OD_raw': dataset.X_OD_raw,
     }
+    
+    
+# from fixed_eval_utils import apply_merge_events
+
+# base_data = torch.load('dataset/fixed_eval/base_data_2023.pt')
+# val_meta = torch.load('dataset/fixed_eval/fixed_val_meta_2023.pt')
+
+# for task in [0, 1, 2, 3, 4]:
+#     for meta in val_meta['동탄'][task]:
+#         sample = apply_merge_events(base_data, meta['mask_indices'], meta['merge_events'])
+#         # sample['X_static'], sample['y_OD'] 등을 모델에 그대로 넣으면 됨

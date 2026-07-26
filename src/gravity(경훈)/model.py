@@ -12,7 +12,7 @@ class TripRateModel:
     def fit(self, X, y):
         self.model.fit(X, y)
         
-    def predict(self, X):
+    def predict(self, X)-> np.ndarray:
         return self.model.predict(X)
 
 class LinearRegressionModel:
@@ -23,7 +23,7 @@ class LinearRegressionModel:
     def fit(self, X, y):
         self.model.fit(X, y)
         
-    def predict(self, X):
+    def predict(self, X) -> np.ndarray:
         return self.model.predict(X)
 
 class CrossClassificationModel:
@@ -72,7 +72,7 @@ class CrossClassificationModel:
             
         self.cell_means = {cell: sums[cell]/counts[cell] for cell in sums}
         
-    def predict(self, X):
+    def predict(self, X)-> np.ndarray:
         n_feats = min(self.num_features_to_use, X.shape[1])
         X_used = X[:, :n_feats]
         preds = []
@@ -85,7 +85,7 @@ class CrossClassificationModel:
         return np.array(preds)
 
 class DoublyConstrainedGravityModel:
-    def __init__(self, generation_model_type='lgbm', beta=2.0, max_iter=100, tol=1e-4):
+    def __init__(self, generation_model_type='lgbm', beta=2.0, max_iter=10, tol=1e-4): # 임시로 100->10번 TODO 
         self.generation_model_type = generation_model_type
         self.beta = beta
         self.max_iter = max_iter
@@ -102,39 +102,31 @@ class DoublyConstrainedGravityModel:
             self.model_D = LinearRegressionModel()
         elif self.generation_model_type == 'lgbm':
             self.model_O = lgb.LGBMRegressor(
-                n_estimators=100, learning_rate=0.05, max_depth=5, min_child_samples=5, random_state=42
+                n_estimators=100, learning_rate=0.05, max_depth=5, min_child_samples=5, random_state=42, n_jobs=1
             )
             self.model_D = lgb.LGBMRegressor(
-                n_estimators=100, learning_rate=0.05, max_depth=5, min_child_samples=5, random_state=42
+                n_estimators=100, learning_rate=0.05, max_depth=5, min_child_samples=5, random_state=42, n_jobs=1
             )
         else:
             raise ValueError(f"Unknown generation_model_type: {self.generation_model_type}")
 
-    def fit_lgbm_O_D(self, X_static, O_true, D_true):
+    def fit_O_D(self, X_static, O_true, D_true, useLog):
         print(f"Training Model for Origin Generation (O_i) using {self.generation_model_type}...")
-        use_log = self.generation_model_type not in ('trip_rate', 'cross_class', 'linear_regression')
         
-        y_O = np.ascontiguousarray(np.log1p(O_true) if use_log else O_true, dtype=np.float64)
-        y_D = np.ascontiguousarray(np.log1p(D_true) if use_log else D_true, dtype=np.float64)
+        y_O = np.ascontiguousarray(np.log1p(O_true) if useLog else O_true, dtype=np.float64)
+        y_D = np.ascontiguousarray(np.log1p(D_true) if useLog else D_true, dtype=np.float64)
         X_s = np.ascontiguousarray(X_static, dtype=np.float64)
 
         self.model_O.fit(X_s, y_O)
-
-        print(f"Training Model for Destination Generation (D_j) using {self.generation_model_type}...")
         self.model_D.fit(X_s, y_D)
 
-    def predict_O_D(self, X_static):
-        use_log = self.generation_model_type not in ('trip_rate', 'cross_class', 'linear_regression')
+    def predict_O_D(self, X_static, useLog):
         X_s = np.ascontiguousarray(X_static, dtype=np.float64)
-        O_pred = self.model_O.predict(X_s)
-        D_pred = self.model_D.predict(X_s)
+        O_pred: np.ndarray = self.model_O.predict(X_s) 
+        D_pred: np.ndarray = self.model_D.predict(X_s)
 
-        if use_log:
-            O_pred = np.expm1(O_pred)
-            D_pred = np.expm1(D_pred)
-            
-        O_pred = np.maximum(O_pred, 0)
-        D_pred = np.maximum(D_pred, 0)
+        O_pred = np.expm1(O_pred) if useLog else np.maximum(O_pred, 0)
+        D_pred = np.expm1(D_pred) if useLog else np.maximum(D_pred, 0)
         return O_pred, D_pred
 
     def apply_ipf(self, O_pred, D_pred, dist_matrix):
@@ -212,9 +204,9 @@ class DoublyConstrainedGravityModel:
 
         return T_ext
 
-    def fit_predict(self, X_static_train, O_train, D_train, X_static_all, dist_matrix):
-        self.fit_lgbm_O_D(X_static_train, O_train, D_train)
-        O_pred, D_pred = self.predict_O_D(X_static_all)
+    def fit_predict(self, X_static_train, O_train, D_train, dist_matrix, useLog):
+        self.fit_O_D(X_static_train, O_train, D_train, useLog)
+        O_pred, D_pred = self.predict_O_D(X_static_train, useLog)
         
         dist_no_diag = dist_matrix.copy()
         np.fill_diagonal(dist_no_diag, np.inf)

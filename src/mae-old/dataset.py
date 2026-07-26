@@ -89,8 +89,13 @@ class ODDataset(Dataset):
         static_df = static_df.set_index('dong_code').reindex(dongs).reset_index()
         static_df.fillna(0, inplace=True)
         
+        # Ensure station_density_지하철 exists in 2023
+        if 'station_density_지하철' not in static_df.columns:
+            static_df['station_density_지하철'] = static_df['station_count_지하철'] / (static_df['행정동전체면적_m2'] + 1e-5)
+            
         # 진짜 feature만 추출
         feature_cols = [c for c in static_df.columns if c not in ['dong_code', 'dong_name', '시군구']]
+        feature_cols = sorted(feature_cols)
         raw_static = static_df[feature_cols].values
         self.masking_indices = [feature_cols.index(c) for c in MASKING_COLUMNS if c in feature_cols]
         

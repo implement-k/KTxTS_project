@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (
-    TRAIN_CONFIG, MASKING_COLUMNS,
+    MASKING_COLUMNS,
     TEST_CITIES_19_CODES, TEST_CITIES_23_CODES, 
     VAL_CITIES_19_CODES, VAL_CITIES_23_CODES, 
     DONG_CODE_19_PATH, DONG_CODE_23_PATH,
@@ -21,7 +21,22 @@ from config import (
 
 
 class ODDataset:
-    def __init__(self, year=2023, imputation='zero'):        
+    def __init__(self, year='2023', imputation='zero', use_raw_static=False):      
+        if year == '2019':
+            DONG_CODE_PATH = DONG_CODE_19_PATH
+            DIST_DATA_PATH = DIST_DATA_19_PATH
+            STATIC_DATA_PATH = STATIC_DATA_19_PATH
+            OD_DATA_PATH = OD_DATA_19_PATH
+            TEST_CITIES_CODES = TEST_CITIES_19_CODES
+            VAL_CITIES_CODES = VAL_CITIES_19_CODES
+        elif year == '2023':
+            DONG_CODE_PATH = DONG_CODE_23_PATH
+            DIST_DATA_PATH = DIST_DATA_23_PATH
+            STATIC_DATA_PATH = STATIC_DATA_23_PATH
+            OD_DATA_PATH = OD_DATA_23_PATH
+            TEST_CITIES_CODES = TEST_CITIES_23_CODES
+            VAL_CITIES_CODES = VAL_CITIES_23_CODES
+
         # === 행정동 코드 로드 ===
         dong_df = pd.read_excel(DONG_CODE_PATH)
         dongs = dong_df['dong_code'].astype(int).values
@@ -66,13 +81,25 @@ class ODDataset:
         if not os.path.exists(static_path):
             static_path = STATIC_DATA_PATH
         static_df = pd.read_csv(static_path)
+        # Rename 2023 specific columns to standard names
+        col_mapping = {}
+        for c in static_df.columns:
+            if c.startswith('station_count_2023_'):
+                col_mapping[c] = c.replace('station_count_2023_', 'station_count_')
+        static_df.rename(columns=col_mapping, inplace=True)
+        
         static_df['dong_code'] = static_df['dong_code'].astype(int)
         
         # 행정동 코드 기준으로 결측치 0으로 채우기
         static_df = static_df.set_index('dong_code').reindex(dongs).reset_index()
         static_df.fillna(0, inplace=True)
         
-        feature_cols = [c for c in static_df.columns if c not in ['dong_code', 'dong_name']]
+        # Ensure station_density_지하철 exists in 2023
+        if 'station_density_지하철' not in static_df.columns:
+            static_df['station_density_지하철'] = static_df['station_count_지하철'] / (static_df['행정동전체면적_m2'] + 1e-5)
+        
+        feature_cols = [c for c in static_df.columns if c not in ['dong_code', 'dong_name', '시군구']]
+        feature_cols = sorted(feature_cols)
         raw_static = static_df[feature_cols].values
         self.masking_indices = [feature_cols.index(c) for c in MASKING_COLUMNS if c in feature_cols]
         
@@ -107,6 +134,20 @@ class ODDataset:
             else: # default: zero
                 self.X_static[self.test_indices, m_idx] = 0.0
                 self.X_static_raw[self.test_indices, m_idx] = 0.0
+        
+        # train_mask 생성
+        self.train_mask = np.zeros(self.num_nodes, dtype=bool)
+        self.train_mask[self.train_indices] = True
+        
+        # 정답 총유출량, 총발생량 예측
+        x = self.X_OD.copy()
+        x[:, ~self.train_mask] = 0
+        x[~self.train_mask, :] = 0
+        self.y_o = np.sum(x, axis=1)
+        self.y_d = np.sum(x, axis=0)
+        
+        # train 마스크
+        self.X_static_train = self.X_static_raw[self.train_mask] if use_raw_static else self.X_static[self.train_mask] 
         
         print(f"Dataset 초기화 완료 (Imputation: {imputation})")
         

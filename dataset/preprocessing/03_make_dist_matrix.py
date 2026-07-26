@@ -43,6 +43,27 @@ def make_dist_matrix(year='2023'):
     # 행정동 코드와 중심좌표를 매핑
     coords_dict = dict(zip(gdf['adm_cd_8digit'], zip(gdf['lat'], gdf['lon'])))
     
+    manual_dong_mapping = {
+        11230740: [11230810],              # 일원2동 -> 개포3동
+        31101690: [31101740, 31101750],    # 행신3동 -> 행신3동, 행신4동
+        31101700: [31101720, 31101730],    # 삼송동 -> 삼송1동, 삼송2동
+        31103520: [31103620, 31103630],    # 중산동 -> 중산1동, 중산2동
+        31104540: [31104600, 31104610],    # 탄현동 -> 탄현1동, 탄현2동
+        31104590: [31104620, 31104630],    # 송산동 -> 덕이동, 가좌동
+        31250110: [31250600, 31250610, 31250620, 31250630],  # 오포읍 -> 오포1동, 오포2동, 신현동, 능평동
+    }
+
+    manual_mapped_coords = {}
+    for old_code, sub_codes in manual_dong_mapping.items():
+        found = [coords_dict[c] for c in sub_codes if c in coords_dict]
+        missing = [c for c in sub_codes if c not in coords_dict]
+        if missing:
+            print(f"  ⚠ 수동 매핑 경고: {old_code}의 하위 동코드 {missing}가 GeoJSON에 없어 일부만 반영됨")
+        if found:
+            lats = [x[0] for x in found]
+            lons = [x[1] for x in found]
+            manual_mapped_coords[old_code] = (np.mean(lats), np.mean(lons))
+            
     # 시군구 평균 좌표 계산 (Fallback 용)
     sigungu_coords = {}
     for code, (lat, lon) in coords_dict.items():
@@ -64,6 +85,9 @@ def make_dist_matrix(year='2023'):
         if code in coords_dict:
             coords[i, 0] = coords_dict[code][0]
             coords[i, 1] = coords_dict[code][1]
+        elif code in manual_mapped_coords:
+            coords[i, 0] = manual_mapped_coords[code][0]
+            coords[i, 1] = manual_mapped_coords[code][1]
         else:
             sigungu = int(code // 1000)
             if sigungu in sigungu_mean_coords:
@@ -101,6 +125,36 @@ def make_dist_matrix(year='2023'):
     df_dist.to_csv(output_path, index=False)
     print(f"\n완료! 총 {len(df_dist):,}개의 O-D 거리 쌍이 성공적으로 저장되었습니다.")
     print(f"저장 위치: {output_path}")
+
+    # dong_code -> dong_name 매핑 (fallback 리스트 출력용)
+    dong_code_to_name = dict(zip(dong_df['dong_code'].astype(int), dong_df['dong_name']))
+
+    matched_count = sum(1 for code in valid_dongs if code in coords_dict)
+    manual_matched_count = sum(1 for code in valid_dongs if code not in coords_dict and code in manual_mapped_coords)
+    sigungu_fallback_count = sum(
+        1 for code in valid_dongs
+        if code not in coords_dict and code not in manual_mapped_coords and int(code // 1000) in sigungu_mean_coords
+    )
+    overall_fallback_count = num_dongs - matched_count - manual_matched_count - sigungu_fallback_count
+
+    print(f"\n=== 처리된 동 개수 요약 ({year}년) ===")
+    print(f"1. dong_code 목록 기준 전체 동 개수: {num_dongs}")
+    print(f"2. GeoJSON에서 좌표 직접 매칭된 동 개수: {matched_count} ({matched_count/num_dongs*100:.1f}%)")
+    print(f"3. 수동 매핑(분동/개명)으로 해결된 동 개수: {manual_matched_count}")
+    print(f"4. 시군구 평균 좌표로 fallback된 동 개수: {sigungu_fallback_count}")
+    print(f"5. 전체 평균 좌표로 fallback된 동 개수: {overall_fallback_count}")
+
+    # === fallback된 동 (dong_code 목록엔 있는데 GeoJSON에도, 수동매핑에도 없는 동) ===
+    fallback_codes = [code for code in valid_dongs if code not in coords_dict and code not in manual_mapped_coords]
+    if fallback_codes:
+        print(f"\n⚠ Fallback된 동 목록 ({len(fallback_codes)}개):")
+        for code in fallback_codes:
+            name = dong_code_to_name.get(code, "(이름 없음)")
+            sigungu = int(code // 1000)
+            method = "시군구 평균" if sigungu in sigungu_mean_coords else "전체 평균"
+            print(f"  - {code} ({name}) -> {method}")
+    else:
+        print("\n✅ Fallback된 동 없음 (전부 GeoJSON 직접매칭 또는 수동매핑으로 해결됨)")
 
 if __name__ == '__main__':
     year = input("년도 선택 (2019/2023):")

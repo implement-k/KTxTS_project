@@ -37,30 +37,38 @@ def make_od_matrix(year='2023'):
         df = pd.read_csv(input_file, sep=r'\s+', names=columns_23, engine='c')
     
     if year == '2019':
-        # 2019년은 10자리 코드이므로 8자리 코드로 매핑
-        mapping_df = pd.read_excel("/Users/implement/KT/KTDB/dataset/raw/dong/OD_dong_list_2019.xlsx")
-        mapping = dict(zip(pd.to_numeric(mapping_df['dong_code_10'], errors='coerce'), mapping_df['dong_code']))
-        
-        o_code = pd.to_numeric(df['O_dong_code'], errors='coerce')
-        d_code = pd.to_numeric(df['D_dong_code'], errors='coerce')
+        # 1. 10자리 -> 8자리 완벽 사전 생성 및 로드
+        mapping_path = "/Users/implement/KT/KTDB/dataset/preprocessing/process/mapping_2019_10_to_8.json"
+        import json
+        with open(mapping_path, 'r', encoding='utf-8') as f:
+            c10_to_c8_str = json.load(f)
+        c10_to_c8 = {int(k): int(v) for k, v in c10_to_c8_str.items()}
         
         # 10자리 비수도권 코드(매핑되지 않은 코드)를 8자리 시도 체계로 임시 변환
         sido_10_to_8 = {
             26: 21, 27: 22, 29: 24, 30: 25, 31: 26, 36: 29,
             42: 32, 43: 33, 44: 34, 45: 35, 46: 36, 47: 37, 48: 38, 50: 39
         }
-        
+
         def convert_code(c):
             if pd.isna(c): return 0
-            if c in mapping:
-                return mapping[c]
-            # 매핑에 없는 10자리 코드인 경우
+            c = int(c)
+            # 1. 사전 매핑 확인
+            if c in c10_to_c8:
+                return c10_to_c8[c]
+                        
+            # 2. 매핑에 없는 10자리 코드 중 비수도권인 경우
             if c >= 1000000000:
                 sido_10 = int(c // 100000000)
                 if sido_10 in sido_10_to_8:
                     return sido_10_to_8[sido_10] * 1000000
-            return int(c)
             
+            # 3. 전부 실패한 경우 그대로 반환 (혹은 이미 8자리인 경우 그대로)
+            return c
+            
+        o_code = pd.to_numeric(df['O_dong_code'], errors='coerce')
+        d_code = pd.to_numeric(df['D_dong_code'], errors='coerce')
+        
         df['O_dong_code'] = o_code.apply(convert_code).astype(int)
         df['D_dong_code'] = d_code.apply(convert_code).astype(int)
 
@@ -127,6 +135,14 @@ def make_od_matrix(year='2023'):
     df_filtered.to_csv(od_csv_output, index=False)
     
     print(f"정제된 OD 매트릭스 저장 완료: {od_csv_output}")
+    filtered_dongs = set(df_filtered['O_dong_code'].unique()) | set(df_filtered['D_dong_code'].unique())
+    print(f"\n=== 처리 결과 요약 ({year}년) ===")
+    print(f"1. 전체 동(수도권+비수도권) 개수: {len(all_dongs)}")
+    print(f"2. 수도권 동(static feature 대상) 개수: {len(capital_dongs)}")
+    print(f"3. 수도권 내부 OD 필터링 후 실제 등장한 동 개수: {len(filtered_dongs)}")
+    if len(capital_dongs) != len(filtered_dongs):
+        diff = set(capital_dongs) - filtered_dongs
+        print(f"   ⚠ static_df엔 있지만 필터링된 OD엔 안 나온 동: {len(diff)}개")
 
 if __name__ == "__main__":
     year = input("년도 선택 (2019/2023):")

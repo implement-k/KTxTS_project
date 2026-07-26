@@ -1,96 +1,67 @@
 import pandas as pd
-import os
-import sys
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
-import dataset.preprocessing.process.process_dong_code as pdc
+import os, sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import process_dong_code as pdc
 
 def process_pop_worker_business(input_path, output_path, year='2023'):
     print(f"processing population worker business data from {input_path} to {output_path}...")
-    df = pd.read_csv(input_path)        
-    df = df.drop(columns=['population_year', 'business_year', 'sigungu', 'sido', 'dong_name'], errors='ignore')
-    # 7자리 코드 8자리 코드로 변환 (process_dong_code.py와 동일 로직)
-    df_code = pd.to_numeric(df['dong_code'], errors='coerce')
-    df['dong_code'] = df_code.mask(df_code < 10000000, df_code * 10).fillna(0).astype(int).astype(str)
+    df = pd.read_csv(input_path)
     
-    # 2019년 데이터의 경우 매핑 처리된 데이터가 있으므로 검증할 필요 없음.
-    if str(year) == '2019':
-        base_dir: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        od_dong_df = pd.read_excel(os.path.join(base_dir, "raw", "dong", f"OD_dong_list_{year}.xlsx"))
-        mismatch_df = pd.read_excel(os.path.join(base_dir, "raw", "dong", f"mismatch_report_{year}.xlsx"))
-        valid_od_dong_codes = set(od_dong_df['dong_code'].astype(str))
+    df = df.drop(columns=['population_year', 'business_year', 'sigungu', 'sido', 'dong_name'], errors='ignore')
+    
+    # map_codes_from_mismatch를 통해 1:N 매핑 처리
+    mismatch_col = 'Population_Business_Worker_2021_2019' if str(year) == '2019' else '행정동별 연령대별 인구, 종사자수, 사업체수 2024년 데이터'
+    df_mapped, valid_dongs = pdc.map_codes_from_mismatch(df, 'dong_code', mismatch_col, year=str(year))
+    
+    if not df_mapped.empty:
+        # dong_code 기준으로 합산(sum)하여 중복(복제)된 인구/사업체 데이터를 나눔
+        # 복제된 경우, 면적 비율로 나누는 대신 단순히 N등분 (평균)하거나, 혹은 원본값 그대로 유지할지 결정
+        # 이 데이터셋은 개수를 의미하므로, 1:N으로 복제된 경우 원래 개수를 N등분해야 맞음.
+        # 하지만 기존 로직에서는 단순 sum이나 groupby sum을 했기 때문에 문제가 발생.
+        # 따라서 N등분 처리가 필요함!
         
-        def clean_code(x):
-            if pd.isna(x): return 'nan'
-            try: return str(int(float(x)))
-            except: return str(x).strip()
-            
-        # dong_code -> representative code 매핑
-        code_10_to_rep_code = {clean_code(k): clean_code(v) for k, v in zip(od_dong_df['dong_code_10'], od_dong_df['dong_code']) if clean_code(k) != 'nan'}
-        code_8_to_rep_code = {clean_code(k): clean_code(v) for k, v in zip(od_dong_df['dong_code'], od_dong_df['dong_code'])}
-        code_to_rep_code = {**code_10_to_rep_code, **code_8_to_rep_code}
-        data_code_to_rep_code = {}
+        # 각 raw_code별 분할 개수 구하기 위해 잠시 복구
+        # (단 map_codes_from_mismatch에서 중복을 나눠주는 기능은 없으므로 여기서 나눔)
+        df_mapped['mapped_code'] = df_mapped['mapped_code'].astype(int)
         
-        for _, row in mismatch_df.iterrows():
-            od_code_val = row['OD데이터']
-            codes_str = str(row['Population_Business_Worker_2021_2019'])
-            
-            if pd.isna(od_code_val) or codes_str == 'nan':
-                continue
-                
-            od_code_str = clean_code(od_code_val)
-            if od_code_str not in code_to_rep_code: continue
-            rep_code = code_to_rep_code[od_code_str]
-            
-            tokens = codes_str.split('/')
-            for token in tokens:
-                token = token.strip()
-                new_code = token.replace('신', '') if token.startswith('신') else token
-                if new_code.isdigit():
-                    data_code_to_rep_code[new_code] = rep_code
+        # count how many times each original row was duplicated (by index)
+        duplicate_counts = df_mapped.groupby(df_mapped.index).size()
+        for count_col in ['pop_0_19', 'pop_20_59', 'pop_60_plus', 'worker_count', 'business_count']:
+            if count_col in df_mapped.columns:
+                df_mapped[count_col] = df_mapped[count_col] / df_mapped.index.map(duplicate_counts)
         
-        df['mapped_code'] = df['dong_code'].map(lambda x: data_code_to_rep_code.get(clean_code(x), clean_code(x)))
-        
-        # 합산 처리
-        grouped = df.groupby('mapped_code').agg({
-            'pop_0_19': 'sum',
-            'pop_20_59': 'sum',
-            'pop_60_plus': 'sum',
-            'worker_count': 'sum',
-            'business_count': 'sum'
-        }).reset_index()
-        
+        cols_to_keep = ['mapped_code', 'pop_0_19', 'pop_20_59', 'pop_60_plus', 'worker_count', 'business_count']
+        cols_to_keep = [c for c in cols_to_keep if c in df_mapped.columns]
+        grouped = df_mapped[cols_to_keep].groupby('mapped_code').sum().reset_index()
         grouped.rename(columns={'mapped_code': 'dong_code'}, inplace=True)
         
-        processed_dongs:set[str] = set(grouped['dong_code'])
-        
-        unknown_dongs = processed_dongs - valid_od_dong_codes
-        if unknown_dongs:
-            print(f"\nE: OD_dong_list에 존재하지 않는 동이 인구/사업체 데이터에 {len(unknown_dongs)}건 포함")
+        # Ensure only valid dongs
+        invalid_mask = ~grouped['dong_code'].isin(valid_dongs)
+        if invalid_mask.any():
+            print(f"E: 유효하지 않은 코드 병합됨 ({invalid_mask.sum()}건)")
             
-        missing_dongs = valid_od_dong_codes - processed_dongs
-        if missing_dongs:
-            print(f"\nE: OD_dong_list에 있지만 인구/사업체 데이터에는 누락된 동이 {len(missing_dongs)}건")
+        grouped = grouped[~invalid_mask].copy()
+        
+        # Int 변환
+        for col in grouped.columns:
+            grouped[col] = grouped[col].round().astype(int)
             
         df = grouped
-        
     else:
+        # Fallback if map_codes_from_mismatch returns empty
         df = pdc.check_dong(df, 'dong_code', year)
-        
+
     # 결과 저장
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     df.to_csv(output_path, index=False, encoding='utf-8-sig')
     print(f"처리 완료. 결과 저장: {output_path}, 동 개수 : {len(df)}")
-
     print("모든 처리 완료.")
-    
+
 if __name__ == "__main__":
-    # 2023년 데이터 처리
-    input_file = "/Users/implement/KT/KTDB/dataset/raw/2021-2023 인구 및 사업자 데이터.csv"
-    output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_pop_worker_business_count_2023.csv"
-    process_pop_worker_business(input_file, output_file, '2023')
+    input_file_2023 = "/Users/implement/KT/KTDB/dataset/raw/2021-2023 인구 및 사업자 데이터.csv"
+    output_file_2023 = "/Users/implement/KT/KTDB/dataset/processed/dong_pop_worker_business_count_2023.csv"
+    process_pop_worker_business(input_file_2023, output_file_2023, year='2023')
     
-    # 2019년 데이터 처리
-    input_file = "/Users/implement/KT/KTDB/dataset/raw/Population Business Worker 2021 2019.csv"
-    output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_pop_worker_business_count_2019.csv"
-    process_pop_worker_business(input_file, output_file, '2019')
+    input_file_2019 = "/Users/implement/KT/KTDB/dataset/raw/Population Business Worker 2021 2019.csv"
+    output_file_2019 = "/Users/implement/KT/KTDB/dataset/processed/dong_pop_worker_business_count_2019.csv"
+    process_pop_worker_business(input_file_2019, output_file_2019, year='2019')

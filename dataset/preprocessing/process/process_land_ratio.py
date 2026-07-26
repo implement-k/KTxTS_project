@@ -2,8 +2,8 @@ import pandas as pd
 import os
 import sys
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
-import dataset.preprocessing.process.process_dong_code as pdc
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import process_dong_code as pdc
 import numpy as np
 
 def process_land_ratio(input_path, output_path, year='2023'):
@@ -68,7 +68,7 @@ def process_land_ratio(input_path, output_path, year='2023'):
                             grouped['공공시설용지면적_m2'] / total_area, 0)
         
         grouped.rename(columns={'mapped_code': '행정동코드'}, inplace=True)
-        
+        grouped.drop(columns=['주거용지면적_m2', '상업업무용지면적_m2', '공공시설용지면적_m2'], inplace=True)
         processed_dongs = set(grouped['행정동코드'])
         
         # 용지 비율 데이터에는 있지만 OD_dong_list에는 없는 동 (미승인/알 수 없는 동)
@@ -103,7 +103,7 @@ def process_land_ratio(input_path, output_path, year='2023'):
     
 if __name__ == "__main__":
     # 2023
-    input_file = "/Users/implement/KT/KTDB/dataset/raw/수도권 행정동 상업 공공 주거 비율.csv"
+    input_file = "/Users/implement/KT/KTDB/dataset/raw/수도권 행정동 용지 비율.csv"
     output_file = "/Users/implement/KT/KTDB/dataset/processed/dong_land_ratio_2023.csv"
     process_land_ratio(input_file, output_file, '2023')
     

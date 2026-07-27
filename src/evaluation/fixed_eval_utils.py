@@ -30,7 +30,7 @@ def _coerce_numeric_raw_static(raw_static, expected_len):
     )
 
 
-def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None):
+def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None, imputation_values=None):
     """
     fixed_eval 샘플을 실제 평가 입력 형태로 복원한다.
 
@@ -53,6 +53,16 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None)
     # train_and_val.py에서는 split_name에 따라 val/test를 명시적으로 구분해서 넘긴다.
     if hide_indices is None:
         hide_indices = base_data['test_indices']
+
+    # imputation_values가 없으면 기존 zero-imputation과 동일하게 동작한다.
+    # mean-imputation 실험에서는 train_and_val.py가 train 동 평균을 넘겨주고,
+    # 아래 mask_indices 4개 feature만 그 평균값으로 채운다.
+    if imputation_values is None:
+        scaled_impute_values = 0.0
+        raw_impute_values = 0.0
+    else:
+        scaled_impute_values = np.asarray(imputation_values['scaled'], dtype=np.float32)[masking_indices]
+        raw_impute_values = np.asarray(imputation_values['raw'], dtype=np.float32)[masking_indices]
 
     mask_indices_set = set(mask_indices)
     mask = np.zeros(N, dtype=bool)
@@ -122,8 +132,8 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None)
             mask[primary_node] = True
             X_static_masked[primary_node, :-2] = merged_static
             X_static_raw_masked[primary_node, :] = merged_raw_static
-            X_static_masked[primary_node, masking_indices] = 0.0
-            X_static_raw_masked[primary_node, masking_indices] = 0.0
+            X_static_masked[primary_node, masking_indices] = scaled_impute_values
+            X_static_raw_masked[primary_node, masking_indices] = raw_impute_values
             X_static_masked[primary_node, -2] = 1.0
             X_static_masked[primary_node, -1] = 1.0
 
@@ -136,9 +146,10 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None)
 
     if len(mask_indices) > 0:
         # 평가 대상 동은 사업체/종사자 관련 4개 컬럼만 마스킹한다.
+        # zero-imputation이면 0, mean-imputation이면 train 평균으로 채운다.
         # 여기서 행 전체 feature를 0으로 만들면 원단위법/중력모델의 총량 예측이 무너진다.
-        X_static_masked[np.ix_(mask_indices, masking_indices)] = 0.0
-        X_static_raw_masked[np.ix_(mask_indices, masking_indices)] = 0.0
+        X_static_masked[np.ix_(mask_indices, masking_indices)] = scaled_impute_values
+        X_static_raw_masked[np.ix_(mask_indices, masking_indices)] = raw_impute_values
 
     base_mask = mask | hide_mask
     if np.any(hide_mask):

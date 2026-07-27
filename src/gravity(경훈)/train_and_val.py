@@ -19,6 +19,7 @@ def _eval_one_sample(args):
     
     try:
         sample = apply_merge_events(base_data, mask_indices, merge_events)
+    
         
         # gravity 모델은 항상 raw_static(18 피치)으로 학습
         O_pred, D_pred = model.predict_O_D(sample['X_static_raw'].float().numpy(), useLog)

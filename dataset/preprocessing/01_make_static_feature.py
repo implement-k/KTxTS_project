@@ -181,6 +181,15 @@ def make_static_feature(isFull='n', year='2023'):
                 
     # 임시 컬럼 제거
     merged_df.drop(columns=['sigungu_code', 'sido_code'], inplace=True)
+    rename_map = {
+        'station_count_2023_준고속철도': 'station_count_준고속철도',
+        'station_count_2023_고속철도': 'station_count_고속철도',
+        'station_count_2023_일반철도': 'station_count_일반철도',
+        'station_count_2023_지하철': 'station_count_지하철',
+    }
+
+    merged_df.rename(columns=rename_map, inplace=True)
+    merged_df = merged_df.drop(columns=['시군구'], errors='ignore')
     
     print("추가 파생 변수(밀도, 기타지역비율 등) 생성 중...")
     # 밀도 추가

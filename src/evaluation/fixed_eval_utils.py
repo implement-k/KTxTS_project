@@ -2,12 +2,57 @@ import numpy as np
 import torch
 
 
-def apply_merge_events(base_data, mask_indices, merge_events):
+def _coerce_numeric_raw_static(raw_static, expected_len):
+    """merge_cache에 코드/지역명 같은 메타 컬럼이 섞여 있으면 숫자 feature만 추출한다.
+
+    일부 2023 merge_cache는 [코드, '서울_송파구', feature...]처럼 저장되어 있어
+    gravity baseline의 LGBM 입력으로 바로 넣으면 문자열 float 변환 오류가 난다.
+    fixed_eval을 다시 만들지 않고 평가할 수 있도록 숫자 feature만 남긴다.
+    """
+    values = np.asarray(raw_static, dtype=object).reshape(-1)
+
+    if values.size == expected_len:
+        return values.astype(np.float32)
+
+    numeric_values = []
+    for value in values:
+        try:
+            numeric_values.append(float(value))
+        except (TypeError, ValueError):
+            continue
+
+    if len(numeric_values) >= expected_len:
+        return np.asarray(numeric_values[-expected_len:], dtype=np.float32)
+
+    raise ValueError(
+        f"merged_raw_static에서 숫자 feature {expected_len}개를 만들 수 없음 "
+        f"(raw_len={values.size}, numeric_len={len(numeric_values)})"
+    )
+
+
+def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None):
+    """
+    fixed_eval 샘플을 실제 평가 입력 형태로 복원한다.
+
+    mask_indices:
+        이번 val/test 샘플에서 예측해야 하는 대상 동.
+        이 동들은 masking_indices에 해당하는 4개 feature
+        (worker_count, business_count, worker_density, business_density)만 0으로 마스킹한다.
+
+    hide_indices:
+        평가 대상은 아니지만 입력에서 완전히 숨겨야 하는 holdout 동.
+        validation에서는 test 동을 보면 치팅이므로 base_data['test_indices']를 넘긴다.
+        test에서는 test 동 자체가 평가 대상이므로 []를 넘겨서 전체 feature를 숨기지 않는다.
+        None은 기존 호출과의 호환을 위해 validation 방식(base_data['test_indices'])으로 처리한다.
+    """
     N = base_data['num_nodes']
     masking_indices = base_data['masking_indices']
     scaler = base_data['scaler']
     merge_cache = base_data['merge_cache']
-    hide_indices = base_data['test_indices']  # val 평가 시 항상 숨겨야 하는 대상
+    # Backward-compatible default: 기존 코드처럼 validation holdout(test 동)을 숨긴다.
+    # train_and_val.py에서는 split_name에 따라 val/test를 명시적으로 구분해서 넘긴다.
+    if hide_indices is None:
+        hide_indices = base_data['test_indices']
 
     mask_indices_set = set(mask_indices)
     mask = np.zeros(N, dtype=bool)
@@ -56,7 +101,10 @@ def apply_merge_events(base_data, mask_indices, merge_events):
         active_node_mask[secondary_node] = False
         used_b_nodes.add(secondary_node)
 
-        merged_raw_static = cache['merged_raw_static_at_a']
+        merged_raw_static = _coerce_numeric_raw_static(
+            cache['merged_raw_static_at_a'],
+            base_data['X_static_raw'].shape[1],
+        )
         merged_static = scaler.transform(merged_raw_static.reshape(1, -1))[0]
 
         merged_dist_row = cache['merged_dist_row_at_a']
@@ -87,19 +135,23 @@ def apply_merge_events(base_data, mask_indices, merge_events):
             X_static_masked[primary_node, -1] = 1.0
 
     if len(mask_indices) > 0:
+        # 평가 대상 동은 사업체/종사자 관련 4개 컬럼만 마스킹한다.
+        # 여기서 행 전체 feature를 0으로 만들면 원단위법/중력모델의 총량 예측이 무너진다.
         X_static_masked[np.ix_(mask_indices, masking_indices)] = 0.0
         X_static_raw_masked[np.ix_(mask_indices, masking_indices)] = 0.0
 
     base_mask = mask | hide_mask
     if np.any(hide_mask):
+        # hide_indices는 validation에서 치팅 방지를 위해 완전히 숨기는 동이다.
+        # test split에서는 hide_indices=[]가 넘어와야 하므로 이 블록이 실행되면 안 된다.
         X_static_masked[hide_mask, :-2] = 0.0
-        X_static_raw_masked[hide_mask, :-2] = 0.0
+        # X_static_raw에는 is_masked/is_merged indicator 컬럼이 없다.
+        # 따라서 raw feature는 마지막 2개 컬럼만 남기지 말고 전체를 숨긴다.
+        X_static_raw_masked[hide_mask, :] = 0.0
 
+    # indicator 컬럼은 scale된 X_static에만 존재한다. X_static_raw는 덮어쓰지 않는다.
     X_static_masked[base_mask, -2] = 1.0
     X_static_masked[base_mask, -1] = 0.0
-    X_static_raw_masked[base_mask, -2] = 1.0
-    X_static_raw_masked[base_mask, -1] = 0.0
-
     y_OD = np.log1p(y_OD_raw)
     X_OD_masked = y_OD.copy()
     final_mask = mask | hide_mask

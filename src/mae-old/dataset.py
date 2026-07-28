@@ -20,7 +20,7 @@ from config import (
 )
 
 class ODDataset(Dataset):
-    def __init__(self, mode='train', year='2023', split_seed=42):
+    def __init__(self, mode='train', year='2023', split_seed=42, use_log_transform=True):
         self.year = year
         self.mode = mode
         self.max_mask_size = TRAIN_CONFIG['min_mask_size']
@@ -137,8 +137,9 @@ class ODDataset(Dataset):
         # 1000 미만 통행량은 가중치 1.0, 그 이상은 스케일에 비례해 증가 (예: 7만 = 70배 가중치)
         self.node_weights = np.clip(max_node_traffic / 1000.0, 1.0, None)
         
-        self.X_dist = np.log1p(self.X_dist)
-        self.X_OD = np.log1p(self.X_OD)
+        if use_log_transform:
+            self.X_dist = np.log1p(self.X_dist)
+            self.X_OD = np.log1p(self.X_OD)
             
         # Merge Cache Load
         cache_path = os.path.join(os.path.dirname(__file__), f'merge_cache_{self.year}.pkl')

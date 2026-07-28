@@ -111,8 +111,8 @@ def generate_sample_meta_for_city(dataset, mask_indices, task, num_seeds=50):
 
 def main():
     print("val/test dataset 로드")
-    val_datasets = [ODDataset(mode='val', year='2019'), ODDataset(mode='val', year='2023')]
-    test_datasets = [ODDataset(mode='test', year='2019'), ODDataset(mode='test', year='2023')]
+    val_datasets = [ODDataset(mode='val', year='2019', use_log_transform=True), ODDataset(mode='val', year='2023', use_log_transform=True)]
+    test_datasets = [ODDataset(mode='test', year='2019', use_log_transform=True), ODDataset(mode='test', year='2023', use_log_transform=True)]
     DONG_CODE_PATHS = [DONG_CODE_19_PATH, DONG_CODE_23_PATH]
     VAL_CITIES_YEAR_CODES = [VAL_CITIES_19_CODES, VAL_CITIES_23_CODES]
     TEST_CITIES_YEAR_CODES = [TEST_CITIES_19_CODES, TEST_CITIES_23_CODES]

@@ -116,7 +116,7 @@ def predict_od(dg_model: DeepGravityFFN,
                device: torch.device,
                row_chunk: int = 64) -> np.ndarray:
     X_static_raw = sample['X_static_raw'].float()   # (N, F) CPU tensor
-    X_dist_raw = torch.expm1(sample['X_dist'].float())      # (N, N) CPU tensor (log-scaled)
+    X_dist_raw = sample['X_dist'].float()      # (N, N) CPU tensor 
     N, F = X_static_raw.shape
 
     # === 총 발생량 예측 ===
@@ -138,17 +138,17 @@ def predict_od(dg_model: DeepGravityFFN,
     with torch.no_grad():
         for start in range(0, N, row_chunk):
             end = min(start + row_chunk, N)
-            B   = end - start
+            B = end - start
             feat_O = X_s[start:end].unsqueeze(1).expand(B, N, F)  # (B, N, F)
             feat_D = X_s.unsqueeze(0).expand(B, N, F)             # (B, N, F)
-            log_d  = X_d[start:end].unsqueeze(-1)                  # (B, N, 1)
-            feat   = torch.cat([feat_O, feat_D, log_d], dim=-1)    # (B, N, 2F+1)
+            log_d = X_d[start:end].unsqueeze(-1)                  # (B, N, 1)
+            feat = torch.cat([feat_O, feat_D, log_d], dim=-1)    # (B, N, 2F+1)
             logits_chunk = dg_model(feat.view(B * N, -1)).view(B, N)
             logits_rows.append(logits_chunk.cpu())
 
     logits = torch.cat(logits_rows, dim=0)                          # (N, N) CPU
-    log_p  = torch.nn.functional.log_softmax(logits, dim=1)
-    p      = torch.exp(log_p)                                        # (N, N)
+    log_p = torch.nn.functional.log_softmax(logits, dim=1)
+    p = torch.exp(log_p)                                        # (N, N)
 
     T_pred = (p * O_pred_t.unsqueeze(1)).numpy()                    # (N, N)
     return T_pred
@@ -232,10 +232,6 @@ def _eval_one(dg_model, gen_model, base_data, use_lgbm, device,
 def evaluate_and_report(dg_model, gen_model, base_data, meta_dict,
                         use_lgbm, year_label, split_name,
                         device, n_workers=4):
-    """
-    GPU: 시퀴셌셜 (스레드가 CUDA 감려로 오히려 느려짐)
-    CPU: ThreadPoolExecutor로 apply_merge_events CPU 병렬화
-    """
     is_cuda = device.type == 'cuda'
 
     job_args = []
@@ -254,7 +250,6 @@ def evaluate_and_report(dg_model, gen_model, base_data, meta_dict,
 
     dg_model.eval()
     if is_cuda:
-        # CUDA 첫 번째 kernel 컴파일 워밍업 (첫 sample 느린 문제 방지)
         try:
             dummy = torch.zeros(1, 37, device=device)
             with torch.no_grad():

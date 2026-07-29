@@ -146,6 +146,9 @@ class ODDataset:
         self.y_o = np.sum(x, axis=1)
         self.y_d = np.sum(x, axis=0)
         
+        self.y_o_val = np.sum(self.X_OD, axis=1)   
+        self.y_d_val = np.sum(self.X_OD, axis=0)
+        
         # train 마스크
         self.X_static_train = self.X_static_raw[self.train_mask] if use_raw_static else self.X_static[self.train_mask] 
         

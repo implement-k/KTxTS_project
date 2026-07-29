@@ -77,6 +77,7 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
     X_static_masked = base_data['X_static'].copy()          # 스케일된 버전(-2, -1 indicator 컬럼 포함)
     X_static_raw_masked = base_data['X_static_raw'].copy()
     X_dist_curr = base_data['X_dist_raw'].copy()
+    X_dist_curr_raw = base_data['X_dist_raw'].copy()
     active_node_mask = np.ones(N, dtype=bool)
 
     used_b_nodes = set()
@@ -111,27 +112,40 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
         active_node_mask[secondary_node] = False
         used_b_nodes.add(secondary_node)
 
+        # X_static은 항상 indicator 2개가 끝에 붙어있음.
+        F = base_data['X_static'].shape[1] - 2
+        raw_has_indicators = (base_data['X_static_raw'].shape[1] == base_data['X_static'].shape[1])
+        
         merged_raw_static = _coerce_numeric_raw_static(
             cache['merged_raw_static_at_a'],
-            base_data['X_static_raw'].shape[1],
+            F,
         )
         merged_static = scaler.transform(merged_raw_static.reshape(1, -1))[0]
+        print(f"merged_static range: min={merged_static.min():.2f} max={merged_static.max():.2f}")
 
         merged_dist_row = cache['merged_dist_row_at_a']
         X_dist_curr[primary_node, :] = np.log1p(merged_dist_row)
         X_dist_curr[:, primary_node] = np.log1p(merged_dist_row)
+        X_dist_curr_raw[primary_node, :] = merged_dist_row          # ← 추가: raw 그대로
+        X_dist_curr_raw[:, primary_node] = merged_dist_row 
 
         if event_type == 'known_merge':
             mask[primary_node] = False
             X_static_masked[primary_node, :-2] = merged_static
-            X_static_raw_masked[primary_node, :] = merged_raw_static
+            if raw_has_indicators:
+                X_static_raw_masked[primary_node, :-2] = merged_raw_static
+            else:
+                X_static_raw_masked[primary_node, :] = merged_raw_static
             X_static_masked[primary_node, -2] = 0.0
             X_static_masked[primary_node, -1] = 0.0
 
         elif event_type == 'mask_with_mask':
             mask[primary_node] = True
             X_static_masked[primary_node, :-2] = merged_static
-            X_static_raw_masked[primary_node, :] = merged_raw_static
+            if raw_has_indicators:
+                X_static_raw_masked[primary_node, :-2] = merged_raw_static
+            else:
+                X_static_raw_masked[primary_node, :] = merged_raw_static
             X_static_masked[primary_node, masking_indices] = scaled_impute_values
             X_static_raw_masked[primary_node, masking_indices] = raw_impute_values
             X_static_masked[primary_node, -2] = 1.0
@@ -140,7 +154,10 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
         elif event_type == 'mask_with_known':
             mask[primary_node] = False
             X_static_masked[primary_node, :-2] = merged_static
-            X_static_raw_masked[primary_node, :] = merged_raw_static
+            if raw_has_indicators:
+                X_static_raw_masked[primary_node, :-2] = merged_raw_static
+            else:
+                X_static_raw_masked[primary_node, :] = merged_raw_static
             X_static_masked[primary_node, -2] = 0.0
             X_static_masked[primary_node, -1] = 1.0
 
@@ -152,17 +169,25 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
         X_static_raw_masked[np.ix_(mask_indices, masking_indices)] = raw_impute_values
 
     base_mask = mask | hide_mask
+    raw_has_indicators = (X_static_raw_masked.shape[1] == X_static_masked.shape[1])
+    
     if np.any(hide_mask):
         # hide_indices는 validation에서 치팅 방지를 위해 완전히 숨기는 동이다.
         # test split에서는 hide_indices=[]가 넘어와야 하므로 이 블록이 실행되면 안 된다.
         X_static_masked[hide_mask, :-2] = 0.0
-        # X_static_raw에는 is_masked/is_merged indicator 컬럼이 없다.
-        # 따라서 raw feature는 마지막 2개 컬럼만 남기지 말고 전체를 숨긴다.
-        X_static_raw_masked[hide_mask, :] = 0.0
+        
+        if raw_has_indicators:
+            X_static_raw_masked[hide_mask, :-2] = 0.0
+        else:
+            X_static_raw_masked[hide_mask, :] = 0.0
 
-    # indicator 컬럼은 scale된 X_static에만 존재한다. X_static_raw는 덮어쓰지 않는다.
+    # indicator 컬럼 처리
     X_static_masked[base_mask, -2] = 1.0
     X_static_masked[base_mask, -1] = 0.0
+    
+    if raw_has_indicators:
+        X_static_raw_masked[base_mask, -2] = 1.0
+        X_static_raw_masked[base_mask, -1] = 0.0
     y_OD = np.log1p(y_OD_raw)
     X_OD_masked = y_OD.copy()
     final_mask = mask | hide_mask
@@ -176,11 +201,18 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
     X_dist_curr[inactive, :] = 5.5
     X_dist_curr[:, inactive] = 5.5
     X_dist_curr = np.where(np.isnan(X_dist_curr), 5.5, X_dist_curr)
+    
+    inactive_raw_fill = np.expm1(5.5)
+    X_dist_curr_raw[inactive, :] = inactive_raw_fill
+    X_dist_curr_raw[:, inactive] = inactive_raw_fill
+    X_dist_curr_raw = np.where(np.isnan(X_dist_curr_raw), inactive_raw_fill, X_dist_curr_raw)
+
 
     return {
         'X_static': torch.tensor(X_static_masked, dtype=torch.float16),
         'X_static_raw': torch.tensor(X_static_raw_masked, dtype=torch.float32),
         'X_dist': torch.tensor(X_dist_curr, dtype=torch.float16),
+        'X_dist_raw': torch.tensor(X_dist_curr_raw, dtype=torch.float32),
         'X_OD_masked': torch.tensor(X_OD_masked, dtype=torch.float16),
         'y_OD': torch.tensor(y_OD, dtype=torch.float16),
         'y_OD_raw': torch.tensor(y_OD_raw, dtype=torch.float32),

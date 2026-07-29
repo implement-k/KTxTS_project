@@ -17,8 +17,7 @@ import torch.optim as optim
 
 from dataset import ODDataset
 from model import GenerationModel, DeepGravityFFN
-from train_eval import train, evaluate_and_report, summarize_results
-from train_eval import train
+from train_eval import train, evaluate_and_report, summarize_results, eval_generation_model
 
 warnings.filterwarnings('ignore')
 
@@ -93,12 +92,17 @@ def main():
     # 학습
     if args.mode == 'train':
         # 생성 모델 학습
-        X_static_train_all = np.concatenate([ds.X_static_raw[ds.train_indices] for ds in datasets], axis=0)
+        if use_lgbm:
+            X_static_train_all = np.concatenate([ds.X_static_raw[ds.train_indices] for ds in datasets], axis=0)
+        else:
+            X_static_train_all = np.concatenate([ds.X_static[ds.train_indices][:, :-2] for ds in datasets], axis=0)
         O_train_all = np.concatenate([ds.y_o[ds.train_indices] for ds in datasets], axis=0)
         
         print("\nI: 2. 생성 모델 학습 시작")
         gen_model.fit(X_static_train_all, O_train_all, epochs=args.gen_epochs, device=device)
         print("I: 생성 모델 학습 완료")
+        
+        eval_generation_model(gen_model, datasets, use_lgbm, device)
 
         # 분포 모델 학습
         print("\nI: 3. DeepGravity 분포 모델 학습 시작")
@@ -129,7 +133,7 @@ def main():
         import pickle
         if not os.path.exists(ckpt_dg_path) or not os.path.exists(ckpt_gen_path):
             raise FileNotFoundError(
-                f"저장된 모델이 없습니다. 먼저 --mode train 으로 학습하세요.\n"
+                f"E: 저장된 모델이 없습니다. 먼저 --mode train 으로 학습하세요.\n"
                 f"  dg : {ckpt_dg_path}\n  gen: {ckpt_gen_path}"
             )
         dg_model.load_state_dict(torch.load(ckpt_dg_path, map_location=device))

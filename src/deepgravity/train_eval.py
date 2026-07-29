@@ -4,6 +4,7 @@ import torch, time, os, sys
 from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
 import numpy as np
+from tqdm.auto import tqdm
 
 SRC_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROOT_PATH = os.path.dirname(SRC_PATH)
@@ -114,70 +115,67 @@ def predict_od(dg_model: DeepGravityFFN,
                sample: dict,
                use_lgbm: bool,
                device: torch.device,
-               row_chunk: int = 64) -> np.ndarray:
-    X_static_raw = sample['X_static_raw'].float()   # (N, F) CPU tensor
-    X_dist_raw = sample['X_dist'].float()      # (N, N) CPU tensor 
-    N, F = X_static_raw.shape
+               row_chunk: int = 256) -> np.ndarray:  # 64 -> 256으로 증가 (VRAM 여유 있으면 더 키워도 됨)
+    X_static_raw = sample['X_static_raw'].float()
+    X_static_norm = sample['X_static'].float()[:, :-2]
+    X_dist_raw = sample['X_dist_raw'].float()
+    N, F = X_static_norm.shape
 
-    # === 총 발생량 예측 ===
     if use_lgbm:
-        O_pred = np.maximum(gen_model.predict(X_static_raw.numpy(), device), 0)  # (N,)
-        O_pred_t = torch.tensor(O_pred, dtype=torch.float32)             # CPU
+        O_pred = np.maximum(gen_model.predict(X_static_raw.numpy(), device), 0)
+        O_pred_t = torch.tensor(O_pred, dtype=torch.float32)
     else:
         with torch.no_grad():
-            O_pred_t = gen_model(
-                X_static_raw.to(device)
-            ).clamp(min=0).cpu()                                         # (N,) CPU
+            O_pred_t = gen_model(X_static_norm.to(device)).clamp(min=0).cpu()
         O_pred = O_pred_t.numpy()
 
-    # === 분포 예측: row-chunk 방식으로 VRAM 절약 ===
-    X_s = X_static_raw.to(device)     # (N, F)
-    X_d = X_dist_raw.to(device)       # (N, N) raw distance (학습과 동일)
+    X_s = X_static_norm.to(device)
+    X_d = X_dist_raw.to(device)
+
+    # feat_D는 row_chunk 루프 내내 동일하니 딱 한 번만 GPU에 준비
+    feat_D_full = X_s.unsqueeze(0)  # (1, N, F), broadcast로 재사용
 
     logits_rows = []
     with torch.no_grad():
         for start in range(0, N, row_chunk):
             end = min(start + row_chunk, N)
             B = end - start
-            feat_O = X_s[start:end].unsqueeze(1).expand(B, N, F)  # (B, N, F)
-            feat_D = X_s.unsqueeze(0).expand(B, N, F)             # (B, N, F)
-            log_d = X_d[start:end].unsqueeze(-1)                  # (B, N, 1)
-            feat = torch.cat([feat_O, feat_D, log_d], dim=-1)    # (B, N, 2F+1)
+            feat_O = X_s[start:end].unsqueeze(1).expand(B, N, F)
+            feat_D = feat_D_full.expand(B, N, F)
+            log_d = X_d[start:end].unsqueeze(-1)
+            feat = torch.cat([feat_O, feat_D, log_d], dim=-1)
             logits_chunk = dg_model(feat.view(B * N, -1)).view(B, N)
             logits_rows.append(logits_chunk.cpu())
 
-    logits = torch.cat(logits_rows, dim=0)                          # (N, N) CPU
+    logits = torch.cat(logits_rows, dim=0)
     log_p = torch.nn.functional.log_softmax(logits, dim=1)
-    p = torch.exp(log_p)                                        # (N, N)
-
-    T_pred = (p * O_pred_t.unsqueeze(1)).numpy()                    # (N, N)
+    p = torch.exp(log_p)
+    T_pred = (p * O_pred_t.unsqueeze(1)).numpy()
     return T_pred
-
 
 def _eval_one(dg_model, gen_model, base_data, use_lgbm, device,
               year_label, city_name, task, split_name, mask_indices, merge_events):
-    """sample 1개 평가 → dict 반환"""
+    """sample 1개 평가 -> dict 반환"""
     try:
         sample = apply_merge_events(base_data, mask_indices, merge_events)
 
-        # ── 첫 번째 샘플에서만 진단 출력 ──────────────────────────────────
         if not getattr(_eval_one, '_diagnosed', False):
             _eval_one._diagnosed = True
             xs = sample['X_static_raw'].float()
-            xd = sample['X_dist'].float()
-            print(f"\n[DIAG] X_static_raw: shape={tuple(xs.shape)}  "
+            xd = sample['X_dist_raw'].float()
+            print(f"\nI: X_static_raw: shape={tuple(xs.shape)}  "
                   f"min={xs.min():.3f}  max={xs.max():.3f}  "
                   f"nan={torch.isnan(xs).any().item()}")
-            print(f"[DIAG] X_dist:       shape={tuple(xd.shape)}  "
+            print(f"I: X_dist: shape={tuple(xd.shape)}  "
                   f"min={xd.min():.3f}  max={xd.max():.3f}  "
                   f"nan={torch.isnan(xd).any().item()}")
             # 모델 weight NaN 체크
             nan_params = [n for n, p in dg_model.named_parameters()
                           if torch.isnan(p).any()]
-            print(f"[DIAG] Model NaN weights: {nan_params if nan_params else 'none'}")
+            print(f"I: Model NaN weights: {nan_params if nan_params else 'none'}")
             # 첫 번째 레이어 weight 범위
             first_w = next(dg_model.parameters())
-            print(f"[DIAG] First layer weight: "
+            print(f"I: First layer weight: "
                   f"min={first_w.min():.4f}  max={first_w.max():.4f}")
 
         T_pred = predict_od(dg_model, gen_model, sample, use_lgbm, device)
@@ -185,24 +183,36 @@ def _eval_one(dg_model, gen_model, base_data, use_lgbm, device,
         # T_pred NaN 진단 (처음 발견 시)
         if not getattr(_eval_one, '_pred_diagnosed', False) and np.isnan(T_pred).any():
             _eval_one._pred_diagnosed = True
-            xs = sample['X_static_raw'].float()
-            print(f"\n[DIAG] T_pred has NaN! ({np.isnan(T_pred).sum()} / {T_pred.size} entries)")
-            print(f"[DIAG] O_pred range: checking LGBM output...")
+            print(f"\nW: [{city_name}/task{task}] T_pred has NaN! ({np.isnan(T_pred).sum()} / {T_pred.size})")
+
+            # 1. O_pred 자체 확인 (predict_od와 정확히 같은 경로로)
             if use_lgbm:
-                o = np.maximum(gen_model.predict(xs.numpy(), device), 0)
-                print(f"[DIAG] O_pred: min={o.min():.2f}  max={o.max():.2f}  "
-                      f"nan={np.isnan(o).any()}")
-            # logit 범위 직접 체크
+                o = np.maximum(gen_model.predict(sample['X_static_raw'].numpy(), device), 0)
+            else:
+                with torch.no_grad():
+                    o = gen_model(sample['X_static'].float()[:, :-2].to(device)).clamp(min=0).cpu().numpy()
+            print(f"I: O_pred: min={o.min():.2f} max={o.max():.2f} nan={np.isnan(o).any()} inf={np.isinf(o).any()}")
+
+            # 2. X_dist_raw 자체 확인 (이 샘플에서, merge 적용 후)
+            xd = sample['X_dist_raw'].numpy()
+            print(f"I: X_dist_raw(this sample): min={xd.min():.3f} max={xd.max():.3f} "
+                f"nan={np.isnan(xd).any()} inf={np.isinf(xd).any()}")
+
+            # 3. logit을 predict_od와 "정확히 동일한 방식"으로 재현 (정규화된 X_static + X_dist_raw)
+            X_s = sample['X_static'].float()[:, :-2].to(device)   # 반드시 정규화된 버전
+            X_d = sample['X_dist_raw'].float().to(device)
+            N, F = X_s.shape
             with torch.no_grad():
-                x_s2 = xs.to(device)
-                B, N, F = 1, xs.shape[0], xs.shape[1]
-                feat_O = x_s2[0:1].unsqueeze(1).expand(1, N, F)
-                feat_D = x_s2.unsqueeze(0).expand(1, N, F)
-                log_d  = sample['X_dist'].float().to(device)[0:1].unsqueeze(-1)
-                feat   = torch.cat([feat_O, feat_D, log_d], dim=-1).view(N, -1)
+                feat_O = X_s[0:1].unsqueeze(1).expand(1, N, F)
+                feat_D = X_s.unsqueeze(0).expand(1, N, F)
+                log_d = X_d[0:1].unsqueeze(-1)
+                feat = torch.cat([feat_O, feat_D, log_d], dim=-1).view(N, -1)
                 logit1 = dg_model(feat)
-            print(f"[DIAG] logit[0] row: min={logit1.min():.2f}  "
-                  f"max={logit1.max():.2f}  nan={torch.isnan(logit1).any()}")
+            print(f"I: logit[0] row(정규화 입력): min={logit1.min():.2f} max={logit1.max():.2f} "
+                f"nan={torch.isnan(logit1).any().item()}")
+
+            # 4. merge_events 자체를 출력해서, 어떤 병합이 이 샘플의 NaN을 유발했는지 확인
+            print(f"I: merge_events for this sample: {merge_events}")
 
         y_od = sample['y_OD_raw'].numpy()
         eval_idx = np.array(mask_indices)
@@ -222,7 +232,7 @@ def _eval_one(dg_model, gen_model, base_data, use_lgbm, device,
                 'split': split_name, 'rmse': rmse, 'cpc': cpc, 'prmse': prmse}
     except Exception as e:
         import traceback
-        print(f"  [WARN] {city_name} task={task}: {e}")
+        print(f"W: {city_name} task={task}: {e}")
         if not getattr(_eval_one, '_traced', False):
             _eval_one._traced = True
             traceback.print_exc()
@@ -245,11 +255,12 @@ def evaluate_and_report(dg_model, gen_model, base_data, meta_dict,
                 ))
 
     total = len(job_args)
-    mode_str = 'sequential(GPU)' if is_cuda else f'threads={n_workers}'
+    mode_str = 'cuda' if is_cuda else f'threads={n_workers}'
     print(f"  [{year_label}/{split_name}] {total}개 샘플 평가 ({mode_str})...")
 
     dg_model.eval()
     if is_cuda:
+        # CUDA 메모리 부족 방지용 dummy forward (첫 번째 forward에서 GPU 메모리 할당이 많음)
         try:
             dummy = torch.zeros(1, 37, device=device)
             with torch.no_grad():
@@ -257,29 +268,27 @@ def evaluate_and_report(dg_model, gen_model, base_data, meta_dict,
         except Exception:
             pass
 
-        # tqdm.auto: Colab/Jupyter 환경 자동 감지
         try:
-            from tqdm.auto import tqdm
-            it = tqdm(job_args, desc=f"[{year_label}/{split_name}]", ncols=80)
+            it = tqdm(job_args, desc=f"[{year_label}/{split_name}]", ncols=80, mininterval=1.0)
             use_tqdm = True
         except ImportError:
+            print("W: tqdm 설치되지 않음. 진행률 표시 없이 평가 wlsgod")
             it = job_args
             use_tqdm = False
 
         results = []
-        for idx, a in enumerate(it):
-            results.append(_eval_one(*a))
+        for idx, job in enumerate(it):
+            results.append(_eval_one(*job))
+            
             # tqdm 없을 때 50개마다 수동 출력
             if not use_tqdm and (idx + 1) % 50 == 0:
-                print(f"  [{year_label}/{split_name}] {idx+1}/{total}...", flush=True)
+                print(f"I: [{year_label}/{split_name}] {idx+1}/{total}...", flush=True)
     else:
-        def _wrap(a):
-            return _eval_one(*a)
         with ThreadPoolExecutor(max_workers=n_workers) as ex:
-            results = list(ex.map(_wrap, job_args))
+            results = list(ex.map(lambda a: _eval_one(*a), job_args))
 
     records = [r for r in results if r is not None]
-    print(f"  [{year_label}/{split_name}] 완료: {len(records)}/{total}")
+    print(f"I:  [{year_label}/{split_name}] 완료: {len(records)}/{total}")
     return records
 
 
@@ -300,3 +309,41 @@ def summarize_results(records, group_keys, label):
               f"CPC={cpc_m:.4f}±{cpc_s:.4f}  "
               f"RMSE={rmse_m:.4f}±{rmse_s:.4f}  "
               f"%RMSE={pr_m:.4f}±{pr_s:.4f}")
+        
+        
+def eval_generation_model(gen_model, datasets, use_lgbm, device):
+    print("\nI: generation 모델 성능 평가 (val_set)")
+    for ds, year_label in zip(datasets, ['2019', '2023']):
+        val_idx = ds.val_indices
+        if len(val_idx) == 0:
+            continue
+
+        if use_lgbm:
+            X_val = ds.X_static_raw[val_idx]
+            O_pred = np.maximum(gen_model.predict(X_val, device), 0)
+        else:
+            X_val = ds.X_static[val_idx][:, :-2]  # 정규화 + indicator 제거 (main.py와 동일하게)
+            O_pred = gen_model.predict(X_val, device)
+
+        O_true = ds.y_o_val[val_idx]
+
+        rmse = float(np.sqrt(np.mean((O_true - O_pred) ** 2)))
+        cpc = cpc_score(O_true, O_pred)
+        prmse = rmse / float(np.mean(O_true)) if np.mean(O_true) > 0 else 0.0
+
+        print(f"[{year_label} val] n={len(val_idx)}  "
+              f"CPC={cpc:.4f}  RMSE={rmse:.2f}  %RMSE={prmse*100:.2f}%")
+
+        # 도시별로 더 세분화해서 보고 싶으면
+        for city, city_idx in ds.val_city_indices.items():
+            if len(city_idx) == 0:
+                continue
+            o_true_c = ds.y_o_val[city_idx]
+            if use_lgbm:
+                o_pred_c = np.maximum(gen_model.predict(ds.X_static_raw[city_idx], device), 0)
+            else:
+                o_pred_c = gen_model.predict(ds.X_static[city_idx][:, :-2], device)
+            rmse_c = float(np.sqrt(np.mean((o_true_c - o_pred_c) ** 2)))
+            cpc_c = cpc_score(o_true_c, o_pred_c)
+            print(f"    - {city}: CPC={cpc_c:.4f}  RMSE={rmse_c:.2f}  "
+                  f"true(mean)={o_true_c.mean():.1f}  pred(mean)={o_pred_c.mean():.1f}")

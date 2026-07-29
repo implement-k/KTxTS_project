@@ -25,16 +25,17 @@ def main():
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
     parser.add_argument('--loss_type', type=str, default='weighted_mse', choices=['weighted_mse', 'hybrid', 'huber']) # v1, v2, v3: weighted_mse
-    parser.add_argument('--od_embed_layers', type=int, default=3)                   # v1: 1, v2: 2, v3, v4: 3
-    parser.add_argument('--use_friction', type=str2bool, default=True)              # v1, v2, v3: False, v4: True
-    parser.add_argument('--use_self_loop_predictor', type=str2bool, default=True)   # v1: False, v2, v3, v4: True
+    parser.add_argument('--od_embed_layers', type=int, default=3)                   # v1: 1, v2: 2, v3, v4: 3, v5: 2
+    parser.add_argument('--use_friction', type=str2bool, default=True)              # v1, v2, v3: False, v4: True, v5: False
+    parser.add_argument('--use_self_loop_predictor', type=str2bool, default=True)   # v1: False, v2, v3, v4, v5: True
     parser.add_argument('--lambda_diag', type=float, default=1.0)                   # v6: 50(수치상으로는 130이 맞긴함)
     parser.add_argument('--use_lgbm_self_loop', type=str2bool, default=False)       # v7: True
     parser.add_argument('--use_mask_channel', type=str2bool, default=False)         # v6~: True  
     parser.add_argument('--use_wandb', type=str2bool, default=False)
     args = parser.parse_args()
+    # v5 train.py --epochs 70 --batch_size 32 --od_embed_layers 2 use_friction False --use_self_loop_predictor False  --lambda_diag -1.0 --use_lgbm_self_loop False --use_mask_channel True --use_wandb True
     
-    if args.use_wandb: wandb.init(project="SpatialODMAE", config=vars(args))
+    if args.use_wandb: wandb.init(project="MAE", config=vars(args))
     
     print("선택된 argument:")
     for arg in vars(args): print(f"  {arg}: {getattr(args, arg)}")

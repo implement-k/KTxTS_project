@@ -52,6 +52,7 @@ def compute_cache_for_year(year):
     
     # 2.2. 진짜 feature만 추출 및 indexing
     feature_cols = [c for c in static_df.columns if c not in ['dong_code', 'dong_name']]
+    feature_cols = sorted(feature_cols) 
     raw_static = static_df[feature_cols].values
     
     area_idx = feature_cols.index('행정동전체면적_m2')

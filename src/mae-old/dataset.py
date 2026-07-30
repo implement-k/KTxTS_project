@@ -18,6 +18,22 @@ from config import (
     MASKING_COLUMNS,
 )
 
+def _coerce_numeric_raw_static(raw_static, expected_len):
+    """merge_cache에 코드/지역명 같은 메타 컬럼이 섞여 있으면 숫자 feature만 추출한다."""
+    values = np.asarray(raw_static, dtype=object).reshape(-1)
+    if values.size == expected_len:
+        return values.astype(np.float32)
+    numeric_values = []
+    for value in values:
+        try:
+            numeric_values.append(float(value))
+        except (TypeError, ValueError):
+            continue
+    if len(numeric_values) >= expected_len:
+        return np.asarray(numeric_values[-expected_len:], dtype=np.float32)
+    raise ValueError(f"merged_raw_static에서 숫자 feature {expected_len}개를 만들 수 없음 (raw_len={values.size})")
+
+
 # mae-year과 동일
 # train 시에만 쓰이는 dataset 클래스
 # train 시에만 쓰이는 dataset 클래스
@@ -363,7 +379,8 @@ class ODDataset(Dataset):
             active_node_mask[secondary_node] = False
             used_b_nodes.add(secondary_node)
 
-            merged_raw_static = cache['merged_raw_static_at_a']
+            F = self.scaler.mean_.shape[0]
+            merged_raw_static = _coerce_numeric_raw_static(cache['merged_raw_static_at_a'], F)
             merged_static = self.scaler.transform(merged_raw_static.reshape(1, -1))[0]
             
             merged_dist_row = cache['merged_dist_row_at_a']
@@ -429,17 +446,26 @@ class ODDataset(Dataset):
         
         inactive_raw_fill = np.expm1(5.5)
         X_dist_curr_raw[inactive, :] = inactive_raw_fill
-        X_dist_curr_raw[:, inactive] = inactive_raw_fill
-        X_dist_curr_raw = np.where(np.isnan(X_dist_curr_raw), inactive_raw_fill, X_dist_curr_raw)
-
-        loss_mask = mask.copy()
-
+        
+        out_X_static = X_static_masked if self.X_static_normalize else X_static_raw_masked
+        out_X_dist = X_dist_curr if self.use_dist_log_transform else X_dist_curr_raw
+        out_X_OD_masked = X_OD_masked if self.use_od_log_transform else X_OD_masked_raw
+        out_y_OD = y_OD if self.use_od_log_transform else y_OD_raw
+        
+        out_X_static_t = torch.tensor(np.nan_to_num(out_X_static, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
+        if self.X_static_normalize:
+            out_X_static_t = out_X_static_t.clamp(-20.0, 20.0)
+            
+        out_X_dist_t = torch.tensor(np.nan_to_num(out_X_dist, nan=5.5, posinf=5.5, neginf=5.5), dtype=torch.float32).clamp(0.0, 20.0)
+        out_X_OD_masked_t = torch.tensor(np.nan_to_num(out_X_OD_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(0.0, 30.0)
+        out_y_OD_t = torch.tensor(np.nan_to_num(out_y_OD, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(0.0, 30.0)
+        
         return {
-            'X_static': torch.tensor(X_static_masked if self.X_static_normalize else X_static_raw_masked, dtype=torch.float32),
-            'X_dist': torch.tensor(X_dist_curr if self.use_dist_log_transform else X_dist_curr_raw, dtype=torch.float32),
-            'X_OD_masked': torch.tensor(X_OD_masked if self.use_od_log_transform else X_OD_masked_raw, dtype=torch.float32),
-            'y_OD': torch.tensor(y_OD if self.use_od_log_transform else y_OD_raw, dtype=torch.float32),
+            'X_static': out_X_static_t,
+            'X_dist': out_X_dist_t,
+            'X_OD_masked': out_X_OD_masked_t,
+            'y_OD': out_y_OD_t,
             'mask': torch.tensor(mask, dtype=torch.bool),
             'active_node_mask': torch.tensor(active_node_mask, dtype=torch.bool),
-            'loss_mask': torch.tensor(loss_mask, dtype=torch.bool),
+            'loss_mask': torch.tensor(mask.copy(), dtype=torch.bool)
         }

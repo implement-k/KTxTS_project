@@ -208,14 +208,22 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
     X_dist_curr_raw = np.where(np.isnan(X_dist_curr_raw), inactive_raw_fill, X_dist_curr_raw)
 
 
+    out_X_static = torch.tensor(np.nan_to_num(X_static_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(-20.0, 20.0)
+    out_X_static_raw = torch.tensor(np.nan_to_num(X_static_raw_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
+    out_X_dist = torch.tensor(np.nan_to_num(X_dist_curr, nan=5.5, posinf=5.5, neginf=5.5), dtype=torch.float32).clamp(0.0, 20.0)
+    out_X_dist_raw = torch.tensor(np.nan_to_num(X_dist_curr_raw, nan=inactive_raw_fill, posinf=inactive_raw_fill, neginf=inactive_raw_fill), dtype=torch.float32)
+    out_X_OD_masked = torch.tensor(np.nan_to_num(X_OD_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(0.0, 30.0)
+    out_y_OD = torch.tensor(np.nan_to_num(y_OD, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(0.0, 30.0)
+    out_y_OD_raw = torch.tensor(np.nan_to_num(y_OD_raw, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(0.0, 30.0)
+
     return {
-        'X_static': torch.tensor(X_static_masked, dtype=torch.float16),
-        'X_static_raw': torch.tensor(X_static_raw_masked, dtype=torch.float32),
-        'X_dist': torch.tensor(X_dist_curr, dtype=torch.float16),
-        'X_dist_raw': torch.tensor(X_dist_curr_raw, dtype=torch.float32),
-        'X_OD_masked': torch.tensor(X_OD_masked, dtype=torch.float16),
-        'y_OD': torch.tensor(y_OD, dtype=torch.float16),
-        'y_OD_raw': torch.tensor(y_OD_raw, dtype=torch.float32),
+        'X_static': out_X_static,
+        'X_static_raw': out_X_static_raw,
+        'X_dist': out_X_dist,
+        'X_dist_raw': out_X_dist_raw,
+        'X_OD_masked': out_X_OD_masked,
+        'y_OD': out_y_OD,
+        'y_OD_raw': out_y_OD_raw,
         'mask': torch.tensor(mask, dtype=torch.bool),
         'active_node_mask': torch.tensor(active_node_mask, dtype=torch.bool),
         'loss_mask': torch.tensor(mask.copy(), dtype=torch.bool),

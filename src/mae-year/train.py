@@ -14,6 +14,7 @@ from tqdm import tqdm
 from loss import WeightedMSELoss, HybridWeightedMSELoss, HuberLoss
 import wandb
 from validation import evaluate_and_report, summarize_results
+from evaluation.fixed_eval_utils import make_base_data
 import lightgbm as lgb
 import numpy as np
 
@@ -51,7 +52,7 @@ def main():
     for arg in vars(args): print(f"  {arg}: {getattr(args, arg)}")
     year_labels = ['2019', '2023']
     dataset_dict, train_loaders = {}, {}
-    fixed_eval_dir = os.path.join(os.path.dirname(__file__), '../dataset/fixed_eval')
+    fixed_eval_dir = os.path.join(os.path.dirname(__file__), '../../dataset/fixed_eval')
     base_data_dict = {}
     val_meta_dict = {}
 
@@ -68,21 +69,17 @@ def main():
         train_loaders[year] = DataLoader(dataset_dict[year], batch_size=args.batch_size, shuffle=True)
 
         # === validation dataset 로드 ===
-        base_data_path = os.path.join(fixed_eval_dir, f"base_data_{year}.pt")
         meta_data_path = os.path.join(fixed_eval_dir, f"fixed_val_meta_{year}.pt")
         
-        if not os.path.exists(base_data_path):
-            raise FileNotFoundError(f"E: base_data_{year}.pt 파일이 없습니다: {base_data_path}")
-
         if not os.path.exists(meta_data_path):
             raise FileNotFoundError(f"E: fixed_val_meta_{year}.pt 파일이 없습니다: {meta_data_path}")
 
-        base_data = torch.load(base_data_path, weights_only=False)
+        # 메모리 절약을 위해 base_data.pt를 디스크에서 로드하지 않고 현재 로드된 dataset에서 직접 생성
+        base_data = make_base_data(dataset_dict[year])
         base_data_dict[year] = base_data
         
         meta_data = torch.load(meta_data_path, weights_only=False)
         val_meta_dict[year] = meta_data
-        
     # 연도 추가시 이 부분만 수정하면됨.
     if dataset_dict['2019'].X_static.shape[1] != dataset_dict['2023'].X_static.shape[1]:
         raise ValueError("E: 2019와 2023 데이터셋의 static feature 수가 다름.")
@@ -125,22 +122,24 @@ def main():
         model.train()
         train_loss = 0
 
-        # 두 배치를 번갈아가며 처리하기 위해 리스트로 묶어 만듦
-        interleaved_batches = []
-        for loader in train_loaders.values():
-            for batch in loader:
-                interleaved_batches.append(batch)
-
-        pbar = tqdm(interleaved_batches, desc=f"Epoch {epoch+1}/{args.epochs} " f"[Mask:{current_mask_size} α:{current_alpha:.1f}]")
+        def batch_generator():
+            # Interleave batches from all loaders (e.g., 2019 batch 1, 2023 batch 1, 2019 batch 2...)
+            for batches in zip(*train_loaders.values()):
+                for batch in batches:
+                    yield batch
+                    
+        total_batches = sum(len(loader) for loader in train_loaders.values())
+        pbar = tqdm(batch_generator(), total=total_batches, desc=f"Epoch {epoch+1}/{args.epochs} [Mask:{current_mask_size} α:{current_alpha:.1f}]")
         for batch in pbar:
             x_static = batch['X_static'].to(device)
             x_dist = batch['X_dist'].to(device)
             mask = batch['mask'].to(device)
             x_od_masked = batch['X_OD_masked'].to(device)
             y_od = batch['y_OD'].to(device)
+            active_node_mask = batch['active_node_mask'].to(device)
 
             optimizer.zero_grad()
-            pred = model(x_static, x_od_masked, x_dist, mask)
+            pred = model(x_static, x_od_masked, x_dist, mask, active_node_mask)
             
             # pred shape에서 동의 개수 유추
             N_nodes = pred.shape[1]
@@ -167,7 +166,7 @@ def main():
             train_loss += loss.item()
             pbar.set_postfix({'loss': f"{loss.item():.4f}", 'lr': f"{scheduler.get_last_lr()[0]:.1e}"})
 
-        avg_train_loss = train_loss / len(interleaved_batches)
+        avg_train_loss = train_loss / total_batches
         print(f"Epoch {epoch+1} Train Loss: {avg_train_loss:.4f}")
 
         # Validation (2 epoch 마다)

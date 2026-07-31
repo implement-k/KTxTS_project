@@ -41,7 +41,7 @@ def _eval_one_sample(args):
         
         # log 변환을 원복
         T_pred = torch.expm1(pred[0]).cpu().numpy()
-        y_od = sample['y_OD_raw'].numpy()
+        y_od = sample['y_OD_raw'].cpu().numpy()
 
         eval_indices = np.array(mask_indices)
         N = y_od.shape[0]
@@ -51,7 +51,7 @@ def _eval_one_sample(args):
         eval_mask_2d[eval_indices, :] = True
         
         # active_node_mask를 반영하여 병합된 노드(hide)는 제외
-        active_m2d = active_node_mask.numpy().reshape(-1, 1) & active_node_mask.numpy().reshape(1, -1)
+        active_m2d = active_node_mask.cpu().numpy().reshape(-1, 1) & active_node_mask.cpu().numpy().reshape(1, -1)
         valid_cells = eval_mask_2d & active_m2d
         
         y_od_eval = y_od[valid_cells]

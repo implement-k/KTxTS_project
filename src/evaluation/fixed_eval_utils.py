@@ -121,7 +121,6 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
             F,
         )
         merged_static = scaler.transform(merged_raw_static.reshape(1, -1))[0]
-        print(f"merged_static range: min={merged_static.min():.2f} max={merged_static.max():.2f}")
 
         merged_dist_row = cache['merged_dist_row_at_a']
         X_dist_curr[primary_node, :] = np.log1p(merged_dist_row)
@@ -214,7 +213,7 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
     out_X_dist_raw = torch.tensor(np.nan_to_num(X_dist_curr_raw, nan=inactive_raw_fill, posinf=inactive_raw_fill, neginf=inactive_raw_fill), dtype=torch.float32)
     out_X_OD_masked = torch.tensor(np.nan_to_num(X_OD_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(0.0, 30.0)
     out_y_OD = torch.tensor(np.nan_to_num(y_OD, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(0.0, 30.0)
-    out_y_OD_raw = torch.tensor(np.nan_to_num(y_OD_raw, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(0.0, 30.0)
+    out_y_OD_raw = torch.tensor(np.nan_to_num(y_OD_raw, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
 
     return {
         'X_static': out_X_static,

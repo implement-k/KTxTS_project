@@ -18,6 +18,9 @@ from evaluation.fixed_eval_utils import make_base_data
 import lightgbm as lgb
 import numpy as np
 
+if hasattr(torch.backends, "mha"):
+      torch.backends.mha.set_fastpath_enabled(False)
+
 def str2bool(v):
     return str(v).lower() in ("yes", "true", "t", "1")
 
@@ -33,6 +36,7 @@ def parse_args():
     parser.add_argument('--use_lgbm_self_loop', type=str2bool, default=False)       # v7: True
     parser.add_argument('--use_mask_channel', type=str2bool, default=False)         # v6~: True  
     parser.add_argument('--use_wandb', type=str2bool, default=False)
+    parser.add_argument('--wandb_id', type=str, default=None, help="기존 wandb run id (이어서 학습 시)")
     parser.add_argument('--use_stratfied_masking', type=str2bool, default=True)
     parser.add_argument('--use_merge_train', type=str2bool, default=True, help="행정동 병합 학습 여부")
     parser.add_argument('--use_od_log_transform', type=str2bool, default=True, help="X_OD에 대해 log1p 적용 여부")
@@ -45,7 +49,11 @@ def main():
     args = parse_args()
     # v5 train.py --epochs 70 --batch_size 32 --od_embed_layers 2 use_friction False --use_self_loop_predictor False  --lambda_diag -1.0 --use_lgbm_self_loop False --use_mask_channel True --use_wandb True
     
-    if args.use_wandb: wandb.init(project="MAE", config=vars(args))
+    if args.use_wandb: 
+        if args.wandb_id:
+            wandb.init(project="MAE", id=args.wandb_id, resume="allow", config=vars(args))
+        else:
+            wandb.init(project="MAE", config=vars(args))
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps'  if torch.backends.mps.is_available() else 'cpu')
     
     print("선택된 argument:")
@@ -91,6 +99,14 @@ def main():
                 use_distance_friction=args.use_friction,
                 use_self_loop_predictor=args.use_self_loop_predictor,
                 use_mask_channel=args.use_mask_channel).to(device)
+
+    # wandb_id가 주어지고 마지막 체크포인트가 존재하면 가중치 로드
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    last_model_path = os.path.join(current_dir, 'last_model_mae.pth')
+    if args.wandb_id and os.path.exists(last_model_path):
+        print(f"\n[Resume] 기존 체크포인트를 불러옵니다: {last_model_path}")
+        model.load_state_dict(torch.load(last_model_path, map_location=device))
+        
     optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
     # 두 dataloader 길이는 같음 (dataset __len__이 1000으로 고정)
     total_steps = args.epochs * sum(len(loader) for loader in train_loaders.values())
@@ -194,20 +210,17 @@ def main():
                 rmse = np.mean([r['rmse'] for r in all_records])
                 cpc = np.mean([r['cpc'] for r in all_records])
                 prmse = np.mean([r['prmse'] for r in all_records])
-                v_loss = np.mean([r['loss'] for r in all_records])
                 
-                print(f"  ➜ [Val] Loss: {v_loss:.4f} | RMSE: {rmse:.2f} | CPC: {cpc:.4f} | PRMSE: {prmse:.4f}")
+                print(f"  ➜ [Val] RMSE: {rmse:.2f} | CPC: {cpc:.4f} | PRMSE: {prmse:.4f}")
             else:
                 rmse = float('inf')
                 cpc = 0.0
-                v_loss = 0.0
                 prmse = 0.0
 
             if args.use_wandb:
                 log_dict = {
                     "epoch": epoch + 1,
                     "train_loss": avg_train_loss,
-                    "val_loss": v_loss,
                     "val_rmse": rmse,
                     "val_cpc": cpc,
                     "val_prmse": prmse
@@ -238,6 +251,13 @@ def main():
                 print(f"  ➜ [Checkpoint] Best CPC saved! (RMSE:{rmse:.2f} CPC:{cpc:.4f} PRMSE:{prmse:.4f})")
 
             model.train()
+
+        # 에포크 종료 시마다 last checkpoint 저장 및 wandb 업로드
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        last_model_path = os.path.join(current_dir, 'last_model_mae.pth')
+        torch.save(model.state_dict(), last_model_path)
+        if args.use_wandb:
+            wandb.save(last_model_path, base_path=current_dir)
 
     print(f"\nTraining Complete. Best RMSE: {best_val_rmse:.2f} | Best CPC: {best_cpc:.4f} | Best PRMSE: {prmse:.4f}")
     

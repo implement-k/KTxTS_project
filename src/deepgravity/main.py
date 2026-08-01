@@ -78,7 +78,7 @@ def main():
     
     # === 모델 선언 ===
     # 피처 차원 확인
-    dim_input = 2 * F + 1  # [feat_O | feat_D | log_dist]
+    dim_input = 2 * F + 1  # [feat_O | feat_D | dist]
     print(f"I: 피처 차원 F={F}  분포모델 입력={dim_input}")
     gen_model = GenerationModel(use_lgbm=use_lgbm, dim_input=F)
     dg_model = DeepGravityFFN(dim_input, dim_hidden=args.hidden, dropout_p=args.dropout).to(device) # deep gravity에는 없는 모델(통행량 생성을 futeure work로 명시했음.)

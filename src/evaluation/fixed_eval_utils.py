@@ -244,7 +244,9 @@ def make_base_data(dataset):
         'test_indices': dataset.test_indices,
         'X_static': dataset.X_static,          # 스케일 + indicator 컬럼까지 포함된 원본(마스킹 전)
         'X_static_raw': dataset.X_static_raw,
+        'X_dist': dataset.X_dist,
         'X_dist_raw': dataset.X_dist_raw,
+        'A_spatial': dataset.A_spatial,
         'X_OD_raw': dataset.X_OD_raw,
     }
     

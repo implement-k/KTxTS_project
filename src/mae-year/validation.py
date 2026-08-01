@@ -33,11 +33,12 @@ def _eval_one_sample(args):
         x_dist = sample['X_dist'].float().unsqueeze(0).to(device) # log1p
         mask_t = sample['mask'].unsqueeze(0).to(device) 
         x_od_masked = sample['X_OD_masked'].float().unsqueeze(0).to(device) # log1p
-        active_node_mask = sample['active_node_mask'].to(device) # 병합된 노드 제외
+        a_spatial = sample['A_spatial'].float().unsqueeze(0).to(device) 
+        active_node_mask = sample['active_node_mask'].unsqueeze(0).to(device) # 병합된 노드 제외
 
         # 병렬 스레드 환경이므로 안전하게
         with torch.no_grad():
-            pred = model(x_static, x_od_masked, x_dist, mask_t, active_node_mask)
+            pred = model(x_static, x_od_masked, x_dist, a_spatial, mask_t, active_node_mask)
         
         # log 변환을 원복
         T_pred = torch.expm1(pred[0]).cpu().numpy()

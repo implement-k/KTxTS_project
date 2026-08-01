@@ -56,16 +56,32 @@ class ODCrossAttention(nn.Module):
             observed_mask: (B, N, N) - 관측 가능한 노드 쌍만 True
         '''
         
-        # keys, values: (B, N, N, D) - (B, N, N, 1) -> (B, N, N, D)
-        keys = self.key_proj(row_flows.unsqueeze(-1))   
-        values = self.value_proj(row_flows.unsqueeze(-1)) 
+        # 메모리 최적화: (B, N, N, D) 크기의 keys, values 텐서 할당을 피하기 위해 
+        # 수학적으로 동일한 연산을 스칼라 차원에서 먼저 계산한 후 broadcast 적용
         
-        # scores: (B, N, N) - 각 destination에 대한 attention score
-        scores = (self.query * keys).sum(-1) * self.scale               
+        Q = self.query.squeeze() # (D)
+        W_key = self.key_proj.weight.squeeze() # (D)
+        b_key = self.key_proj.bias # (D)
+        
+        # scores = (Q * (X * W_key + b_key)).sum() * scale
+        score_weight = (Q * W_key).sum() * self.scale
+        score_bias = (Q * b_key).sum() * self.scale
+        
+        # scores: (B, N, N)
+        scores = row_flows * score_weight + score_bias             
         scores = scores.masked_fill(~observed_mask, float('-inf'))
         
         attn = torch.softmax(scores, dim=-1)                # (B, N, N)
-        pooled = (attn.unsqueeze(-1) * values).sum(dim=2)   # (B, N, D) — N과 무관
+        attn = torch.nan_to_num(attn, nan=0.0)              # Prevent NaN when all scores are -inf
+        
+        # values 연산 최적화: pooled = sum(attn * (X * V_W + V_b))
+        weighted_flows = (attn * row_flows).sum(dim=2, keepdim=True) # (B, N, 1)
+        sum_attn = attn.sum(dim=2, keepdim=True) # (B, N, 1)
+        
+        V_W = self.value_proj.weight.squeeze() # (D)
+        V_b = self.value_proj.bias # (D)
+        
+        pooled = weighted_flows * V_W + sum_attn * V_b   # (B, N, D)
         return pooled
 
 class ODMAE(nn.Module):

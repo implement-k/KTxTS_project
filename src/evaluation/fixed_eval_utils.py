@@ -76,8 +76,10 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
     y_OD_raw = base_data['X_OD_raw'].copy()
     X_static_masked = base_data['X_static'].copy()          # 스케일된 버전(-2, -1 indicator 컬럼 포함)
     X_static_raw_masked = base_data['X_static_raw'].copy()
-    X_dist_curr = base_data['X_dist_raw'].copy()
+    X_dist_curr = base_data['X_dist'].copy()
     X_dist_curr_raw = base_data['X_dist_raw'].copy()
+    A_spatial_curr = base_data['A_spatial'].copy()
+
     active_node_mask = np.ones(N, dtype=bool)
 
     used_b_nodes = set()
@@ -98,6 +100,11 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
                 continue
 
         cache = merge_cache[cache_key]
+
+        # A_spatial 갱신 (물리적 인접성 병합 및 대각선 0 초기화)
+        A_spatial_curr[primary_node, :] = np.logical_or(A_spatial_curr[primary_node, :], A_spatial_curr[secondary_node, :]).astype(np.float32)
+        A_spatial_curr[:, primary_node] = np.logical_or(A_spatial_curr[:, primary_node], A_spatial_curr[:, secondary_node]).astype(np.float32)
+        A_spatial_curr[primary_node, primary_node] = 0.0
 
         new_self_loop = (
             y_OD_raw[primary_node, primary_node] + y_OD_raw[secondary_node, secondary_node]
@@ -125,7 +132,7 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
         merged_dist_row = cache['merged_dist_row_at_a']
         X_dist_curr[primary_node, :] = np.log1p(merged_dist_row)
         X_dist_curr[:, primary_node] = np.log1p(merged_dist_row)
-        X_dist_curr_raw[primary_node, :] = merged_dist_row          # ← 추가: raw 그대로
+        X_dist_curr_raw[primary_node, :] = merged_dist_row
         X_dist_curr_raw[:, primary_node] = merged_dist_row 
 
         if event_type == 'known_merge':
@@ -161,9 +168,6 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
             X_static_masked[primary_node, -1] = 1.0
 
     if len(mask_indices) > 0:
-        # 평가 대상 동은 사업체/종사자 관련 4개 컬럼만 마스킹한다.
-        # zero-imputation이면 0, mean-imputation이면 train 평균으로 채운다.
-        # 여기서 행 전체 feature를 0으로 만들면 원단위법/중력모델의 총량 예측이 무너진다.
         X_static_masked[np.ix_(mask_indices, masking_indices)] = scaled_impute_values
         X_static_raw_masked[np.ix_(mask_indices, masking_indices)] = raw_impute_values
 
@@ -171,8 +175,6 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
     raw_has_indicators = (X_static_raw_masked.shape[1] == X_static_masked.shape[1])
     
     if np.any(hide_mask):
-        # hide_indices는 validation에서 치팅 방지를 위해 완전히 숨기는 동이다.
-        # test split에서는 hide_indices=[]가 넘어와야 하므로 이 블록이 실행되면 안 된다.
         X_static_masked[hide_mask, :-2] = 0.0
         
         if raw_has_indicators:
@@ -180,7 +182,6 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
         else:
             X_static_raw_masked[hide_mask, :] = 0.0
 
-    # indicator 컬럼 처리
     X_static_masked[base_mask, -2] = 1.0
     X_static_masked[base_mask, -1] = 0.0
     
@@ -195,6 +196,8 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
     for b in used_b_nodes:
         X_OD_masked[b, :] = 0.0
         X_OD_masked[:, b] = 0.0
+        A_spatial_curr[b, :] = 0.0
+        A_spatial_curr[:, b] = 0.0
 
     inactive = ~active_node_mask
     X_dist_curr[inactive, :] = 5.5
@@ -211,6 +214,7 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
     out_X_static_raw = torch.tensor(np.nan_to_num(X_static_raw_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
     out_X_dist = torch.tensor(np.nan_to_num(X_dist_curr, nan=5.5, posinf=5.5, neginf=5.5), dtype=torch.float32).clamp(0.0, 20.0)
     out_X_dist_raw = torch.tensor(np.nan_to_num(X_dist_curr_raw, nan=inactive_raw_fill, posinf=inactive_raw_fill, neginf=inactive_raw_fill), dtype=torch.float32)
+    out_A_spatial = torch.tensor(A_spatial_curr, dtype=torch.float32)
     out_X_OD_masked = torch.tensor(np.nan_to_num(X_OD_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(0.0, 30.0)
     out_y_OD = torch.tensor(np.nan_to_num(y_OD, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(0.0, 30.0)
     out_y_OD_raw = torch.tensor(np.nan_to_num(y_OD_raw, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
@@ -220,6 +224,7 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
         'X_static_raw': out_X_static_raw,
         'X_dist': out_X_dist,
         'X_dist_raw': out_X_dist_raw,
+        'A_spatial': out_A_spatial,
         'X_OD_masked': out_X_OD_masked,
         'y_OD': out_y_OD,
         'y_OD_raw': out_y_OD_raw,

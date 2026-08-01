@@ -40,13 +40,16 @@ def run_evaluation_pipeline(model, data_dict, device, model_type='mae', criterio
                     input_mask = batch['mask'].unsqueeze(0).to(device)
                     active_node_mask = batch['active_node_mask'].unsqueeze(0).to(device)
                     loss_mask = batch['loss_mask'].unsqueeze(0).to(device)
+                    a_spatial = batch.get('A_spatial')
+                    if a_spatial is not None:
+                        a_spatial = a_spatial.unsqueeze(0).to(device)
                     
                     if model_type in ['mae', 'mae-old']:
                         if model is None:
                             continue
                             
                         if is_hybrid_od:
-                            pred_scale, pred_raw = model(x_static, x_o, x_d, input_mask, active_node_mask)
+                            pred_scale, pred_raw = model(x_static, x_o, x_d, a_spatial, input_mask, active_node_mask)
                             m2d = loss_mask.unsqueeze(1) | loss_mask.unsqueeze(2)
                             active_m2d = active_node_mask.unsqueeze(1) & active_node_mask.unsqueeze(2)
                             valid_cells = (m2d & active_m2d).cpu().numpy()[0]
@@ -60,7 +63,7 @@ def run_evaluation_pipeline(model, data_dict, device, model_type='mae', criterio
                             p_real = np.maximum(torch.expm1(pred_scale[0].cpu()).numpy()[valid_cells], 0)
                             
                         else:
-                            pred_raw = model(x_static, x_o, x_d, input_mask, active_node_mask)
+                            pred_raw = model(x_static, x_o, x_d, a_spatial, input_mask, active_node_mask)
                             m2d = loss_mask.unsqueeze(1) | loss_mask.unsqueeze(2)
                             active_m2d = active_node_mask.unsqueeze(1) & active_node_mask.unsqueeze(2)
                             valid_cells = (m2d & active_m2d).cpu().numpy()[0]

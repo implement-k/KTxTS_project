@@ -13,7 +13,7 @@ def format_minutes(seconds):
     return f"{m}m {s}s"
 
 def _eval_one_sample(args):
-    """(model, base_data, ...) 받아 단일 샘플 평가 → dict 반환"""
+    """(model, base_data, ...) 받아 단일 샘플 평가 -> dict 반환"""
     model, base_data, year_label, city_name, task, split_name, mask_indices, merge_events, device = args
     
     try:

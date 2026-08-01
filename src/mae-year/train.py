@@ -42,6 +42,7 @@ def parse_args():
     parser.add_argument('--use_od_log_transform', type=str2bool, default=True, help="X_OD에 대해 log1p 적용 여부")
     parser.add_argument('--use_static_normalize', type=str2bool, default=True, help="X_static에 대해 z-score normalization 적용 여부")
     parser.add_argument('--use_dist_log_transform', type=str2bool, default=True, help="distance matrix에 log1p 적용 여부")
+    parser.add_argument('--year', type=str, default='2023', choices=['2019', '2023'], help="학습할 연도")
     return parser.parse_args()
 
 def main():
@@ -58,7 +59,7 @@ def main():
     
     print("선택된 argument:")
     for arg in vars(args): print(f"  {arg}: {getattr(args, arg)}")
-    year_labels = ['2019', '2023']
+    year_labels = [args.year]
     dataset_dict, train_loaders = {}, {}
     fixed_eval_dir = os.path.join(os.path.dirname(__file__), '../../dataset/fixed_eval')
     base_data_dict = {}
@@ -88,11 +89,8 @@ def main():
         
         meta_data = torch.load(meta_data_path, weights_only=False)
         val_meta_dict[year] = meta_data
-    # 연도 추가시 이 부분만 수정하면됨.
-    if dataset_dict['2019'].X_static.shape[1] != dataset_dict['2023'].X_static.shape[1]:
-        raise ValueError("E: 2019와 2023 데이터셋의 static feature 수가 다름.")
     
-    F = dataset_dict['2023'].X_static.shape[1]
+    F = dataset_dict[args.year].X_static.shape[1]
 
     model = ODMAE(num_features=F, 
                 od_embed_layers=args.od_embed_layers,
@@ -123,7 +121,7 @@ def main():
 
     best_val_rmse = float('inf')
     best_cpc = 0.0
-    best_model_path = 'best_model_mae.pth'
+    best_model_path = f'best_model_mae_{args.year}.pth'
 
     min_mask = TRAIN_CONFIG['min_mask_size']
     max_mask = TRAIN_CONFIG['max_mask_size']
@@ -133,13 +131,13 @@ def main():
         current_mask_size = int(min_mask + (max_mask - min_mask) * progress)
         for ds in dataset_dict.values():
             ds.max_mask_size = current_mask_size
-        current_alpha = max(1.0, 10.0 * (1.0 - progress))
+        current_alpha = min(10.0, 1.0 + 9.0 * progress)
 
         model.train()
         train_loss = 0
 
         def batch_generator():
-            # Interleave batches from all loaders (e.g., 2019 batch 1, 2023 batch 1, 2019 batch 2...)
+            # Batch iteration
             for batches in zip(*train_loaders.values()):
                 for batch in batches:
                     yield batch
@@ -149,13 +147,14 @@ def main():
         for batch in pbar:
             x_static = batch['X_static'].to(device)
             x_dist = batch['X_dist'].to(device)
+            a_spatial = batch['A_spatial'].to(device)
             mask = batch['mask'].to(device)
             x_od_masked = batch['X_OD_masked'].to(device)
             y_od = batch['y_OD'].to(device)
             active_node_mask = batch['active_node_mask'].to(device)
 
             optimizer.zero_grad()
-            pred = model(x_static, x_od_masked, x_dist, mask, active_node_mask)
+            pred = model(x_static, x_od_masked, x_dist, a_spatial, mask, active_node_mask)
             
             # pred shape에서 동의 개수 유추
             N_nodes = pred.shape[1]
@@ -247,14 +246,14 @@ def main():
                 best_cpc = cpc
                 current_dir = os.path.dirname(os.path.abspath(__file__))
                 torch.save(model.state_dict(),
-                           os.path.join(current_dir, 'best_model_mae_cpc.pth'))
+                           os.path.join(current_dir, f'best_model_mae_cpc_{args.year}.pth'))
                 print(f"  ➜ [Checkpoint] Best CPC saved! (RMSE:{rmse:.2f} CPC:{cpc:.4f} PRMSE:{prmse:.4f})")
 
             model.train()
 
         # 에포크 종료 시마다 last checkpoint 저장 및 wandb 업로드
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        last_model_path = os.path.join(current_dir, 'last_model_mae.pth')
+        last_model_path = os.path.join(current_dir, f'last_model_mae_{args.year}.pth')
         torch.save(model.state_dict(), last_model_path)
         if args.use_wandb:
             wandb.save(last_model_path, base_path=current_dir)
@@ -262,20 +261,12 @@ def main():
     print(f"\nTraining Complete. Best RMSE: {best_val_rmse:.2f} | Best CPC: {best_cpc:.4f} | Best PRMSE: {prmse:.4f}")
     
     if args.use_lgbm_self_loop:
-        print("\nLGBM 모델 학습 시작 (2019, 2023 통합 데이터 기준)")
+        print(f"\nLGBM 모델 학습 시작 ({args.year} 데이터 기준)")
         
-        train_idx_19 = dataset_dict['2019'].train_indices
-        train_idx_23 = dataset_dict['2023'].train_indices
+        train_idx = dataset_dict[args.year].train_indices
         
-        X_train_lgb = np.concatenate([
-            dataset_dict['2019'].X_static[train_idx_19],
-            dataset_dict['2023'].X_static[train_idx_23]
-        ], axis=0)
-        
-        y_train_lgb = np.concatenate([
-            np.diag(dataset_dict['2019'].X_OD)[train_idx_19],
-            np.diag(dataset_dict['2023'].X_OD)[train_idx_23]
-        ], axis=0)
+        X_train_lgb = dataset_dict[args.year].X_static[train_idx]
+        y_train_lgb = np.diag(dataset_dict[args.year].X_OD)[train_idx]
         
         lgbm_model = lgb.LGBMRegressor(n_estimators=100, random_state=42)
         lgbm_model.fit(X_train_lgb, y_train_lgb)

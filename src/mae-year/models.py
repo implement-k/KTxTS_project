@@ -7,30 +7,66 @@ class ODGCNLayer(nn.Module):
         self.linear_in = nn.Linear(in_features, out_features)
         self.linear_out = nn.Linear(in_features, out_features)
         
-    def forward(self, x_od, feat_emb, observed_mask):
-        # x_od: (B, N, N) - od matrix
+    def forward(self, A_spatial, feat_emb, observed_mask):
+        # A_spatial: (B, N, N) - geographical adjacency matrix
         # feat_emb: (B, N, D) - 각 노드의 임베딩 벡터
         # observed_mask: (B, N, N) - boolean mask, 관측 가능한 노드 쌍만 True
         
-        A = x_od.clone()
+        A = A_spatial.clone()
         # self-loop 제거 및 관측되지 않은 노드 0으로
         A.diagonal(dim1=-2, dim2=-1).zero_() 
         A[~observed_mask] = 0.0 
         
         # Outgoing Normalize adjacency
-        deg_out = A.sum(dim=-1, keepdim=True) + 1e-5
-        A_norm_out = A / deg_out
+        deg_out = A.sum(dim=-1, keepdim=True)
+        has_neighbor_out = deg_out > 1e-3
+        A_norm_out = A / deg_out.clamp(min=1e-3)
+        A_norm_out = A_norm_out * has_neighbor_out.float()
         
         # Incoming Normalize adjacency (transpose)
         A_t = A.transpose(1, 2)
-        deg_in = A_t.sum(dim=-1, keepdim=True) + 1e-5
-        A_norm_in = A_t / deg_in
+        deg_in = A_t.sum(dim=-1, keepdim=True)
+        has_neighbor_in = deg_in > 1e-3
+        A_norm_in = A_t / deg_in.clamp(min=1e-3)
+        A_norm_in = A_norm_in * has_neighbor_in.float()
         
         # Message passing
         msg_out = torch.bmm(A_norm_out, feat_emb)
         msg_in = torch.bmm(A_norm_in, feat_emb)
         
         return self.linear_out(msg_out) + self.linear_in(msg_in)
+
+class ODCrossAttention(nn.Module):
+    """
+        기본 attention
+        이 노드의 row(각 destination과의 flow)를, attention으로 D차원 하나에 압축.
+        average pooling과 다르게, 어느 destination이 중요한지를 학습해서 가중치를 정함.
+        weight는 D에만 의존, N과 무관
+    """
+    def __init__(self, d_model):
+        super().__init__()
+        self.query = nn.Parameter(torch.randn(1, 1, d_model))  # 학습 가능한 고정 쿼리
+        self.key_proj = nn.Linear(1, d_model)   # 각 flow 값(스칼라)을 key로 projection
+        self.value_proj = nn.Linear(1, d_model) # 각 flow 값을 value로 projection
+        self.scale = d_model ** -0.5
+
+    def forward(self, row_flows, observed_mask):
+        '''
+            row_flows: (B, N, N) - 각 노드의 outgoing 통행량(masking 되어있는 matrix)
+            observed_mask: (B, N, N) - 관측 가능한 노드 쌍만 True
+        '''
+        
+        # keys, values: (B, N, N, D) - (B, N, N, 1) -> (B, N, N, D)
+        keys = self.key_proj(row_flows.unsqueeze(-1))   
+        values = self.value_proj(row_flows.unsqueeze(-1)) 
+        
+        # scores: (B, N, N) - 각 destination에 대한 attention score
+        scores = (self.query * keys).sum(-1) * self.scale               
+        scores = scores.masked_fill(~observed_mask, float('-inf'))
+        
+        attn = torch.softmax(scores, dim=-1)                # (B, N, N)
+        pooled = (attn.unsqueeze(-1) * values).sum(dim=2)   # (B, N, D) — N과 무관
+        return pooled
 
 class ODMAE(nn.Module):
     def __init__(self, num_features, d_model=128, nhead=8, num_layers=4,
@@ -39,7 +75,7 @@ class ODMAE(nn.Module):
         self.use_distance_friction = use_distance_friction
         self.od_embed_layers = od_embed_layers
         self.use_self_loop_predictor = use_self_loop_predictor
-        self.use_mask_channel = use_mask_channel
+        # self.use_mask_channel = use_mask_channel
 
         # X_static embeding: (B, N, F) -> (B, N, D) - leanable
         # OD feature embedding: (B, N, 2N or 3N) -> (B, N, D) - leanable
@@ -49,36 +85,47 @@ class ODMAE(nn.Module):
             nn.Linear(d_model, d_model)
         )
         
-        self.od_gcn = ODGCNLayer(d_model, d_model)
-        od_in_dim = 3 if self.use_mask_channel else 2
+        # row_attn_pool + col_attn_pool 출력 D로 변환: (B, N, 2D) -> (B, N, D)
+        self.od_combine = nn.Linear(d_model * 2, d_model)
         
-        if self.od_embed_layers == 3:
-            self.od_embed = nn.Sequential(
-                nn.Linear(od_in_dim, d_model * 2),
-                nn.GELU(),
-                nn.Linear(d_model * 2, d_model),
-                nn.GELU(),
-                nn.Linear(d_model, d_model)
-            )
-        elif self.od_embed_layers == 2:
-            self.od_embed = nn.Sequential(
-                nn.Linear(od_in_dim, d_model * 2),
-                nn.GELU(),
-                nn.Linear(d_model * 2, d_model)
-            )
-        else:
-            self.od_embed = nn.Linear(od_in_dim, d_model)
+        self.od_gcn = ODGCNLayer(d_model, d_model)
+        self.od_scale_gcn = ODGCNLayer(2, d_model) 
+        
+        # === OD 관계 반영 === 
+        # od_in_dim = 3 if self.use_mask_channel else 2
+        
+        # 기존: od_embed(Linear)
+        # if self.od_embed_layers == 3:
+        #     self.od_embed = nn.Sequential(
+        #         nn.Linear(od_in_dim, d_model * 2),
+        #         nn.GELU(),
+        #         nn.Linear(d_model * 2, d_model),
+        #         nn.GELU(),
+        #         nn.Linear(d_model, d_model)
+        #     )
+        # elif self.od_embed_layers == 2:
+        #     self.od_embed = nn.Sequential(
+        #         nn.Linear(od_in_dim, d_model * 2),
+        #         nn.GELU(),
+        #         nn.Linear(d_model * 2, d_model)
+        #     )
+        # else:
+        #     self.od_embed = nn.Linear(od_in_dim, d_model)
+            
+        # 신규: attention pooling 모듈 2개 (outgoing, incoming 각각)
+        self.row_attn_pool = ODCrossAttention(d_model)
+        self.col_attn_pool = ODCrossAttention(d_model)
+        ########################################################
         
         # OD 정보의 반영 비율을 조절하는 Learnable Gating Network
         self.od_gate = nn.Sequential(
-            nn.Linear(d_model * 2, d_model),
+            nn.Linear(d_model * 2 + 1, d_model),
             nn.Sigmoid()
         )
         
-        # 자기동 내부 통행량 직접 예측을 위한 작은 MLP
         if self.use_self_loop_predictor:
             self.self_loop_predictor = nn.Sequential(
-                nn.Linear(d_model, d_model),
+                nn.Linear(d_model * 3, d_model),
                 nn.GELU(),
                 nn.Linear(d_model, d_model // 2),
                 nn.GELU(),
@@ -95,8 +142,9 @@ class ODMAE(nn.Module):
         # 디코더 최종 출력에 직접 더해지는 거리 편향 (Friction)
         self.distance_decode_bias = nn.Embedding(50, 1)
         
-        # Mask Token
-        self.mask_token = nn.Parameter(torch.zeros(1, 1, d_model))
+        # Mask Token (비율에 따른 동적 생성)
+        self.mask_token_low = nn.Parameter(torch.zeros(1, 1, d_model))
+        self.mask_token_high = nn.Parameter(torch.zeros(1, 1, d_model))
         
         # Transformer Encoder
         encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=d_model*4, batch_first=True)
@@ -109,64 +157,124 @@ class ODMAE(nn.Module):
             nn.Linear(d_model, d_model * 2)
         )
 
-    def forward(self, x_static, x_od_masked, x_dist, mask, active_node_mask=None):
+    def forward(self, x_static, x_od_masked, x_dist, A_spatial, mask, active_node_mask=None):
         """
-        x_static: (B, N, F)
+        x_static: (B, N, F) - mask 노드에 대해서는 (사업체 수, 종사자 수, 밀도)등은 0으로 대체된 X_static
         x_od_masked: (B, N, N)
         x_dist: (B, N, N) distance matrix (log-scaled)
+        A_spatial: (B, N, N) geographical adjacency matrix
         mask: (B, N) boolean mask where True means masked (predict this)
         active_node_mask: (B, N) boolean mask where False means the node is deactivated (merged/deleted)
         """
+        # === 1. 사전 작업 ===
         B, N, _ = x_static.shape
             
         if active_node_mask is None:
+            print("W: [model.forward] active_node_mask is None, assuming all nodes are active.")
             active_node_mask = torch.ones(B, N, dtype=torch.bool, device=x_static.device)
             
+        # observed_1d: (B, N) - 활성화 + masked 안된 노드만 관측 가능
+        # observed_mask_2d: (B, N, N) - 관측 가능한 노드 쌍만 True
         observed_1d = (~mask) & active_node_mask
         observed_mask_2d = observed_1d.unsqueeze(1) & observed_1d.unsqueeze(2)
+        
+        active_mask_2d = active_node_mask.unsqueeze(1) & active_node_mask.unsqueeze(2)  # (B, N, N)
 
-        # 1) 제외해야 할 정보 차단 (self-loop 제외)
+        # 제외해야 할 정보 차단 (self-loop 제외)
         x_od_no_diag = x_od_masked.clone()
         x_od_no_diag.diagonal(dim1=-2, dim2=-1).zero_()
+        ########################################################################
         
-        # 2) Masked Mean 연산 (관측된 이웃 개수로만 나누기)
-        observed_col_mask = observed_1d.unsqueeze(1).expand_as(x_od_no_diag) # (B, N, N)
+        # === 2. OD feature embedding(주변과 OD 관계가 어떻게 되어있지?) ===
+        '''
+            기존: od 노드들을 3개의 feature로 요약 (row mean, col mean, mask) -> Linear embedding
+            문제점: 너무 적은 정보로 요약될 수 있음.
+        '''
+        # # 2. Masked Mean 연산 
+        # # 관측 가능한 목적지들에게만 나간 통행량의 합 / 관측 가능한 목적지의 개수 = 관측 가능한 목적지들의 평균 통행량
+        # observed_col_mask = observed_1d.unsqueeze(1).expand_as(x_od_no_diag) # (B, N, N)
+        # row_sum = x_od_no_diag.sum(dim=-1, keepdim=True)
+        # row_count = observed_col_mask.float().sum(dim=-1, keepdim=True).clamp(min=1)
+        # row_feat = row_sum / row_count
+        
+        # # 관측 가능한 목적지들에게만 들어온 통행량의 합 / 관측 가능한 목적지의 개수 = 관측 가능한 목적지들의 평균 통행량
+        # observed_row_mask = observed_1d.unsqueeze(2).expand_as(x_od_no_diag)
+        # col_sum = x_od_no_diag.sum(dim=-2, keepdim=True).transpose(1, 2)
+        # col_count = observed_row_mask.float().sum(dim=-2, keepdim=True).transpose(1, 2).clamp(min=1)
+        # col_feat = col_sum / col_count
+        
+        # # 3. mask 채널 추가 여부에 따라 OD feature 구성
+        # # mask 채널 추가 시: (B, N, 3) = (row_feat, col_feat, mask)
+        # # mask 채널 미추가 시: (B, N, 2) = (row_feat, col_feat)
+        # if self.use_mask_channel:
+        #     mask_feat = mask.float().unsqueeze(-1)
+        #     node_od_feat = torch.cat([row_feat, col_feat, mask_feat], dim=-1)  # (B, N, 3)
+        # else:
+        #     node_od_feat = torch.cat([row_feat, col_feat], dim=-1)  # (B, N, 2)
+            
+        # od_emb = self.od_embed(node_od_feat)  
+        
+        '''
+            개선: OD 정보를 row_attn_pool, col_attn_pool로 각각 요약 후, 최종 od_emb로 합침
+            장점: 단순 평균이 아닌, attention으로 중요한 목적지에 더 큰 가중치를 부여할 수 있음
+        '''
+        # row_repr: (B, N, D) - 각 노드의 outgoing 통행량을 attention으로 요약
+        # col_repr: (B, N, D) - 각 노드의 incoming 통행량을 attention으로 요약
+        row_repr = self.row_attn_pool(x_od_no_diag, observed_mask_2d)         
+        col_repr = self.col_attn_pool(x_od_no_diag.transpose(1, 2), observed_mask_2d.transpose(1, 2))             
+
+        # od_emb: (B, N, 2D) - 임베딩
+        od_emb = self.od_combine(torch.cat([row_repr, col_repr], dim=-1))
+        ########################################################################
+        
+        # === 3. static feature embedding(이 노드는 어떤 특성을 가지고 있지?) ===
+        # feat_emb: (B, N, D)
+        feat_emb = self.feature_embed(x_static)
+        ########################################################################
+        
+        # === 4. GCN embedding(이 노드는 주변 노드들과 어떤 관계가 있지?) ===
+        # 4.1. 총 유출량 평균
         row_sum = x_od_no_diag.sum(dim=-1, keepdim=True)
-        row_count = observed_col_mask.float().sum(dim=-1, keepdim=True).clamp(min=1)
-        row_feat = row_sum / row_count
-        
-        observed_row_mask = observed_1d.unsqueeze(2).expand_as(x_od_no_diag)
+        row_count = observed_mask_2d.float().sum(dim=-1, keepdim=True).clamp(min=1)
+        row_scale = row_sum / row_count  # (B, N, 1)
+
+        # 4.2. 총 유입량 평균
         col_sum = x_od_no_diag.sum(dim=-2, keepdim=True).transpose(1, 2)
-        col_count = observed_row_mask.float().sum(dim=-2, keepdim=True).transpose(1, 2).clamp(min=1)
-        col_feat = col_sum / col_count
+        col_count = observed_mask_2d.float().sum(dim=-2, keepdim=True).transpose(1, 2).clamp(min=1)
+        col_scale = col_sum / col_count  # (B, N, 1)
+
+        # 4.3. od_scale: (B, N, 2) - 각 노드의 outgoing/incoming 평균 통행량
+        od_scale = torch.cat([row_scale, col_scale], dim=-1)  
+        od_scale = od_scale * (~mask).unsqueeze(-1).float()  # mask=True 노드는 0(관측 안 됨을 명시)
+
+        # inferred_od_scale: (B, N, D) - 이웃의 평균 통행량을 GCN으로 반영
+        # gcn_emb: (B, N, D) - 이웃의 static feature 정보를 GCN으로 반영
+        inferred_od_scale = self.od_scale_gcn(A_spatial, od_scale, active_mask_2d)
+        gcn_emb = self.od_gcn(A_spatial, feat_emb, active_mask_2d) 
+        ########################################################################
         
-        if self.use_mask_channel:
-            mask_feat = mask.float().unsqueeze(-1)
-            node_od_feat = torch.cat([row_feat, col_feat, mask_feat], dim=-1)  # (B, N, 3)
-        else:
-            node_od_feat = torch.cat([row_feat, col_feat], dim=-1)  # (B, N, 2)
-        
-        # feat_emb: (B, N, D), od_emb: (B, N, D) - 임베딩, gcn_emb: (B, N, D) - GCN 임베딩
-        feat_emb = self.feature_embed(x_static) 
-        od_emb = self.od_embed(node_od_feat)   
-        gcn_emb = self.od_gcn(x_od_masked, feat_emb, observed_mask_2d)
-        
-        # mask_expanded = (B, N, D) 
+        # === 5. OD 정보와 static feature를 합치고, mask 여부를 반영한 gating ===
+        # mask 여부 (B, N) -> (B, N, D)로 확장, od_emb 대체용
         mask_expanded = mask.unsqueeze(-1).expand_as(od_emb)
-        mask_token_expanded = self.mask_token.expand(B, N, -1)
-        
-        # 가려진 도시는 OD 정보만 마스크 토큰으로 치환
-        od_emb_masked = torch.where(mask_expanded, mask_token_expanded, od_emb)
-        
-        # combined: (B, N, 2D)
-        combined = torch.cat([feat_emb, od_emb_masked], dim=-1)
-        
-        # (B, N, 2D) -> (B, N, D)
-        gate_val = self.od_gate(combined) 
-        
+
+        # 마스크 비율 기반 동적 토큰
+        mask_ratio = mask.float().mean(dim=1, keepdim=True).unsqueeze(-1)
+        mask_token = self.mask_token_low * (1.0 - mask_ratio) + self.mask_token_high * mask_ratio
+
+        # 가려진 노드는 OD 정보를 mask_token으로 치환 
+        inpainted_value = mask_token.expand(B, N, -1) + inferred_od_scale
+        od_emb_masked = torch.where(mask_expanded, inpainted_value, od_emb)
+
+        # gate에 mask 여부를 명시적으로 추가
+        mask_feat_for_gate = mask.float().unsqueeze(-1)  # (B, N, 1)
+        combined = torch.cat([feat_emb, od_emb_masked, mask_feat_for_gate], dim=-1)  # (B, N, 2D+1)
+        gate_val = self.od_gate(combined)
+
         # (B, N, D) - OD 정보의 반영 비율을 조절
         x = feat_emb + (gate_val * od_emb_masked) + gcn_emb
+        ########################################################################
         
+        # === 6. distance 기반 bias 적용 Transformer ===
         # Bucketize distance
         distance_bins = torch.bucketize(x_dist, self.boundaries) # (B, N, N) # type: ignore
         
@@ -196,7 +304,8 @@ class ODMAE(nn.Module):
         pred_od = pred_od + decode_bias
         
         if self.use_self_loop_predictor:
-            self_loop_pred = self.self_loop_predictor(feat_emb).squeeze(-1) # (B, N, D) -> (B, N)
+            combined_self_loop_feat = torch.cat([feat_emb, inferred_od_scale, gcn_emb], dim=-1) # (B, N, 3D)
+            self_loop_pred = self.self_loop_predictor(combined_self_loop_feat).squeeze(-1) # (B, N, 3D) -> (B, N)
         else:
             self_loop_pred = 0
 

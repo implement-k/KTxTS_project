@@ -147,7 +147,7 @@ class ODDataset(Dataset):
         max_node_traffic = np.maximum(self.X_OD_raw.max(axis=1), self.X_OD_raw.max(axis=0))
         # 1000 미만 통행량은 가중치 1.0, 그 이상은 스케일에 비례해 증가 (예: 7만 = 70배 가중치)
         self.node_weights = np.clip(max_node_traffic / 1000.0, 1.0, None)
-        
+
         #### TODO 이거 쓸지 말지 결정
         # 마스킹 여부와 병합 여부를 알려주는 indicator ((0,1): 병합, (1,0): 마스킹, (1,1): 둘 다, (0,0): 둘 다 아님)
         indicator = np.zeros((self.X_static.shape[0], 2), dtype=np.float32)
@@ -179,6 +179,12 @@ class ODDataset(Dataset):
             self.adj_list[idx_b].append(idx_a)
         for i in range(self.num_nodes):
             self.adj_list[i] = list(set(self.adj_list[i]))
+            
+        # A_spatial 구성 (Geographical Adjacency)
+        self.A_spatial = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32)
+        for idx_a, idx_b in self.adjacency_candidates:
+            self.A_spatial[idx_a, idx_b] = 1.0
+            self.A_spatial[idx_b, idx_a] = 1.0
         
         print("I: Dataset 초기화 완료")
         
@@ -281,6 +287,7 @@ class ODDataset(Dataset):
         X_static_raw_masked = self.X_static_raw.copy()
         X_dist_curr = self.X_dist.copy()
         X_dist_curr_raw = self.X_dist_raw.copy()
+        A_spatial_curr = self.A_spatial.copy()
         active_node_mask = np.ones(N, dtype=bool)
         
         # 2. 병합
@@ -363,6 +370,11 @@ class ODDataset(Dataset):
                     continue
                     
             cache = self.merge_cache[cache_key]
+            
+            # A_spatial 갱신 (물리적 인접성 병합 및 대각선 0 초기화)
+            A_spatial_curr[primary_node, :] = np.logical_or(A_spatial_curr[primary_node, :], A_spatial_curr[secondary_node, :]).astype(np.float32)
+            A_spatial_curr[:, primary_node] = np.logical_or(A_spatial_curr[:, primary_node], A_spatial_curr[:, secondary_node]).astype(np.float32)
+            A_spatial_curr[primary_node, primary_node] = 0.0
 
             # self-loop 병합 (raw scale)
             new_self_loop = (
@@ -430,6 +442,8 @@ class ODDataset(Dataset):
         for b in used_b_nodes:
             X_OD_masked[b, :] = 0.0
             X_OD_masked[:, b] = 0.0
+            A_spatial_curr[b, :] = 0.0
+            A_spatial_curr[:, b] = 0.0
             
         X_OD_masked_raw = y_OD_raw.copy()
         X_OD_masked_raw[final_mask, :] = 0.0
@@ -459,10 +473,13 @@ class ODDataset(Dataset):
         out_X_OD_masked_t = torch.tensor(np.nan_to_num(out_X_OD_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(0.0, 30.0)
         out_y_OD_t = torch.tensor(np.nan_to_num(out_y_OD, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(0.0, 30.0)
         
+        out_A_spatial_t = torch.tensor(A_spatial_curr, dtype=torch.float32)
+        
         return {
             'X_static': out_X_static_t,
             'X_dist': out_X_dist_t,
             'X_OD_masked': out_X_OD_masked_t,
+            'A_spatial': out_A_spatial_t,
             'y_OD': out_y_OD_t,
             'mask': torch.tensor(mask, dtype=torch.bool),
             'active_node_mask': torch.tensor(active_node_mask, dtype=torch.bool),

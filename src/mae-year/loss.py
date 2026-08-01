@@ -52,3 +52,4 @@ class HybridWeightedMSELoss(nn.Module):
         
         loss = log_loss + (self.real_penalty_weight * real_loss)
         return loss.mean()
+    

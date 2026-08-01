@@ -117,7 +117,7 @@ def predict_od(dg_model: DeepGravityFFN,
                device: torch.device,
                row_chunk: int = 256) -> np.ndarray:  # 64 -> 256으로 증가 (VRAM 여유 있으면 더 키워도 됨)
     X_static_raw = sample['X_static_raw'].float()
-    X_static_norm = sample['X_static'].float()[:, :-2]
+    X_static_norm = sample['X_static'].float()
     X_dist_raw = sample['X_dist_raw'].float()
     N, F = X_static_norm.shape
 
@@ -190,7 +190,7 @@ def _eval_one(dg_model, gen_model, base_data, use_lgbm, device,
                 o = np.maximum(gen_model.predict(sample['X_static_raw'].numpy(), device), 0)
             else:
                 with torch.no_grad():
-                    o = gen_model(sample['X_static'].float()[:, :-2].to(device)).clamp(min=0).cpu().numpy()
+                    o = gen_model(sample['X_static'].float().to(device)).clamp(min=0).cpu().numpy()
             print(f"I: O_pred: min={o.min():.2f} max={o.max():.2f} nan={np.isnan(o).any()} inf={np.isinf(o).any()}")
 
             # 2. X_dist_raw 자체 확인 (이 샘플에서, merge 적용 후)
@@ -199,7 +199,7 @@ def _eval_one(dg_model, gen_model, base_data, use_lgbm, device,
                 f"nan={np.isnan(xd).any()} inf={np.isinf(xd).any()}")
 
             # 3. logit을 predict_od와 "정확히 동일한 방식"으로 재현 (정규화된 X_static + X_dist_raw)
-            X_s = sample['X_static'].float()[:, :-2].to(device)   # 반드시 정규화된 버전
+            X_s = sample['X_static'].float().to(device)   # 반드시 정규화된 버전
             X_d = sample['X_dist_raw'].float().to(device)
             N, F = X_s.shape
             with torch.no_grad():
@@ -322,7 +322,7 @@ def eval_generation_model(gen_model, datasets, use_lgbm, device):
             X_val = ds.X_static_raw[val_idx]
             O_pred = np.maximum(gen_model.predict(X_val, device), 0)
         else:
-            X_val = ds.X_static[val_idx][:, :-2]  # 정규화 + indicator 제거 (main.py와 동일하게)
+            X_val = ds.X_static[val_idx]  # 정규화된 전체 feature
             O_pred = gen_model.predict(X_val, device)
 
         O_true = ds.y_o_val[val_idx]
@@ -342,7 +342,7 @@ def eval_generation_model(gen_model, datasets, use_lgbm, device):
             if use_lgbm:
                 o_pred_c = np.maximum(gen_model.predict(ds.X_static_raw[city_idx], device), 0)
             else:
-                o_pred_c = gen_model.predict(ds.X_static[city_idx][:, :-2], device)
+                o_pred_c = gen_model.predict(ds.X_static[city_idx], device)
             rmse_c = float(np.sqrt(np.mean((o_true_c - o_pred_c) ** 2)))
             cpc_c = cpc_score(o_true_c, o_pred_c)
             print(f"    - {city}: CPC={cpc_c:.4f}  RMSE={rmse_c:.2f}  "

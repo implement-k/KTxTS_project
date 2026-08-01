@@ -29,16 +29,26 @@ class GenerationModel:
             criterion = nn.MSELoss()
             self.model.train() # type: ignore
             
-            x_t = torch.tensor(X_train, dtype=torch.float32, device=device)
-            y_t = torch.tensor(y_train, dtype=torch.float32, device=device)
+            dataset = torch.utils.data.TensorDataset(
+                torch.tensor(X_train, dtype=torch.float32), 
+                torch.tensor(y_train, dtype=torch.float32)
+            )
+            loader = torch.utils.data.DataLoader(dataset, batch_size=256, shuffle=True)
+            
             for epoch in range(epochs):
-                optimizer.zero_grad()
-                outputs = self.model(x_t) # type: ignore
-                loss = criterion(outputs, y_t)
-                loss.backward()
-                optimizer.step()
-                if (epoch + 1) % 10 == 0:
-                    print(f"  FFN Gen Epoch {epoch+1}/50  Loss={loss.item():.4f}")
+                total_loss = 0.0
+                for x_b, y_b in loader:
+                    x_b, y_b = x_b.to(device), y_b.to(device)
+                    optimizer.zero_grad()
+                    outputs = self.model(x_b) # type: ignore
+                    loss = criterion(outputs, y_b)
+                    loss.backward()
+                    optimizer.step()
+                    total_loss += loss.item() * x_b.size(0)
+                
+                avg_loss = total_loss / len(dataset)
+                if (epoch + 1) % 10 == 0 or epoch == epochs - 1:
+                    print(f"  FFN Gen Epoch {epoch+1}/{epochs}  Loss={avg_loss:.4f}")
 
     def predict(self, X, device):
         if self.use_lgbm:

@@ -464,15 +464,11 @@ class ODDataset(Dataset):
         out_X_dist = X_dist_curr if self.use_dist_log_transform else X_dist_curr_raw
         out_X_OD_masked = X_OD_masked if self.use_od_log_transform else X_OD_masked_raw
         out_y_OD = y_OD if self.use_od_log_transform else y_OD_raw
-        
+
         out_X_static_t = torch.tensor(np.nan_to_num(out_X_static, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
-        if self.X_static_normalize:
-            out_X_static_t = out_X_static_t.clamp(-20.0, 20.0)
-            
-        out_X_dist_t = torch.tensor(np.nan_to_num(out_X_dist, nan=5.5, posinf=5.5, neginf=5.5), dtype=torch.float32).clamp(0.0, 20.0)
-        out_X_OD_masked_t = torch.tensor(np.nan_to_num(out_X_OD_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(0.0, 30.0)
-        out_y_OD_t = torch.tensor(np.nan_to_num(out_y_OD, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(0.0, 30.0)
-        
+        out_X_dist_t = torch.tensor(np.nan_to_num(out_X_dist, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
+        out_X_OD_masked_t = torch.tensor(np.nan_to_num(out_X_OD_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
+        out_y_OD_t = torch.tensor(np.nan_to_num(out_y_OD, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
         out_A_spatial_t = torch.tensor(A_spatial_curr, dtype=torch.float32)
         
         return {

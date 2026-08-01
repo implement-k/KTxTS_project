@@ -73,8 +73,9 @@ class ODDataset:
         d_dist = np.asarray(dist_df['D_dong_code'].map(dong2idx_map).values.astype(int))
         dist_mask = pd.notna(o_dist) & pd.notna(d_dist)
         
-        # 거리 매트릭스에 값 채우기
-        self.X_dist[o_dist[dist_mask], d_dist[dist_mask]] = np.asarray(dist_df['distance'].values[dist_mask])
+        # 거리 매트릭스에 값 채우기 (log1p 변환하여 스케일 안정화)
+        raw_distances = np.asarray(dist_df['distance'].values[dist_mask])
+        self.X_dist[o_dist[dist_mask], d_dist[dist_mask]] = np.log1p(raw_distances)
         
         # === Static Feature 로드 ===
         static_path = os.path.join(os.path.dirname(STATIC_DATA_PATH), f'final_static_features_{year}.csv')
@@ -129,22 +130,19 @@ class ODDataset:
         
         for m_idx in self.masking_indices:
             if imputation == 'mean':
-                self.X_static[self.test_indices, m_idx] = train_means[m_idx]
-                self.X_static_raw[self.test_indices, m_idx] = train_means_raw[m_idx]
+                self.X_static[exclude_indices, m_idx] = train_means[m_idx]
+                self.X_static_raw[exclude_indices, m_idx] = train_means_raw[m_idx]
             else: # default: zero
-                self.X_static[self.test_indices, m_idx] = 0.0
-                self.X_static_raw[self.test_indices, m_idx] = 0.0
+                self.X_static[exclude_indices, m_idx] = 0.0
+                self.X_static_raw[exclude_indices, m_idx] = 0.0
         
         # train_mask 생성
         self.train_mask = np.zeros(self.num_nodes, dtype=bool)
         self.train_mask[self.train_indices] = True
         
-        # 정답 총유출량, 총발생량 예측
-        x = self.X_OD.copy()
-        x[:, ~self.train_mask] = 0
-        x[~self.train_mask, :] = 0
-        self.y_o = np.sum(x, axis=1)
-        self.y_d = np.sum(x, axis=0)
+        # 정답 총유출량, 총발생량 예측 (전체 실제 총량 사용)
+        self.y_o = np.sum(self.X_OD, axis=1)
+        self.y_d = np.sum(self.X_OD, axis=0)
         
         self.y_o_val = np.sum(self.X_OD, axis=1)   
         self.y_d_val = np.sum(self.X_OD, axis=0)

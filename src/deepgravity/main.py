@@ -41,7 +41,7 @@ def parse_args():
                             help='origin 배치 크기')
     parser.add_argument('--gen_epochs',   type=int, default=15)
     parser.add_argument('--epochs',   type=int, default=15)
-    parser.add_argument('--lr',       type=float, default=5e-6)
+    parser.add_argument('--lr',       type=float, default=5e-5)
     parser.add_argument('--momentum', type=float, default=0.9, 
                             help='SGD momentum (default: 0.9)') 
     parser.add_argument('--hidden',   type=int, default=256)
@@ -95,7 +95,7 @@ def main():
         if use_lgbm:
             X_static_train_all = np.concatenate([ds.X_static_raw[ds.train_indices] for ds in datasets], axis=0)
         else:
-            X_static_train_all = np.concatenate([ds.X_static[ds.train_indices][:, :-2] for ds in datasets], axis=0)
+            X_static_train_all = np.concatenate([ds.X_static[ds.train_indices] for ds in datasets], axis=0)
         O_train_all = np.concatenate([ds.y_o[ds.train_indices] for ds in datasets], axis=0)
         
         print("\nI: 2. 생성 모델 학습 시작")

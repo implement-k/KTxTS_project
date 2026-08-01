@@ -75,7 +75,7 @@ class ODDataset:
         
         # 거리 매트릭스에 값 채우기 (log1p 변환하여 스케일 안정화)
         raw_distances = np.asarray(dist_df['distance'].values[dist_mask])
-        self.X_dist[o_dist[dist_mask], d_dist[dist_mask]] = np.log1p(raw_distances)
+        self.X_dist[o_dist[dist_mask], d_dist[dist_mask]] = raw_distances
         
         # === Static Feature 로드 ===
         static_path = os.path.join(os.path.dirname(STATIC_DATA_PATH), f'final_static_features_{year}.csv')

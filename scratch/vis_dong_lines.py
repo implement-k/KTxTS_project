@@ -4,8 +4,9 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-sys.path.insert(0, './src')
-sys.path.insert(0, './src/mae-year')
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(current_dir, '../src'))
+sys.path.insert(0, os.path.join(current_dir, '../src/mae-year'))
 from models import ODMAE
 from dataset import ODDataset
 from evaluation.fixed_eval_utils import make_base_data, apply_merge_events
@@ -16,6 +17,8 @@ plt.rcParams['axes.unicode_minus'] = False
 
 def load_model(path, d_model=128):
     st = torch.load(path, map_location='cpu')
+    if 'model_state_dict' in st:
+        st = st['model_state_dict']
     d_model = st['feature_embed.0.weight'].shape[0]
     num_features = st['feature_embed.0.weight'].shape[1]
     has_mask = 'mask_proj.weight' in st
@@ -23,7 +26,7 @@ def load_model(path, d_model=128):
     has_self_loop = 'self_loop_predictor.0.weight' in st
     
     model = ODMAE(num_features=num_features, d_model=d_model, nhead=nhead, num_layers=4,
-                  od_embed_layers=2, use_distance_friction=True, use_self_loop_predictor=has_self_loop,
+                  od_embed_layers=2, use_distance_friction=False, use_self_loop_predictor=has_self_loop,
                   use_mask_channel=has_mask)
     model.load_state_dict(st, strict=False)
     model.eval()
@@ -39,11 +42,10 @@ def load_model(path, d_model=128):
 print("Loading dataset...")
 dataset = ODDataset(year='2023')
 base_data = make_base_data(dataset)
-val_meta = torch.load('dataset/fixed_eval/fixed_val_meta_2023.pt', map_location='cpu', weights_only=False)
+val_meta = torch.load(os.path.join(current_dir, '../dataset/fixed_eval/fixed_val_meta_2023.pt'), map_location='cpu', weights_only=False)
 
 models = {
-    "mae_cpc:v5": load_model("best_model/mae_cpc:v5-64epoch.pth"),
-    "mae:v5": load_model("best_model/mae:v5-14epoch.pth")
+    "mae:hybrid": load_model(os.path.join(current_dir, "../best_model/mae:hybrid-86epoch.pth"))
 }
 
 city_name = '동탄'
@@ -109,6 +111,6 @@ for i, node_idx in enumerate(masked_nodes[:3]):
         plt.grid(True, alpha=0.3)
         
     plt.tight_layout()
-    img_path = os.path.abspath(f'scratch/vis_node_{node_idx}.png')
+    img_path = os.path.join(current_dir, f'vis_node_{node_idx}.png')
     plt.savefig(img_path)
     print(f"Saved {img_path}")

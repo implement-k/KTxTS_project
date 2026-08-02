@@ -14,12 +14,12 @@ from dataset import ODDataset
 def main():
     print("Dataset 로딩 중...")
     # 학습 환경과 동일하게 Dataset을 로드합니다.
-    dataset = ODDataset(mode='train', use_log_transform=True)
+    dataset = ODDataset()
     
     print("\nLGBM 모델(대각 성분 전용) 학습 시작...")
     train_idx = dataset.train_indices
     
-    # X_static은 이미 numpy array입니다.
+    # X_static은 이미 numpy array
     X_train_lgb = dataset.X_static[train_idx]
     y_train_lgb = np.diag(dataset.X_OD)[train_idx]
     

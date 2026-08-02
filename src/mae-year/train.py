@@ -28,27 +28,22 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
-    parser.add_argument('--loss_type', type=str, default='weighted_mse', choices=['weighted_mse', 'hybrid', 'huber']) # v1, v2, v3: weighted_mse
-    parser.add_argument('--od_embed_layers', type=int, default=3)                   # v1: 1, v2: 2, v3, v4: 3
-    parser.add_argument('--use_friction', type=str2bool, default=True)              # v1, v2, v3: False, v4: True
-    parser.add_argument('--use_self_loop_predictor', type=str2bool, default=True)   # v1: False, v2, v3, v4: True
-    parser.add_argument('--lambda_diag', type=float, default=1.0)                   # v6: 50(수치상으로는 130이 맞긴함)
-    parser.add_argument('--use_lgbm_self_loop', type=str2bool, default=False)       # v7: True
-    parser.add_argument('--use_mask_channel', type=str2bool, default=False)         # v6~: True  
+    parser.add_argument('--loss_type', type=str, default='hybrid', choices=['weighted_mse', 'hybrid', 'huber']) 
+    parser.add_argument('--use_friction', type=str2bool, default=False)              
+    parser.add_argument('--use_self_loop_predictor', type=str2bool, default=True)   
+    parser.add_argument('--lambda_diag', type=float, default=-1.0)                  
+    parser.add_argument('--use_lgbm_self_loop', type=str2bool, default=False)       
     parser.add_argument('--use_wandb', type=str2bool, default=False)
     parser.add_argument('--wandb_id', type=str, default=None, help="기존 wandb run id (이어서 학습 시)")
     parser.add_argument('--use_stratfied_masking', type=str2bool, default=True)
     parser.add_argument('--use_merge_train', type=str2bool, default=True, help="행정동 병합 학습 여부")
-    parser.add_argument('--use_od_log_transform', type=str2bool, default=True, help="X_OD에 대해 log1p 적용 여부")
-    parser.add_argument('--use_static_normalize', type=str2bool, default=True, help="X_static에 대해 z-score normalization 적용 여부")
-    parser.add_argument('--use_dist_log_transform', type=str2bool, default=True, help="distance matrix에 log1p 적용 여부")
     parser.add_argument('--year', type=str, default='2023', choices=['2019', '2023'], help="학습할 연도")
     return parser.parse_args()
 
 def main():
     # === arg parsing ===
     args = parse_args()
-    # v5 train.py --epochs 70 --batch_size 32 --od_embed_layers 2 use_friction False --use_self_loop_predictor False  --lambda_diag -1.0 --use_lgbm_self_loop False --use_mask_channel True --use_wandb True
+    # v5 train.py --epochs 70 --batch_size 32 --od_embed_layers 2 use_friction False --use_self_loop_predictor False  --lambda_diag -1.0 --use_lgbm_self_loop False --use_wandb True
     
     if args.use_wandb: 
         if args.wandb_id:
@@ -70,10 +65,7 @@ def main():
         # === train dataset 로드 ===
         dataset_dict[year] = ODDataset(year=year, 
                                        use_stratfied_masking=args.use_stratfied_masking, 
-                                       use_merge_train=args.use_merge_train, 
-                                       use_od_log_transform=args.use_od_log_transform, 
-                                       use_static_normalize=args.use_static_normalize,
-                                       use_dist_log_transform=args.use_dist_log_transform)
+                                       use_merge_train=args.use_merge_train)
     
         train_loaders[year] = DataLoader(dataset_dict[year], batch_size=args.batch_size, shuffle=True)
 
@@ -93,20 +85,10 @@ def main():
     F = dataset_dict[args.year].X_static.shape[1]
 
     model = ODMAE(num_features=F, 
-                od_embed_layers=args.od_embed_layers,
                 use_distance_friction=args.use_friction,
-                use_self_loop_predictor=args.use_self_loop_predictor,
-                use_mask_channel=args.use_mask_channel).to(device)
+                use_self_loop_predictor=args.use_self_loop_predictor).to(device)
 
-    # wandb_id가 주어지고 마지막 체크포인트가 존재하면 가중치 로드
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    last_model_path = os.path.join(current_dir, 'last_model_mae.pth')
-    if args.wandb_id and os.path.exists(last_model_path):
-        print(f"\n[Resume] 기존 체크포인트를 불러옵니다: {last_model_path}")
-        model.load_state_dict(torch.load(last_model_path, map_location=device))
-        
     optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
-    # 두 dataloader 길이는 같음 (dataset __len__이 1000으로 고정)
     total_steps = args.epochs * sum(len(loader) for loader in train_loaders.values())
     scheduler = optim.lr_scheduler.OneCycleLR(
         optimizer, max_lr=5e-4, 
@@ -126,12 +108,59 @@ def main():
     min_mask = TRAIN_CONFIG['min_mask_size']
     max_mask = TRAIN_CONFIG['max_mask_size']
     
-    for epoch in range(args.epochs):
+    start_epoch = 0
+
+    # wandb_id가 주어지고 마지막 체크포인트가 존재하면 전체 상태 로드
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    last_model_path = os.path.join(current_dir, f'last_model_mae_{args.year}.pth')
+    if args.wandb_id and os.path.exists(last_model_path):
+        print(f"\n[Resume] 기존 체크포인트를 불러옵니다: {last_model_path}")
+        checkpoint = torch.load(last_model_path, map_location=device)
+        if 'model_state_dict' in checkpoint:
+            model.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            start_epoch = checkpoint['epoch'] + 1
+            best_val_rmse = checkpoint.get('best_val_rmse', float('inf'))
+            best_cpc = checkpoint.get('best_cpc', 0.0)
+            print(f"  ➜ {start_epoch} Epoch부터 이어서 학습을 시작합니다.")
+        else:
+            print("W: 구버전 체크포인트입니다. 가중치만 불러옵니다 (Optimizer, Scheduler 등은 초기화됩니다).")
+            model.load_state_dict(checkpoint)
+    
+    for epoch in range(start_epoch, args.epochs):
         progress = epoch / max(1, args.epochs - 1)
+        
+        # [기존 코드 주석 처리]
         current_mask_size = int(min_mask + (max_mask - min_mask) * progress)
         for ds in dataset_dict.values():
             ds.max_mask_size = current_mask_size
         current_alpha = min(10.0, 1.0 + 9.0 * progress)
+        
+        if isinstance(criterion, HybridWeightedMSELoss):
+            # real_penalty_weight를 점진적으로 증가 (0.003 -> 0.010)
+            current_penalty = 0.003 + (0.007 * progress)
+            criterion.real_penalty_weight = current_penalty
+
+        # mask_size: 완만하게 증가 (지수 1.5) - 어려운 입력 자체는 천천히 늘리기
+        # mask_progress = progress ** 1.5
+        # current_mask_size = int(min_mask + (max_mask - min_mask) * mask_progress)
+        # for ds in dataset_dict.values():
+        #     ds.max_mask_size = current_mask_size
+
+        # # alpha: 기존 선형 유지 (이미 검증된 패턴이므로 건드리지 않음)
+        # current_alpha = min(10.0, 1.0 + 9.0 * progress)
+
+        # # real_penalty_weight: 학습 초반(warmup)엔 거의 0에 가깝게 유지하다가,
+        # # 어느 정도 학습이 안정된 뒤에야(예: 전체의 30% 지점부터) 증가 시작
+        # if isinstance(criterion, HybridWeightedMSELoss):
+        #     warmup_frac = 0.3
+        #     if progress < warmup_frac:
+        #         current_penalty = 0.001  # 거의 영향 없는 수준으로 시작
+        #     else:
+        #         penalty_progress = (progress - warmup_frac) / (1.0 - warmup_frac)
+        #         current_penalty = 0.001 + (0.009 * penalty_progress)  # 0.001 -> 0.010
+        #     criterion.real_penalty_weight = current_penalty
 
         model.train()
         train_loss = 0
@@ -143,7 +172,7 @@ def main():
                     yield batch
                     
         total_batches = sum(len(loader) for loader in train_loaders.values())
-        pbar = tqdm(batch_generator(), total=total_batches, desc=f"Epoch {epoch+1}/{args.epochs} [Mask:{current_mask_size} α:{current_alpha:.1f}]")
+        pbar = tqdm(batch_generator(), total=total_batches, desc=f"Epoch {epoch+1}/{args.epochs} [Mask:{current_mask_size} α:{current_alpha:.1f} Pen:{getattr(criterion, 'real_penalty_weight', 0):.4f}]")
         for batch in pbar:
             x_static = batch['X_static'].to(device)
             x_dist = batch['X_dist'].to(device)
@@ -251,10 +280,17 @@ def main():
 
             model.train()
 
-        # 에포크 종료 시마다 last checkpoint 저장 및 wandb 업로드
+        # 에포크 종료 시마다 last checkpoint 전체 상태 저장 및 wandb 업로드
         current_dir = os.path.dirname(os.path.abspath(__file__))
         last_model_path = os.path.join(current_dir, f'last_model_mae_{args.year}.pth')
-        torch.save(model.state_dict(), last_model_path)
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state_dict': scheduler.state_dict(),
+            'best_val_rmse': best_val_rmse,
+            'best_cpc': best_cpc
+        }, last_model_path)
         if args.use_wandb:
             wandb.save(last_model_path, base_path=current_dir)
 

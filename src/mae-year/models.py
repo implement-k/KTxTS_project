@@ -85,13 +85,10 @@ class ODCrossAttention(nn.Module):
         return pooled
 
 class ODMAE(nn.Module):
-    def __init__(self, num_features, d_model=128, nhead=8, num_layers=4,
-                 od_embed_layers=2, use_distance_friction=True, use_self_loop_predictor=True, use_mask_channel=False):
+    def __init__(self, num_features, d_model=128, nhead=8, num_layers=4, use_distance_friction=True, use_self_loop_predictor=True):
         super().__init__()
         self.use_distance_friction = use_distance_friction
-        self.od_embed_layers = od_embed_layers
         self.use_self_loop_predictor = use_self_loop_predictor
-        # self.use_mask_channel = use_mask_channel
 
         # X_static embeding: (B, N, F) -> (B, N, D) - leanable
         # OD feature embedding: (B, N, 2N or 3N) -> (B, N, D) - leanable

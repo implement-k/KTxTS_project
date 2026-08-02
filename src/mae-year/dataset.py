@@ -37,16 +37,12 @@ def _coerce_numeric_raw_static(raw_static, expected_len):
 
 # train 시에만 쓰이는 dataset 클래스
 class ODDataset(Dataset):
-    def __init__(self, year: str='2023', use_stratfied_masking=True, use_merge_train=True, 
-                 use_od_log_transform=True, use_static_normalize=True, use_dist_log_transform=True):
+    def __init__(self, year: str='2023', use_stratfied_masking=True, use_merge_train=True):
         # self.mode = mode -> train에만 쓰이는 데이터셋
         self.year = year
         self.max_mask_size = TRAIN_CONFIG['min_mask_size']
         self.use_stratfied_masking = use_stratfied_masking
         self.use_merge_train = use_merge_train
-        self.X_static_normalize = use_static_normalize
-        self.use_od_log_transform = use_od_log_transform
-        self.use_dist_log_transform = use_dist_log_transform
         
         # === 행정동 코드 로드 ===
         if self.year == '2019':
@@ -390,7 +386,7 @@ class ODDataset(Dataset):
             active_node_mask[secondary_node] = False
             used_b_nodes.add(secondary_node)
 
-            F = self.scaler.mean_.shape[0]
+            F = self.scaler.mean_.shape[0] # type:ignore
             merged_raw_static = _coerce_numeric_raw_static(cache['merged_raw_static_at_a'], F)
             merged_static = self.scaler.transform(merged_raw_static.reshape(1, -1))[0]
             
@@ -460,15 +456,10 @@ class ODDataset(Dataset):
         inactive_raw_fill = np.expm1(5.5)
         X_dist_curr_raw[inactive, :] = inactive_raw_fill
         
-        out_X_static = X_static_masked if self.X_static_normalize else X_static_raw_masked
-        out_X_dist = X_dist_curr if self.use_dist_log_transform else X_dist_curr_raw
-        out_X_OD_masked = X_OD_masked if self.use_od_log_transform else X_OD_masked_raw
-        out_y_OD = y_OD if self.use_od_log_transform else y_OD_raw
-
-        out_X_static_t = torch.tensor(np.nan_to_num(out_X_static, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
-        out_X_dist_t = torch.tensor(np.nan_to_num(out_X_dist, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
-        out_X_OD_masked_t = torch.tensor(np.nan_to_num(out_X_OD_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
-        out_y_OD_t = torch.tensor(np.nan_to_num(out_y_OD, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
+        out_X_static_t = torch.tensor(np.nan_to_num(X_static_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
+        out_X_dist_t = torch.tensor(np.nan_to_num(X_dist_curr, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
+        out_X_OD_masked_t = torch.tensor(np.nan_to_num(X_OD_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
+        out_y_OD_t = torch.tensor(np.nan_to_num(y_OD, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
         out_A_spatial_t = torch.tensor(A_spatial_curr, dtype=torch.float32)
         
         return {

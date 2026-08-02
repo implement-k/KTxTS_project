@@ -13,37 +13,45 @@ def format_minutes(seconds):
     return f"{m}m {s}s"
 
 def _eval_one_sample(args):
-    """(model, base_data, ...) 받아 단일 샘플 평가 -> dict 반환"""
-    model, base_data, year_label, city_name, task, split_name, mask_indices, merge_events, device = args
+    """단일 샘플(특정 city, 특정 task의 특정 시나리오) 평가"""
+    model, base_data, year_label, city_name, task, split_name, mask_indices, merge_events, device, use_lgbm_self_loop = args
     
     try:
-        # validation에서는 test 동 정보를 입력에서 숨겨야 치팅이 아니다.
-        # test에서는 test 동 자체가 평가 대상이므로 전체 feature를 hide하면 안 된다.
+        # validation에서는 test 동 정보를 hide
         holdout_indices = base_data['test_indices'] if split_name == 'val' else []
-        sample = apply_merge_events(
-            base_data,
-            mask_indices,
-            merge_events,
-            hide_indices=holdout_indices,
-            imputation_values= None
-        )
+        sample = apply_merge_events(base_data, mask_indices, merge_events, hide_indices=holdout_indices)
         
-        # MAE 모델 추론 준비
-        x_static = sample['X_static'].float().unsqueeze(0).to(device) # norm
-        x_dist = sample['X_dist'].float().unsqueeze(0).to(device) # log1p
-        mask_t = sample['mask'].unsqueeze(0).to(device) 
-        x_od_masked = sample['X_OD_masked'].float().unsqueeze(0).to(device) # log1p
-        a_spatial = sample['A_spatial'].float().unsqueeze(0).to(device) 
-        active_node_mask = sample['active_node_mask'].unsqueeze(0).to(device) # 병합된 노드 제외
-
-        # 병렬 스레드 환경이므로 안전하게
+        x_static = sample['X_static'].float().unsqueeze(0).to(device)
+        x_dist = sample['X_dist'].float().unsqueeze(0).to(device)
+        mask = sample['mask'].unsqueeze(0).to(device)
+        x_od_masked = sample['X_OD_masked'].float().unsqueeze(0).to(device)
+        a_spatial = sample['A_spatial'].float().unsqueeze(0).to(device)
+        
         with torch.no_grad():
-            pred = model(x_static, x_od_masked, x_dist, a_spatial, mask_t, active_node_mask)
+            # v5에서 추가된 인자 처리
+            active_node_mask = sample.get('active_node_mask', None)
+            if active_node_mask is not None:
+                active_node_mask = active_node_mask.unsqueeze(0).to(device)
+                pred = model(x_static, x_od_masked, x_dist, a_spatial, mask, active_node_mask)
+            else:
+                pred = model(x_static, x_od_masked, x_dist, a_spatial, mask)
         
-        # log 변환을 원복
         T_pred = torch.expm1(pred[0]).cpu().numpy()
-        y_od = sample['y_OD_raw'].cpu().numpy()
-
+        T_pred = np.maximum(T_pred, 0)
+        
+        if use_lgbm_self_loop:
+            # LGBM 모델 로드 (캐싱을 위해 매번 로드하는 것은 비효율적일 수 있으나 병렬 스레드 문제 방지용)
+            import lightgbm as lgb
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            lgbm_path = os.path.join(current_dir, '../../best_model/best_lgbm_self_loop.txt')
+            if os.path.exists(lgbm_path):
+                lgbm_model = lgb.Booster(model_file=lgbm_path)
+                lgbm_pred = lgbm_model.predict(sample['X_static'].numpy())
+                lgbm_pred_real = np.expm1(np.maximum(lgbm_pred, 0))
+                np.fill_diagonal(T_pred, lgbm_pred_real)
+        
+        y_od = sample['y_OD_raw'].numpy()
+        
         eval_indices = np.array(mask_indices)
         N = y_od.shape[0]
         
@@ -57,7 +65,6 @@ def _eval_one_sample(args):
         
         y_od_eval = y_od[valid_cells]
         y_pred_eval = np.maximum(T_pred[valid_cells], 0)
-        
         if len(y_od_eval) > 0:
             rmse_eval = np.sqrt(np.mean((y_od_eval - y_pred_eval) ** 2))
             num = 2 * np.sum(np.minimum(y_od_eval, y_pred_eval))
@@ -76,7 +83,7 @@ def _eval_one_sample(args):
         print(f"W: 샘플 실패 ({city_name} task={task}): {e}")
         return None
 
-def evaluate_and_report(base_data, val_meta, model, year_label, split_name,  n_workers=4, device=None):
+def evaluate_and_report(base_data, val_meta, model, year_label, split_name,  n_workers=4, device=None, use_lgbm_self_loop=False):
     """ThreadPoolExecutor로 샘플병 병렬 평가"""
     
     job_args = []
@@ -85,7 +92,7 @@ def evaluate_and_report(base_data, val_meta, model, year_label, split_name,  n_w
             for meta in val_meta_task_list[task]:
                 job_args.append((
                     model, base_data, year_label, city_name, task, split_name,
-                    meta['mask_indices'], meta['merge_events'], device
+                    meta['mask_indices'], meta['merge_events'], device, use_lgbm_self_loop
                 ))
     
     total = len(job_args)

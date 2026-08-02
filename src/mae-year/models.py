@@ -326,8 +326,8 @@ class ODMAE(nn.Module):
             self_loop_pred = 0
 
         # Batch 차원과 Node 차원을 위한 인덱스 생성
-        b_idx = torch.arange(B).unsqueeze(-1) # (B, 1)
-        n_idx = torch.arange(N).unsqueeze(0)  # (1, N)
+        b_idx = torch.arange(B, device=pred_od.device).unsqueeze(-1) # (B, 1)
+        n_idx = torch.arange(N, device=pred_od.device).unsqueeze(0)  # (1, N)
         
         pred_od[b_idx, n_idx, n_idx] += self_loop_pred
         

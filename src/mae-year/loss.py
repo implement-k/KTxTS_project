@@ -10,9 +10,18 @@ class HuberLoss(nn.Module):
         super().__init__()
         self.delta = delta
     
-    def forward(self, pred_log, target_log, mask):
-        # Base Loss 
-        loss = F.huber_loss(pred_log[mask], target_log[mask], delta=self.delta, reduction='mean')
+    def forward(self, pred_log, target_log, current_alpha=None, mask=None):
+        # current_alpha is accepted for the shared train-loop call contract and
+        # intentionally ignored by plain Huber.
+        if mask is None and isinstance(current_alpha, torch.Tensor):
+            mask = current_alpha
+        del current_alpha
+        if mask is not None:
+            pred_log = pred_log[mask]
+            target_log = target_log[mask]
+        if pred_log.numel() == 0:
+            return pred_log.sum() * 0.0
+        loss = F.huber_loss(pred_log, target_log, delta=self.delta, reduction='mean')
         return loss
 
 
@@ -52,4 +61,3 @@ class HybridWeightedMSELoss(nn.Module):
         
         loss = log_loss + (self.real_penalty_weight * real_loss)
         return loss.mean()
-    

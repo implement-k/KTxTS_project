@@ -72,20 +72,43 @@ class ODDataset(Dataset):
         
         # === OD 매트릭스 로드 (N,N) ===
         self.X_OD = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32) # raw OD
-        od_df = pd.read_csv(OD_DATA_PATH)
-        
-        # OD 데이터에서 유효한 행정동만 필터링
-        o_indices = od_df['O_dong_code'].map(dong2idx_map).values
-        d_indices = od_df['D_dong_code'].map(dong2idx_map).values
-        valid_mask = pd.notna(o_indices) & pd.notna(d_indices)
-        
-        o_idx_valid = np.asarray(o_indices[valid_mask].astype(int))
-        d_idx_valid = np.asarray(d_indices[valid_mask].astype(int))
-        
-        # (N, N)으로 합산
-        purposes = ['귀가', '출근', '등교', '업무', '기타']
-        calculated_total = od_df[purposes].sum(axis=1)
-        self.X_OD[o_idx_valid, d_idx_valid] = np.asarray(calculated_total.values[valid_mask]) # raw OD
+        if os.path.exists(OD_DATA_PATH):
+            od_df = pd.read_csv(OD_DATA_PATH)
+
+            # OD 데이터에서 유효한 행정동만 필터링
+            o_indices = od_df['O_dong_code'].map(dong2idx_map).values
+            d_indices = od_df['D_dong_code'].map(dong2idx_map).values
+            valid_mask = pd.notna(o_indices) & pd.notna(d_indices)
+
+            o_idx_valid = np.asarray(o_indices[valid_mask].astype(int))
+            d_idx_valid = np.asarray(d_indices[valid_mask].astype(int))
+
+            # (N, N)으로 합산
+            purposes = ['귀가', '출근', '등교', '업무', '기타']
+            calculated_total = od_df[purposes].sum(axis=1)
+            self.X_OD[o_idx_valid, d_idx_valid] = np.asarray(calculated_total.values[valid_mask]) # raw OD
+            self.od_data_source = OD_DATA_PATH
+        else:
+            # Upstream config names per-year OD CSVs that are not included in the
+            # repository.  The fixed-validation base artifact contains the same
+            # full raw OD matrix; use only that field and validate its node shape.
+            fallback_path = os.path.join(
+                os.path.dirname(OD_DATA_PATH), 'fixed_eval', f'base_data_{self.year}.pt'
+            )
+            if not os.path.exists(fallback_path):
+                raise FileNotFoundError(
+                    f"OD data is missing: {OD_DATA_PATH}; fallback is also missing: {fallback_path}"
+                )
+            fallback = torch.load(fallback_path, map_location='cpu', weights_only=False)
+            fallback_od = np.asarray(fallback['X_OD_raw'], dtype=np.float32)
+            expected_shape = (self.num_nodes, self.num_nodes)
+            if fallback_od.shape != expected_shape:
+                raise ValueError(
+                    f"fallback OD shape mismatch for {self.year}: "
+                    f"expected {expected_shape}, got {fallback_od.shape}"
+                )
+            self.X_OD[...] = fallback_od
+            self.od_data_source = fallback_path
         
         # === 거리 매트릭스 로드 (N, N) ===
         self.X_dist = np.zeros((self.num_nodes, self.num_nodes), dtype=np.float32) # raw dist

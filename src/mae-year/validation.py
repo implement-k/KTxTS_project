@@ -40,9 +40,14 @@ def _eval_one_sample(args):
         with torch.no_grad():
             pred = model(x_static, x_od_masked, x_dist, a_spatial, mask_t, active_node_mask)
         
-        # log 변환을 원복
-        T_pred = torch.expm1(pred[0]).cpu().numpy()
+        if not torch.isfinite(pred).all():
+            raise FloatingPointError("model prediction contains NaN or Inf")
+
+        # log 변환을 원복. Random/untrained outputs can otherwise overflow.
+        T_pred = torch.expm1(pred[0].clamp(max=20.0)).cpu().numpy()
         y_od = sample['y_OD_raw'].cpu().numpy()
+        if not np.isfinite(y_od).all():
+            raise FloatingPointError("validation target contains NaN or Inf")
 
         eval_indices = np.array(mask_indices)
         N = y_od.shape[0]
@@ -55,34 +60,70 @@ def _eval_one_sample(args):
         active_m2d = active_node_mask.cpu().numpy().reshape(-1, 1) & active_node_mask.cpu().numpy().reshape(1, -1)
         valid_cells = eval_mask_2d & active_m2d
         
-        y_od_eval = y_od[valid_cells]
-        y_pred_eval = np.maximum(T_pred[valid_cells], 0)
-        
-        if len(y_od_eval) > 0:
-            rmse_eval = np.sqrt(np.mean((y_od_eval - y_pred_eval) ** 2))
-            num = 2 * np.sum(np.minimum(y_od_eval, y_pred_eval))
-            den = np.sum(y_od_eval) + np.sum(y_pred_eval)
-            cpc_eval = num / den if den > 0 else 0.0
-            prmse_eval = rmse_eval / np.mean(y_od_eval) if np.mean(y_od_eval) > 0 else 0.0
-        else:
-            rmse_eval = 0.0
-            cpc_eval = 0.0
-            prmse_eval = 0.0
-            
-        return {'year': year_label, 'city': city_name, 'task': task,
-                'rmse': rmse_eval, 'cpc': cpc_eval, 'prmse': prmse_eval,
-                'split': split_name}
-    except Exception as e:
-        print(f"W: 샘플 실패 ({city_name} task={task}): {e}")
-        return None
+        diagonal = np.eye(N, dtype=bool)
 
-def evaluate_and_report(base_data, val_meta, model, year_label, split_name,  n_workers=4, device=None):
+        def region_metrics(region):
+            truth = y_od[region].astype(np.float64, copy=False)
+            prediction = np.maximum(T_pred[region], 0).astype(np.float64, copy=False)
+            if truth.size == 0:
+                return {'rmse': 0.0, 'cpc': 0.0, 'prmse': 0.0, 'cell_count': 0}
+            difference = truth - prediction
+            rmse = float(np.sqrt(np.mean(np.square(difference))))
+            denominator = float(np.sum(truth) + np.sum(prediction))
+            cpc = float(2.0 * np.sum(np.minimum(truth, prediction)) / denominator) if denominator > 0 else 0.0
+            mean_target = float(np.mean(truth))
+            return {
+                'rmse': rmse,
+                'cpc': cpc,
+                'prmse': rmse / mean_target if mean_target > 0 else 0.0,
+                'cell_count': int(truth.size),
+            }
+
+        regions = {
+            'overall': valid_cells,
+            'offdiag': valid_cells & ~diagonal,
+            'diagonal': valid_cells & diagonal,
+        }
+        metrics = {name: region_metrics(region) for name, region in regions.items()}
+        record = {'year': year_label, 'city': city_name, 'task': task, 'split': split_name}
+        for region, values in metrics.items():
+            prefix = '' if region == 'overall' else f'{region}_'
+            for key in ('rmse', 'cpc', 'prmse'):
+                record[f'{prefix}{key}'] = values[key]
+            record[f'{region}_cell_count'] = values['cell_count']
+        return record
+    except Exception as e:
+        raise RuntimeError(
+            f"validation sample failed ({year_label}/{city_name}/task={task})"
+        ) from e
+
+
+def validate_metadata_completeness(val_meta):
+    """Require every city to contain non-empty Task 0-4 sample lists."""
+    if not val_meta:
+        raise ValueError("fixed validation metadata is empty")
+    for city_name, tasks in val_meta.items():
+        missing = [task for task in range(5) if task not in tasks or not tasks[task]]
+        if missing:
+            raise ValueError(f"fixed validation is incomplete for {city_name}: tasks {missing}")
+
+
+def evaluate_and_report(base_data, val_meta, model, year_label, split_name,  n_workers=4, device=None,
+                        max_samples_per_group=None):
     """ThreadPoolExecutor로 샘플병 병렬 평가"""
     
+    validate_metadata_completeness(val_meta)
     job_args = []
     for task in [0, 1, 2, 3, 4]:
         for city_name, val_meta_task_list in val_meta.items():
-            for meta in val_meta_task_list[task]:
+            samples = val_meta_task_list[task]
+            if max_samples_per_group is not None:
+                samples = samples[:max_samples_per_group]
+            if not samples:
+                raise ValueError(
+                    f"fixed validation sample limit leaves no samples for {city_name}/task={task}"
+                )
+            for meta in samples:
                 job_args.append((
                     model, base_data, year_label, city_name, task, split_name,
                     meta['mask_indices'], meta['merge_events'], device
@@ -134,6 +175,8 @@ def evaluate_and_report(base_data, val_meta, model, year_label, split_name,  n_w
         model.train()
         
     records = [r for r in results if r is not None]
+    if len(records) != total:
+        raise RuntimeError(f"validation completeness failure: {len(records)}/{total} samples")
     print(f"  [{year_label}/{split_name}] 완료: {len(records)}/{total}")
     return records
 

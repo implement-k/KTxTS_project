@@ -159,7 +159,8 @@ def main():
             # pred shape에서 동의 개수 유추
             N_nodes = pred.shape[1]
             diag_mask = torch.eye(N_nodes, device=device, dtype=torch.bool).unsqueeze(0).expand(pred.shape[0], -1, -1)
-            mask_2d = mask.unsqueeze(1) | mask.unsqueeze(2)
+            active_mask_2d = active_node_mask.unsqueeze(1) & active_node_mask.unsqueeze(2)
+            mask_2d = (mask.unsqueeze(1) | mask.unsqueeze(2)) & active_mask_2d
 
             if args.lambda_diag < 0:
                 # 원래 방식: 대각/비대각 구분 없이 한 번에 평균

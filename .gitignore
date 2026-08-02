@@ -21,6 +21,5 @@ scratch_neurogravity
 # Ignore large raw/processed dataset files
 dataset/raw/od_*.xlsx
 dataset/raw/mountain/
-dataset/od_*.csv
 dataset/processed/od_*.csv
 *.OUT

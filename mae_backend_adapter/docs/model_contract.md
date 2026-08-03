@@ -98,9 +98,17 @@ scaler.transform(raw_static)
 
 운영 요청이나 가상 신도시 입력으로 scaler를 새로 fit하면 안 된다.
 `mae_backend_adapter/artifacts/mae_year_2023_static_scaler.{npz,json}`을 process 당
-한 번 로드해 기존 node와 가상 node에 같이 사용한다. JSON의 feature 순서대로
-18개 raw feature를 정렬·변환한 후 `is_masked`, `is_merged`를 붙인다. Artifact 해시나
-feature schema가 맞지 않으면 대체값 없이 실패한다.
+한 번 로드해 기존 node와 가상 node에 같이 사용한다.
+`StaticFeatureScaler.transform_with_indicators()`의 처리 순서는 다음과 같다.
+
+1. feature 이름을 기준으로 artifact의 canonical 순서로 재정렬
+2. 저장된 2023 scaler 적용
+3. `is_masked == 1`인 행의 `worker_count`, `business_count`, `worker_density`,
+   `business_density`를 scaling 공간에서 0 처리
+4. `is_masked`, `is_merged` indicator를 이 순서로 추가
+
+`is_merged`만 1인 행은 masking feature를 0으로 만들지 않는다. Artifact 해시나 feature
+schema가 맞지 않으면 대체값 없이 실패한다.
 
 현재 운영 추론의 mask 규칙은 다음과 같다.
 

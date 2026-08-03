@@ -718,6 +718,13 @@ class MAEPredictor:
             raise PreprocessingConfigurationError("모든 신도시 zone node는 mask=True여야 합니다.")
         if not all(bool(inputs.active_node_mask[index]) for index in zone_indices):
             raise PreprocessingConfigurationError("신도시 zone node는 active 상태여야 합니다.")
+        masked = inputs.mask
+        if torch.any(inputs.x_od_masked[masked, :] != 0) or torch.any(
+            inputs.x_od_masked[:, masked] != 0
+        ):
+            raise PreprocessingConfigurationError(
+                "mask=True인 node의 x_od_masked 행과 열은 0이어야 합니다."
+            )
         inactive = ~inputs.active_node_mask
         if torch.any(inputs.x_od_masked[inactive, :] != 0) or torch.any(
             inputs.x_od_masked[:, inactive] != 0

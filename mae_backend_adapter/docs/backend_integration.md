@@ -46,26 +46,44 @@ apps/predictions/integrations/mae_preprocessor.py
 `mae_loader.py`는 model·LightGBM·preprocessor를 Django worker process당 한 번 로딩한다.
 `mae_preprocessor.py`는 선택된 도시별 모델 입력 데이터 묶음을 `ModelInputs`로 바꾼다.
 
-## 필요한 Django settings
+## Django settings
 
-| 설정 | 의미 |
+### 현재 백엔드에 이미 존재하는 설정
+
+| 설정 | 현재 역할 |
 |---|---|
 | `MAE_HANDOFF_ROOT` | Adapter와 모델 소스의 배포 root |
-| `MAE_MODEL_PATH` | 최종 MAE checkpoint |
-| `MAE_LGBM_MODEL_PATH` | LightGBM self-loop 모델 |
-| `MAE_MODEL_MODULE_PATH` | `src/mae-year/models.py` |
-| `MAE_PREPROCESSING_ARTIFACT_ROOT` | 도시별 모델 입력 데이터 root |
-| `MAE_ARTIFACT_MANIFEST_PATH` | node·feature·scaler·version manifest |
-| `MAE_MODEL_VERSION_CODE` | Django에서 사용할 안정적 deployment version |
+| `MAE_MODEL_PATH` | MAE checkpoint 경로 |
+| `MAE_LGBM_MODEL_PATH` | LightGBM self-loop 모델 경로 |
 | `MAE_DEVICE` | `cpu`, `cuda` 등 PyTorch device |
+| `MAE_SUPPORTED_NEWTOWNS` | Predictor가 허용할 신도시 이름 목록 |
+| `PREDICTION_BACKEND` | Provider 선택값. 현재 factory는 `mock`, `mae_v7`만 지원 |
+| `PREDICTION_CACHE_VERSION` | `/analyze/` 결과 cache namespace version |
 
-경로와 version 값은 배포 데이터가 확정된 뒤 설정하며 Adapter에 기본값을
-임의로 하드코딩하지 않는다.
+### mae-year 연결 시 추가하거나 변경할 설정
+
+| 설정 | 필요한 결정·변경 |
+|---|---|
+| 기존 `MAE_*` 경로 설정 | mae-year model·LightGBM·handoff 위치로 값을 변경 |
+| `PREDICTION_BACKEND` | factory에 `mae_year` 선택값을 구현한 뒤 해당 값으로 변경 |
+| `PREDICTION_CACHE_VERSION` | model·input-data 또는 결과 규칙 변경을 반영해 갱신 |
+| `MAE_MODEL_MODULE_PATH` | 현재는 없음. 기본 `src/mae-year/models.py` 경로를 쓸지 설정을 추가할지 결정 |
+| `MAE_MODEL_VERSION_CODE` | 현재는 없음. 명시적 버전 매핑에 설정을 쓸지 활성 DB version을 조회할지 결정 |
+
+### 도시별 운영 데이터 확정 후 추가할 설정
+
+| 설정 후보 | 결정할 내용 |
+|---|---|
+| `MAE_PREPROCESSING_ARTIFACT_ROOT` | 현재는 없음. 도시별 입력 데이터 저장 위치와 선택 규칙 |
+| `MAE_ARTIFACT_MANIFEST_PATH` | 현재는 없음. 운영 데이터 형식 확정 후 manifest 이름·구조·필요 여부 |
+
+도시별 전체 manifest 파일은 아직 만들어지지 않았으며 현재 필수 전달 파일이 아니다.
+운영 데이터 형식이 확정된 뒤 AI·백엔드 팀이 이름과 구조를 함께 결정한다.
 
 ## 백엔드가 수정할 항목
 
 - 기존 v7 model source 경로를 `src/mae-year/models.py`로 변경
-- mae-year Provider 선택값을 Provider factory에 추가
+- `mae_year` Provider 선택값을 현재 `mock`, `mae_v7`만 지원하는 factory에 추가
 - `TensorShapeError`를 `InputValidationError`보다 먼저 예외 변환
 - concrete `PopulationPreprocessor`를 loader에 주입
 - canonical node code로 static·OD·거리·인접·mask·code를 같은 순서로 reindex
@@ -74,7 +92,7 @@ apps/predictions/integrations/mae_preprocessor.py
 - 도시별 데이터와 DB `ModelVersion`/`ModelNode`를 같은 node code·순서로 연결
 - v7 고정 node smoke를 데이터 묶음의 `x_static.shape[0]` 기준 검증으로 교체
 - 최종 Adapter 의존성을 백엔드 실행 환경에 추가
-- model·input-data version 변경 시 cache version을 갱신
+- model·input-data version 변경 시 `PREDICTION_CACHE_VERSION`을 갱신
 
 현재 백엔드의 동일 요청 cache와 성공·실패·cache hit 기록은 `/analyze/`
 경로에 적용된다. `/predict/`에는 적용되지 않는다.
@@ -95,9 +113,14 @@ apps/predictions/integrations/mae_preprocessor.py
 Adapter raw `metadata.model_version`은 checkpoint 파일명의 stem이다. 이 값은 Django
 `ModelVersion.code`와 다를 수 있다.
 
-백엔드는 `MAE_MODEL_VERSION_CODE`에 안정적인 deployment version을 설정하고 Adapter
-응답의 `metadata.model_version`을 이 값으로 정규화한다. 같은 code를 DB `ModelVersion`과
-`ModelNode` 조회에 사용한다.
+현재 `normalize_prediction_result()`는 Adapter metadata를 그대로 보존하고,
+`region_context`는 그 `model_version`으로 DB `ModelNode`를 조회한다. 따라서 checkpoint
+stem과 DB `ModelVersion.code`가 다르면 지도·Matrix용 node 조회가 비어 있을 수 있다.
+
+모델 버전 정규화는 현재 구현된 동작이 아니라 mae-year 연결 시 백엔드가 반드시
+구현해야 하는 항목이다. `MAE_MODEL_VERSION_CODE` 같은 설정을 추가할지 활성 DB
+`ModelVersion`을 조회할지는 백엔드 팀이 결정하고, 선택한 code로 metadata와
+`ModelNode` 조회를 일치시켜야 한다.
 
 ## 운영 데이터 연결 전 제한
 

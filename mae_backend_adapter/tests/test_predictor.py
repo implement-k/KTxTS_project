@@ -49,8 +49,18 @@ class TinyODModel(nn.Module):
         mask,
         active_node_mask,
     ):
-        del x_static, x_dist, a_spatial, mask, active_node_mask
-        return x_od_masked + self.feature_embed[0].weight.mean() * 0
+        del x_static, x_dist, a_spatial, active_node_mask
+        node_count = x_od_masked.shape[-1]
+        predicted = torch.arange(
+            1,
+            node_count * node_count + 1,
+            dtype=x_od_masked.dtype,
+            device=x_od_masked.device,
+        ).reshape(1, node_count, node_count)
+        masked_pairs = mask.unsqueeze(-1) | mask.unsqueeze(-2)
+        return torch.where(masked_pairs, predicted, x_od_masked) + (
+            self.feature_embed[0].weight.mean() * 0
+        )
 
 
 class NegativeTinyODModel(TinyODModel):
@@ -78,7 +88,7 @@ class TestPreprocessor:
         return ModelInputs(
             x_static=torch.zeros(3, 2, dtype=torch.float64),
             x_od_masked=torch.tensor(
-                [[1.0, 2.0, 0.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]
+                [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 9.0]]
             ),
             x_dist=torch.zeros(3, 3),
             a_spatial=(
@@ -126,9 +136,12 @@ class PredictorContractTests(unittest.TestCase):
     def test_same_adapter_accepts_two_dynamic_node_counts(self) -> None:
         def make_inputs(node_count: int) -> ModelInputs:
             codes = tuple(f"NODE_{index}" for index in range(node_count))
+            x_od_masked = torch.ones(node_count, node_count)
+            x_od_masked[0, :] = 0
+            x_od_masked[:, 0] = 0
             return ModelInputs(
                 x_static=torch.zeros(node_count, 2),
-                x_od_masked=torch.ones(node_count, node_count),
+                x_od_masked=x_od_masked,
                 x_dist=torch.zeros(node_count, node_count),
                 a_spatial=torch.zeros(node_count, node_count),
                 mask=torch.tensor([True] + [False] * (node_count - 1)),
@@ -217,7 +230,7 @@ class PredictorContractTests(unittest.TestCase):
         self.assertEqual(first["newtown"], "교산")
         self.assertEqual(first["newtown_zone_codes"], ["ZONE_A", "ZONE_B"])
         self.assertNotIn("od_matrix", first)
-        self.assertEqual(len(first["od"]), 7)
+        self.assertEqual(len(first["od"]), 8)
         self.assertTrue(all(row["predicted_trips"] > 0 for row in first["od"]))
         movements = {
             (row["origin_code"], row["destination_code"]): row["movement_type"]
@@ -300,6 +313,32 @@ class PredictorContractTests(unittest.TestCase):
                 replace(base, x_dist=torch.full((3, 3), -1.0))
             )
 
+    def test_masked_od_rows_and_columns_must_be_zero(self) -> None:
+        base = TestPreprocessor().prepare(
+            newtown="교산", total_population=100000, age_ratios=VALID_RATIOS
+        )
+
+        result = self.predictor.predict_from_tensors(base)
+        self.assertTrue(result["od"])
+
+        row_value = base.x_od_masked.clone()
+        row_value[0, 2] = 1.0
+        with self.assertRaisesRegex(
+            PreprocessingConfigurationError, "mask=True.*행과 열"
+        ):
+            self.predictor.predict_from_tensors(
+                replace(base, x_od_masked=row_value)
+            )
+
+        column_value = base.x_od_masked.clone()
+        column_value[2, 0] = 1.0
+        with self.assertRaisesRegex(
+            PreprocessingConfigurationError, "mask=True.*행과 열"
+        ):
+            self.predictor.predict_from_tensors(
+                replace(base, x_od_masked=column_value)
+            )
+
     def test_inactive_nodes_are_not_returned(self) -> None:
         inputs = TestPreprocessor().prepare(
             newtown="교산", total_population=100000, age_ratios=VALID_RATIOS
@@ -334,7 +373,7 @@ class PredictorContractTests(unittest.TestCase):
             for row in result["od"]
         }
         self.assertEqual(by_pair[("ZONE", "ZONE")], 12.0)
-        self.assertEqual(by_pair[("ZONE", "UNMAPPED")], 6.0)
+        self.assertEqual(by_pair[("ZONE", "UNMAPPED")], 9.0)
         self.assertEqual(by_pair[("UNMAPPED", "ZONE")], 15.0)
         self.assertNotIn(("UNMAPPED", "UNMAPPED"), by_pair)
 

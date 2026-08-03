@@ -28,18 +28,10 @@ Adapter raw 결과는 신도시 관련 OD 목록이다. 전체 OD 행렬은 API 
 
 ## 2. 백엔드가 준비할 데이터
 
-역할을 다음과 같이 나눈다.
-
-| 담당 | 제공·구현 항목 |
-|---|---|
-| AI 팀 | 모델 코드·checkpoint·LightGBM, feature schema, canonical node code·순서, OD·거리·인접 데이터 또는 생성 규칙, mask 규칙, scaler 재현 정보, model/input-data version·checksum |
-| 백엔드 | `newtown_code`에 맞는 데이터 묶음 선택, Django settings, concrete `PopulationPreprocessor`, `PredictionRequest` wrapper, DB `ModelVersion`/`ModelNode`, cache·실행 기록·Matrix·지도·인사이트 |
-
-교산·창릉·왕숙 경계·가상 node 구성과 인구·static feature 배분은 경훈님이
-작업 중이다. 도시별 기본 연령 비율도 경훈님의 예측 모델 결과로 추후 제공할
-예정이다. 초기·중기·완료 인구는 AI 팀이 앞으로 정해야 하며, static feature
-기본값과 가상 node별 배분값도 미정이다. 프론트의 더미 값은 모델 운영 기본값이 아니며,
-Adapter와 운영 전처리기는 더미 값으로 자동 추론하지 않는다.
+AI 팀은 모델·feature/node 계약과 전처리 재현 자료를 제공하고, 백엔드는 도시별 데이터
+선택·concrete `PopulationPreprocessor`·DB/서비스 연결을 구현한다. 상세 역할과 아직
+확정되지 않은 운영 데이터는 [`docs/backend_integration.md`](docs/backend_integration.md)에
+정리한다. 프론트의 더미 값은 모델 운영 기본값이 아니다.
 
 필수 데이터나 설정이 없으면 합성값을 만들지 않고
 `PreprocessingConfigurationError`를 발생시킨다.
@@ -52,15 +44,16 @@ Adapter와 운영 전처리기는 더미 값으로 자동 추론하지 않는다
 python -m pip install -r mae_backend_adapter/requirements.txt
 ```
 
-각 Django worker에서 Predictor를 한 번 만들고, 백엔드 `PredictionRequest`를 명시적으로
-변환한다.
+아래는 현재 백엔드의 `apps.predictions.integrations` 구조에 mae-year를 추가할 때의
+**의사 코드**다. `mae_preprocessor.py`는 아직 구현되지 않았다. 각 Django worker에서
+Predictor를 한 번 만들고 `PredictionRequest`를 명시적으로 변환한다.
 
 ```python
 from functools import lru_cache
 
 from django.conf import settings
+from apps.predictions.integrations.mae_preprocessor import get_population_preprocessor
 from mae_backend_adapter import MAEProvider
-from project.inference.preprocessing import project_preprocessor
 
 
 @lru_cache(maxsize=1)
@@ -68,9 +61,8 @@ def get_od_provider():
     return MAEProvider(
         model_path=settings.MAE_MODEL_PATH,
         lgbm_model_path=settings.MAE_LGBM_MODEL_PATH,
-        model_module_path=settings.MAE_MODEL_MODULE_PATH,
         device=settings.MAE_DEVICE,
-        preprocessor=project_preprocessor,
+        preprocessor=get_population_preprocessor(),
     )
 
 
@@ -205,7 +197,8 @@ DTO와 service 계층이 별도로 만든다.
 `movement_type`은 `internal`, `outflow`, `inflow` 중 하나다. `predicted_trips`는 반올림하지
 않는 실수다. `metadata.model_version`은 checkpoint 파일명에서 나온 값으로 Django
 `ModelVersion.code`와 다를 수 있다. 백엔드는 별도의 안정적인 deployment version을
-설정하고 응답 metadata를 정규화해야 한다.
+mae-year 연결 시 명시적으로 매핑해야 한다. 현재 백엔드에는 이 정규화가 구현되어 있지
+않으며 설정값을 추가할지 활성 DB version을 사용할지는 백엔드 팀이 결정한다.
 
 ## 6. 후처리 정책
 
@@ -218,7 +211,8 @@ Provider가 보장하는 정책은 다음과 같다.
 - 누락 node code는 `UNMAPPED`
 - inactive node는 결과에서 제외
 
-Matrix, 지도 node·이동선과 교통 인사이트는 Django service 계층이 계산한다.
+Matrix, 지도 node·이동선과 교통 인사이트는 Django service 계층이 계산한다. 다음
+임계값은 모델 출력 계약이 아니라 현재 Django settings로 바꿀 수 있는 휴리스틱 기본값이다.
 
 - 유입 우세: 유입/유출 ≥ 1.2
 - 유출 우세: 유입/유출 ≤ 0.8

@@ -11,20 +11,20 @@
       * process_*: make_static_feature에서 쓰이는 함수 파일
     * 📁 processed: KTDB/dataset/preprocessing/process_*에서 전처리한 데이터
     * 📁 raw: 디코에 보내준 파일 원본
-    * final_static_feature.csv: 모델 input static features matrix
-    * dist_data.csv: 행정동간 거리 matrix
-    * od_data.csv: od데이터
-    * od_static_feature.csv: 비수도권 이동 데이터[현재 사용 안함.]
+    * final_static_feature_{year}.csv: 모델 input static features matrix[year: '2023' | '2019']
+    * dist_data_{year}.csv: 행정동간 거리 matrix[year: '2023' | '2019']
+    * od_data_{year}.csv: od데이터[year: '2023' | '2019']
+    * od_static_feature_{year}.csv: 비수도권 이동 데이터[사용 안함.][year: '2023' | '2019']
   * 📁 src: 모델 코드
-    * colab.ipynb: colab용 코드(사용법은 아래 설명 참조)
-    * 📁 mae: ssl방식의 모델
+    * 📁 mae-year: SSL방식의 모델
       * ❗models.py: 모델 코드[이 코드 수정하면 됨]
       * ❗train.py: 학습 코드[이 코드 수정하면 됨]
+      * dataset.py: 데이터셋 로드 코드(마스킹, 테스트 데이터셋 분리 등)
+      * loss.py: 모델에서 쓸 loss 함수들
     * 📁 gravity(경훈): 기존 회귀모델+중력모델
     * 📁 twostage: 기존 회귀모델+fnn 모델. (두 단계 모두 각 브랜치에서 자유롭게 수정)
       * ❗models.py: 모델 코드[이 코드 수정하면 됨]
       * ❗train.py: 학습 코드[이 코드 수정하면 됨]
-    * dataset.py: 데이터셋 로드 코드(마스킹, 테스트 데이터셋 분리 등)
     * loss.py: 모델에서 쓸 loss 함수들
     * main.py: 이전에 테스트했던 모델(argument없이 실행)
     * validation.py: 모델 validation코드
@@ -40,7 +40,6 @@ process 파일에서 행정동 합치는 코드까지 있으니까 raw파일 형
 
 colab T4 사용시 한 에포크 당 1분 소요.(KT에서 지원해주므로 pro 결제하고 H100 사용하면 더 빠르게 학습 될 듯)
 
-우리는 먼저 mae1모델을 우선적으로 학습시켜야함.
 
 #### 사용법
 

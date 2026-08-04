@@ -85,9 +85,8 @@ class ODCrossAttention(nn.Module):
         return pooled
 
 class ODMAE(nn.Module):
-    def __init__(self, num_features, d_model=128, nhead=8, num_layers=4, use_distance_friction=True, use_self_loop_predictor=True):
+    def __init__(self, num_features, d_model=128, nhead=8, num_layers=4, use_self_loop_predictor=True):
         super().__init__()
-        self.use_distance_friction = use_distance_friction
         self.use_self_loop_predictor = use_self_loop_predictor
 
         # X_static embeding: (B, N, F) -> (B, N, D) - leanable
@@ -148,7 +147,6 @@ class ODMAE(nn.Module):
         # distance based 상대 positional bias 및 최종 Friction
         self.nhead = nhead
         self.distance_bias = nn.Embedding(50, nhead)
-        self.distance_friction = nn.Embedding(50, 1)
         # 0부터 5.5 구간을 49개로 나눔
         self.register_buffer('boundaries', torch.linspace(0, 5.5, 49))
         
@@ -307,10 +305,6 @@ class ODMAE(nn.Module):
         pred_from_out_view = torch.bmm(out_repr, in_repr.transpose(1, 2))                  # (B, N, N)
         pred_from_in_view = torch.bmm(in_repr, out_repr.transpose(1, 2)).transpose(1, 2)   # (B, N, N)
         pred_od = (pred_from_out_view + pred_from_in_view) / 2.0
-
-        if self.use_distance_friction:
-            friction = self.distance_friction(distance_bins).squeeze(-1)  # (B, N, N)
-            pred_od = pred_od + friction
 
         # 디코더 출력에 직접 더해지는 거리 편향 (distance_decode_bias 활용)
         decode_bias = self.distance_decode_bias(distance_bins).squeeze(-1)  # (B, N, N)

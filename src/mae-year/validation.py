@@ -34,6 +34,7 @@ def _eval_one_sample(args):
                 active_node_mask = active_node_mask.unsqueeze(0).to(device)
                 pred = model(x_static, x_od_masked, x_dist, a_spatial, mask, active_node_mask)
             else:
+                print(f"W: active_node_mask가 없는 샘플 ({city_name} task={task})")
                 pred = model(x_static, x_od_masked, x_dist, a_spatial, mask)
         
         T_pred = torch.expm1(pred[0]).cpu().numpy()

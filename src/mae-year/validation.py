@@ -14,7 +14,7 @@ def format_minutes(seconds):
 
 def _eval_one_sample(args):
     """단일 샘플(특정 city, 특정 task의 특정 시나리오) 평가"""
-    model, base_data, year_label, city_name, task, split_name, mask_indices, merge_events, device, use_lgbm_self_loop = args
+    model, base_data, year_label, city_name, task, split_name, mask_indices, merge_events, device, lgbm_model = args
     
     try:
         # validation에서는 test 동 정보를 hide
@@ -39,16 +39,10 @@ def _eval_one_sample(args):
         T_pred = torch.expm1(pred[0]).cpu().numpy()
         T_pred = np.maximum(T_pred, 0)
         
-        if use_lgbm_self_loop:
-            # LGBM 모델 로드 (캐싱을 위해 매번 로드하는 것은 비효율적일 수 있으나 병렬 스레드 문제 방지용)
-            import lightgbm as lgb
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            lgbm_path = os.path.join(current_dir, '../../best_model/best_lgbm_self_loop.txt')
-            if os.path.exists(lgbm_path):
-                lgbm_model = lgb.Booster(model_file=lgbm_path)
-                lgbm_pred = lgbm_model.predict(sample['X_static'].numpy())
-                lgbm_pred_real = np.expm1(np.maximum(lgbm_pred, 0))
-                np.fill_diagonal(T_pred, lgbm_pred_real)
+        if lgbm_model is not None:
+            lgbm_pred = lgbm_model.predict(sample['X_static'].numpy())
+            lgbm_pred_real = np.expm1(np.maximum(lgbm_pred, 0))
+            np.fill_diagonal(T_pred, lgbm_pred_real)
         
         y_od = sample['y_OD_raw'].numpy()
         
@@ -78,7 +72,10 @@ def _eval_one_sample(args):
             
         return {'year': year_label, 'city': city_name, 'task': task,
                 'rmse': rmse_eval, 'cpc': cpc_eval, 'prmse': prmse_eval,
-                'split': split_name}
+                'split': split_name,
+                'y_od_eval': y_od_eval,     # eval 대상 셀만 (1D) - 시각화용
+                'y_pred_eval': y_pred_eval, # eval 대상 셀만 (1D) - 시각화용
+                'T_pred': T_pred}           # 히트맵용 전체 행렬
     except Exception as e:
         print(f"W: 샘플 실패 ({city_name} task={task}): {e}")
         return None
@@ -86,19 +83,28 @@ def _eval_one_sample(args):
 def evaluate_and_report(base_data, val_meta, model, year_label, split_name,  n_workers=4, device=None, use_lgbm_self_loop=False):
     """ThreadPoolExecutor로 샘플병 병렬 평가"""
     
+    lgbm_model = None
+    if use_lgbm_self_loop:
+        import lightgbm as lgb
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        lgbm_path = os.path.join(current_dir, '../../best_model/best_lgbm_self_loop.txt')
+        if os.path.exists(lgbm_path):
+            lgbm_model = lgb.Booster(model_file=lgbm_path)
+            
     job_args = []
     for task in [0, 1, 2, 3, 4]:
         for city_name, val_meta_task_list in val_meta.items():
             for meta in val_meta_task_list[task]:
                 job_args.append((
                     model, base_data, year_label, city_name, task, split_name,
-                    meta['mask_indices'], meta['merge_events'], device, use_lgbm_self_loop
+                    meta['mask_indices'], meta['merge_events'], device, lgbm_model
                 ))
     
     total = len(job_args)
     print(f"  [{year_label}/{split_name}] {total}개 샘플 평가 (threads={n_workers})...")
     
     results: list = [None] * total
+    heatmap_record = None  # 히트맵용 T_pred를 가진 대표 샘플 1개만 보존
     start_time = time.time()
     progress_every = 30
     
@@ -112,7 +118,13 @@ def evaluate_and_report(base_data, val_meta, model, year_label, split_name,  n_w
             for i, args in enumerate(job_args)
         }
         for done_count, future in enumerate(as_completed(futures), start=1):
-            results[futures[future]] = future.result()
+            result = future.result()
+            if result is not None:
+                if heatmap_record is None and result.get('T_pred') is not None:
+                    heatmap_record = result
+                else:
+                    result['T_pred'] = None
+            results[futures[future]] = result
 
             if done_count % progress_every == 0 or done_count == total:
                 elapsed = time.time() - start_time

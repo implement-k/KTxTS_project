@@ -5,14 +5,14 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
 from dataset import ODDataset
-from mae.models import SpatialODMAE
+from models import ODMAE
+from validation import evaluate_and_report, summarize_results
 
 def cpc_score(y_true, y_pred):
     numerator   = 2 * np.sum(np.minimum(y_true, y_pred))
@@ -22,23 +22,22 @@ def cpc_score(y_true, y_pred):
     return numerator / denominator
 
 
-def test_model(model_path=None, use_friction=True, od_embed_layers=3, use_mask_channel=False, use_lgbm_self_loop=False):
+def test_model(model_path=None, use_friction=True, use_lgbm_self_loop=False, year='2023', mode = 'val'):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     best_model_dir = os.path.join(BASE_DIR, '../best_model')
-    result_dir = os.path.join(BASE_DIR, 'result')
+    result_dir = os.path.join(BASE_DIR, '../result')
+    fixed_eval_dir = os.path.join(BASE_DIR, '../dataset/fixed_eval')
     os.makedirs(result_dir, exist_ok=True)
 
-    # 모델 경로 결정
+    # === 1. 모델 경로 설정 ===
     if model_path is None:
         if not os.path.exists(best_model_dir):
-            print(f"Error: {best_model_dir} 디렉토리가 없습니다.")
-            return
+            raise FileNotFoundError(f"E: {best_model_dir} 디렉토리가 없습니다.")
         
         pth_files = [f for f in os.listdir(best_model_dir) if f.endswith('.pth')]
         if not pth_files:
-            print(f"Error: {best_model_dir} 내에 .pth 가중치 파일이 없습니다.")
-            return
+            raise FileNotFoundError(f"E: {best_model_dir} 내에 .pth 가중치 파일이 없습니다.")
             
         print("\n==================================")
         print("테스트할 가중치 파일을 선택하세요:")
@@ -53,98 +52,70 @@ def test_model(model_path=None, use_friction=True, od_embed_layers=3, use_mask_c
             model_name = pth_files[sel]
             model_path = os.path.join(best_model_dir, model_name)
         except Exception:
-            print("잘못된 입력입니다. 종료합니다.")
-            return
+            raise ValueError("E: 잘못된 입력.")
     else:
         model_name = os.path.basename(model_path)
         
     model_base_name = os.path.splitext(model_name)[0]
+    
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"E: {model_path} 가중치 파일이 없습니다.")
 
-    # ── 데이터 로드 ──────────────────────────────────────────────────────────
-    test_dataset = ODDataset(mode='test')
-    test_loader  = DataLoader(test_dataset, batch_size=1, shuffle=False)
-
+    # === 2. test 데이터셋 로드 ===
+    dataset = ODDataset(year=year)
+    base_data = torch.load(os.path.join(fixed_eval_dir, f'base_data_{year}.pt'), map_location='cpu', weights_only=False)
+    meta_data = torch.load(os.path.join(fixed_eval_dir, f'fixed_{mode}_meta_{year}.pt'), map_location='cpu', weights_only=False)
+    
+    # === 3. 모델 로드 ===
     device = torch.device('cuda' if torch.cuda.is_available() else
                           'mps'  if torch.backends.mps.is_available() else 'cpu')
-    print(f"Using device: {device}")
-
-    # ── 모델 로드 ─────────────────────────────────────────────────────────────
-    model = SpatialODMAE(num_nodes=test_dataset.num_nodes,
-                          num_features=test_dataset.X_static.shape[1],
-                          od_embed_layers=od_embed_layers,
-                          use_distance_friction=use_friction,
-                          use_mask_channel=use_mask_channel).to(device)
-
-    if not os.path.exists(model_path):
-        print(f"Error: {model_path} not found! Please train the model first.")
-        return
-
+    print(f"I: Using device: {device}")
+    
+    F = dataset.X_static.shape[1]
+    
+    model = ODMAE(num_features=F,
+                  use_distance_friction=use_friction).to(device)
     model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True), strict=False)
-    print(f"Loaded: {model_path}")
+    print(f"I: Loaded: {model_path}")
 
-    # Dropout은 eval, BatchNorm은 train 유지
-    model.train()
-    for m in model.modules():
-        if isinstance(m, torch.nn.Dropout):
-            m.eval()
+    model.eval()
 
-    # ── 추론 ──────────────────────────────────────────────────────────────────
+    # === 4. 평가 ===
+    records = evaluate_and_report(
+        base_data=base_data,
+        val_meta=meta_data,
+        model=model,
+        year_label=year,
+        split_name=mode,
+        n_workers=1,
+        device=device,
+        use_lgbm_self_loop=use_lgbm_self_loop
+    )
+    print("\n=== Validation Results ===")
+    summarize_results(records, ['task'], "연도별 task 요약")
+    summarize_results(records, ['city'], "도시별 task 요약")
+    summarize_results(records, [], "연도별 총 요약")
+    
+    rmse = np.mean([r['rmse'] for r in records])
+    cpc = np.mean([r['cpc'] for r in records])
+    prmse = np.mean([r['prmse'] for r in records])
+
+    print(f"  ➜ [Val] RMSE: {rmse:.2f} | CPC: {cpc:.4f} | PRMSE: {prmse:.4f}")
+    
+    # === 5. 시각화 및 지표 계산 ===
     all_y_true, all_y_pred = [], []
-    pred_full = None
-
-    with torch.no_grad():
-        for batch in test_loader:
-            x_static    = batch['X_static'].to(device)
-            x_dist      = batch['X_dist'].to(device)
-            mask        = batch['mask'].to(device)
-            x_od_masked = batch['X_OD_masked'].to(device)
-            y_od        = batch['y_OD'].to(device)
-
-            pred    = model(x_static, x_od_masked, x_dist, mask)
-            mask_2d = mask.unsqueeze(1) | mask.unsqueeze(2)
-
-            pred_full = torch.expm1(pred[0]).cpu().numpy()  # (N, N) full matrix
-            y_full = torch.expm1(y_od[0]).cpu().numpy()
-
-            if use_lgbm_self_loop:
-                lgbm_path = os.path.join(best_model_dir, 'best_lgbm_self_loop.txt')
-                if os.path.exists(lgbm_path):
-                    import lightgbm as lgb
-                    lgbm_model = lgb.Booster(model_file=lgbm_path)
-                    lgbm_pred = lgbm_model.predict(test_dataset.X_static)
-                    lgbm_pred_real = np.expm1(np.maximum(lgbm_pred, 0))
-                    np.fill_diagonal(pred_full, lgbm_pred_real)
-                    print("[LGBM] PyTorch 모델의 자기동(대각성분) 예측값을 LGBM 예측값으로 덮어씌웠습니다.")
-
-            mask_2d_np = mask_2d[0].cpu().numpy()
-            
-            p_real = np.maximum(pred_full[mask_2d_np], 0)
-            y_real = y_full[mask_2d_np]
-
-            all_y_true.append(y_real)
-            all_y_pred.append(p_real)
-
+    for record in records:
+        if record is not None:
+            all_y_true.append(record['y_od_eval'])
+            all_y_pred.append(record['y_pred_eval'])
+    
     all_y_true = np.concatenate(all_y_true)
     all_y_pred = np.concatenate(all_y_pred)
 
-    # ── 지표 계산 ─────────────────────────────────────────────────────────────
-    rmse = np.sqrt(np.mean((all_y_true - all_y_pred) ** 2))
-    mae  = np.mean(np.abs(all_y_true - all_y_pred))
-    cpc  = cpc_score(all_y_true, all_y_pred)
-    corr = np.corrcoef(all_y_true, all_y_pred)[0, 1]
-
-    print(f"\n=== Test Results ===")
-    print(f"RMSE : {rmse:.2f}")
-    print(f"MAE  : {mae:.2f}")
-    print(f"CPC  : {cpc:.4f}")
-    print(f"Corr : {corr:.4f}")
-    print(f"N    : {len(all_y_true):,}")
-
-    # ── 시각화 (6-panel) ──────────────────────────────────────────────────────
     fig = plt.figure(figsize=(18, 14))
     gs  = gridspec.GridSpec(2, 3, figure=fig, hspace=0.4, wspace=0.35)
 
-    # 1. Scatter (log scale)
+    # 5.1. Scatter (log scale)
     ax1 = fig.add_subplot(gs[0, 0])
     max_val = max(np.log1p(all_y_true).max(), np.log1p(all_y_pred).max())
     ax1.scatter(np.log1p(all_y_true), np.log1p(all_y_pred),
@@ -152,7 +123,7 @@ def test_model(model_path=None, use_friction=True, od_embed_layers=3, use_mask_c
     ax1.plot([0, max_val], [0, max_val], 'r--', lw=1.5, label='y=x')
     ax1.set_xlabel('True OD (log1p)')
     ax1.set_ylabel('Pred OD (log1p)')
-    ax1.set_title(f'Scatter (log scale)\nCorr={corr:.3f}')
+    ax1.set_title(f'Scatter (log scale)')
     ax1.legend()
 
     # 2. Residual Plot
@@ -202,19 +173,27 @@ def test_model(model_path=None, use_friction=True, od_embed_layers=3, use_mask_c
     ax5.set_ylabel('CPC')
     ax5.set_title('CPC by True OD Range')
 
-    # 6. 예측 OD 히트맵 (test 도시 행/열만)
+    # 6. 예측 OD 히트맵 (대표 샘플 1개)
     ax6 = fig.add_subplot(gs[1, 2])
-    test_idx = test_dataset.test_indices[:20]   # 최대 20개 도시만 표시
-    pred_sub = np.maximum(pred_full[np.ix_(test_idx, test_idx)], 0)
-    im = ax6.imshow(np.log1p(pred_sub), aspect='auto', cmap='YlOrRd')
-    ax6.set_title('Pred OD Heatmap\n(Test cities, log1p)')
-    ax6.set_xlabel('Dest city index')
-    ax6.set_ylabel('Origin city index')
-    plt.colorbar(im, ax=ax6, fraction=0.046, pad=0.04)
+    rep_record = next((r for r in records if r is not None and r.get('T_pred') is not None), None)
+    if rep_record is not None:
+        T_rep = np.maximum(rep_record['T_pred'], 0)
+        mask_idx = np.array(list(set(np.where(T_rep.sum(axis=1) > 0)[0])))[:20]
+        if len(mask_idx) > 1:
+            pred_sub = T_rep[np.ix_(mask_idx, mask_idx)]
+        else:
+            pred_sub = T_rep[:20, :20]
+        im = ax6.imshow(np.log1p(pred_sub), aspect='auto', cmap='YlOrRd')
+        ax6.set_title(f'Pred OD Heatmap\n({rep_record["city"]} task={rep_record["task"]}, log1p)')
+        ax6.set_xlabel('Dest city index')
+        ax6.set_ylabel('Origin city index')
+        plt.colorbar(im, ax=ax6, fraction=0.046, pad=0.04)
+    else:
+        ax6.set_visible(False)
 
     fig.suptitle(
         f'SpatialODMAE Test Results\n'
-        f'RMSE={rmse:.2f}  MAE={mae:.2f}  CPC={cpc:.4f}  Corr={corr:.4f}',
+        f'RMSE={rmse:.2f}  CPC={cpc:.4f}  %RMSE={prmse:.4f}',
         fontsize=13, fontweight='bold'
     )
 
@@ -229,9 +208,9 @@ def test_model(model_path=None, use_friction=True, od_embed_layers=3, use_mask_c
         dong_path = os.path.join(current_dir, '..', '..', 'dataset', 'raw', 'OD_dong_list.xlsx')
         dong_df   = pd.read_excel(dong_path)
         dongs     = dong_df['dong_code'].values
-        df_pred   = pd.DataFrame(np.maximum(pred_full, 0), index=dongs, columns=dongs)
+        # df_pred   = pd.DataFrame(np.maximum(pred_full, 0), index=dongs, columns=dongs)
         csv_path  = os.path.join(result_dir, f'predicted_OD_matrix_{model_base_name}.csv')
-        df_pred.to_csv(csv_path)
+        # df_pred.to_csv(csv_path)
         print(f"Full OD matrix saved -> {csv_path}")
     except Exception as e:
         print(f"(CSV 저장 스킵: {e})")
@@ -243,20 +222,19 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_path', type=str, default=None, help='가중치 경로 직접 지정 (선택)')
-    parser.add_argument('--od_embed_layers', type=int, default=3)
-    parser.add_argument('--use_friction', type=str, default='True')
-    parser.add_argument('--use_mask_channel', type=str, default='False')
+    parser.add_argument('--use_friction', type=str, default='False')
     parser.add_argument('--use_lgbm_self_loop', type=str, default='False')
+    parser.add_argument('--year', type=str, default='2023', help='평가할 연도 (기본: 2023)')
+    parser.add_argument('--mode', type=str, default='val', help='평가 모드 (기본: test)', choices=['test', 'val'])
     args = parser.parse_args()
     
     use_friction_bool = str(args.use_friction).lower() in ("yes", "true", "t", "1")
-    use_mask_channel_bool = str(args.use_mask_channel).lower() in ("yes", "true", "t", "1")
     use_lgbm_self_loop_bool = str(args.use_lgbm_self_loop).lower() in ("yes", "true", "t", "1")
 
     test_model(
         model_path=args.model_path, 
         use_friction=use_friction_bool, 
-        od_embed_layers=args.od_embed_layers, 
-        use_mask_channel=use_mask_channel_bool,
-        use_lgbm_self_loop=use_lgbm_self_loop_bool
+        use_lgbm_self_loop=use_lgbm_self_loop_bool,
+        year = args.year,
+        mode = args.mode
     )

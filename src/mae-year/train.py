@@ -70,13 +70,14 @@ def main():
         train_loaders[year] = DataLoader(dataset_dict[year], batch_size=args.batch_size, shuffle=True)
 
         # === validation dataset 로드 ===
+        base_data_path = os.path.join(fixed_eval_dir, f"base_data_{year}.pt")
         meta_data_path = os.path.join(fixed_eval_dir, f"fixed_val_meta_{year}.pt")
         
         if not os.path.exists(meta_data_path):
             raise FileNotFoundError(f"E: fixed_val_meta_{year}.pt 파일이 없습니다: {meta_data_path}")
 
         # 메모리 절약을 위해 base_data.pt를 디스크에서 로드하지 않고 현재 로드된 dataset에서 직접 생성
-        base_data = make_base_data(dataset_dict[year])
+        base_data = torch.load(base_data_path, weights_only=False)
         base_data_dict[year] = base_data
         
         meta_data = torch.load(meta_data_path, weights_only=False)

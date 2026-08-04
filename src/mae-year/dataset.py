@@ -37,8 +37,8 @@ def _coerce_numeric_raw_static(raw_static, expected_len):
 
 # train 시에만 쓰이는 dataset 클래스
 class ODDataset(Dataset):
-    def __init__(self, year: str='2023', use_stratfied_masking=True, use_merge_train=True):
-        # self.mode = mode -> train에만 쓰이는 데이터셋
+    def __init__(self, year: str='2023', use_stratfied_masking=True, use_merge_train=True, mode = 'train'):
+        self.mode = mode # -> train에만 쓰이는 데이터셋
         self.year = year
         self.max_mask_size = TRAIN_CONFIG['min_mask_size']
         self.use_stratfied_masking = use_stratfied_masking

@@ -10,7 +10,7 @@ from config import DONG_CODE_19_PATH, DONG_CODE_23_PATH
 import importlib.util as _ilu
 from fixed_eval_utils import make_base_data  # 신규 모듈
 
-_mae_old_dataset_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'mae-old', 'dataset.py')
+_mae_old_dataset_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'mae-year', 'dataset.py')
 _spec = _ilu.spec_from_file_location('mae_old_dataset', _mae_old_dataset_path)
 if _spec is None:
     raise ImportError(f"Cannot find module 'mae_old_dataset' at {_mae_old_dataset_path}")

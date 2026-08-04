@@ -8,6 +8,7 @@ import argparse
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
+import torch.nn as nn
 from dataset import ODDataset
 from models import ODMAE
 from tqdm import tqdm
@@ -28,10 +29,8 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
-    parser.add_argument('--loss_type', type=str, default='hybrid', choices=['weighted_mse', 'hybrid', 'huber']) 
-    parser.add_argument('--use_friction', type=str2bool, default=False)              
-    parser.add_argument('--use_self_loop_predictor', type=str2bool, default=True)   
-    parser.add_argument('--lambda_diag', type=float, default=-1.0)                  
+    parser.add_argument('--loss_type', type=str, default='hybrid', choices=['weighted_mse', 'hybrid', 'huber'])           
+    parser.add_argument('--use_self_loop_predictor', type=str2bool, default=True)                 
     parser.add_argument('--use_lgbm_self_loop', type=str2bool, default=False)       
     parser.add_argument('--use_wandb', type=str2bool, default=False)
     parser.add_argument('--wandb_id', type=str, default=None, help="기존 wandb run id (이어서 학습 시)")
@@ -43,7 +42,7 @@ def parse_args():
 def main():
     # === arg parsing ===
     args = parse_args()
-    # v5 train.py --epochs 70 --batch_size 32 --od_embed_layers 2 use_friction False --use_self_loop_predictor False  --lambda_diag -1.0 --use_lgbm_self_loop False --use_wandb True
+    # 최종 train.py --epochs 90 --batch_size 32 --use_self_loop_predictor False --use_lgbm_self_loop False --use_wandb True
     
     if args.use_wandb: 
         if args.wandb_id:
@@ -54,39 +53,37 @@ def main():
     
     print("선택된 argument:")
     for arg in vars(args): print(f"  {arg}: {getattr(args, arg)}")
-    year_labels = [args.year]
+    year = args.year
     dataset_dict, train_loaders = {}, {}
     fixed_eval_dir = os.path.join(os.path.dirname(__file__), '../../dataset/fixed_eval')
     base_data_dict = {}
     val_meta_dict = {}
 
     # === dataset 로드 ===
-    for year in year_labels:
-        # === train dataset 로드 ===
-        dataset_dict[year] = ODDataset(year=year, 
-                                       use_stratfied_masking=args.use_stratfied_masking, 
-                                       use_merge_train=args.use_merge_train)
+    # === train dataset 로드 ===
+    dataset_dict[year] = ODDataset(year=year, 
+                                    use_stratfied_masking=args.use_stratfied_masking, 
+                                    use_merge_train=args.use_merge_train)
+
+    train_loaders[year] = DataLoader(dataset_dict[year], batch_size=args.batch_size, shuffle=True)
+
+    # === validation dataset 로드 ===
+    base_data_path = os.path.join(fixed_eval_dir, f"base_data_{year}.pt")
+    meta_data_path = os.path.join(fixed_eval_dir, f"fixed_val_meta_{year}.pt")
     
-        train_loaders[year] = DataLoader(dataset_dict[year], batch_size=args.batch_size, shuffle=True)
+    if not os.path.exists(meta_data_path):
+        raise FileNotFoundError(f"E: fixed_val_meta_{year}.pt 파일이 없습니다: {meta_data_path}")
 
-        # === validation dataset 로드 ===
-        meta_data_path = os.path.join(fixed_eval_dir, f"fixed_val_meta_{year}.pt")
-        
-        if not os.path.exists(meta_data_path):
-            raise FileNotFoundError(f"E: fixed_val_meta_{year}.pt 파일이 없습니다: {meta_data_path}")
-
-        # 메모리 절약을 위해 base_data.pt를 디스크에서 로드하지 않고 현재 로드된 dataset에서 직접 생성
-        base_data = make_base_data(dataset_dict[year])
-        base_data_dict[year] = base_data
-        
-        meta_data = torch.load(meta_data_path, weights_only=False)
-        val_meta_dict[year] = meta_data
+    # 메모리 절약을 위해 base_data.pt를 디스크에서 로드하지 않고 현재 로드된 dataset에서 직접 생성
+    base_data = make_base_data(dataset_dict[year])
+    base_data_dict[year] = base_data
+    
+    meta_data = torch.load(meta_data_path, weights_only=False)
+    val_meta_dict[year] = meta_data
     
     F = dataset_dict[args.year].X_static.shape[1]
 
-    model = ODMAE(num_features=F, 
-                use_distance_friction=args.use_friction,
-                use_self_loop_predictor=args.use_self_loop_predictor).to(device)
+    model = ODMAE(num_features=F, use_self_loop_predictor=args.use_self_loop_predictor).to(device)
 
     optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
     total_steps = args.epochs * sum(len(loader) for loader in train_loaders.values())
@@ -131,7 +128,6 @@ def main():
     for epoch in range(start_epoch, args.epochs):
         progress = epoch / max(1, args.epochs - 1)
         
-        # [기존 코드 주석 처리]
         current_mask_size = int(min_mask + (max_mask - min_mask) * progress)
         for ds in dataset_dict.values():
             ds.max_mask_size = current_mask_size
@@ -141,27 +137,7 @@ def main():
             # real_penalty_weight를 점진적으로 증가 (0.003 -> 0.010)
             current_penalty = 0.003 + (0.007 * progress)
             criterion.real_penalty_weight = current_penalty
-
-        # mask_size: 완만하게 증가 (지수 1.5) - 어려운 입력 자체는 천천히 늘리기
-        # mask_progress = progress ** 1.5
-        # current_mask_size = int(min_mask + (max_mask - min_mask) * mask_progress)
-        # for ds in dataset_dict.values():
-        #     ds.max_mask_size = current_mask_size
-
-        # # alpha: 기존 선형 유지 (이미 검증된 패턴이므로 건드리지 않음)
-        # current_alpha = min(10.0, 1.0 + 9.0 * progress)
-
-        # # real_penalty_weight: 학습 초반(warmup)엔 거의 0에 가깝게 유지하다가,
-        # # 어느 정도 학습이 안정된 뒤에야(예: 전체의 30% 지점부터) 증가 시작
-        # if isinstance(criterion, HybridWeightedMSELoss):
-        #     warmup_frac = 0.3
-        #     if progress < warmup_frac:
-        #         current_penalty = 0.001  # 거의 영향 없는 수준으로 시작
-        #     else:
-        #         penalty_progress = (progress - warmup_frac) / (1.0 - warmup_frac)
-        #         current_penalty = 0.001 + (0.009 * penalty_progress)  # 0.001 -> 0.010
-        #     criterion.real_penalty_weight = current_penalty
-
+            
         model.train()
         train_loss = 0
 
@@ -185,25 +161,12 @@ def main():
             optimizer.zero_grad()
             pred = model(x_static, x_od_masked, x_dist, a_spatial, mask, active_node_mask)
             
-            # pred shape에서 동의 개수 유추
-            N_nodes = pred.shape[1]
-            diag_mask = torch.eye(N_nodes, device=device, dtype=torch.bool).unsqueeze(0).expand(pred.shape[0], -1, -1)
             mask_2d = mask.unsqueeze(1) | mask.unsqueeze(2)
 
-            if args.lambda_diag < 0:
-                # 원래 방식: 대각/비대각 구분 없이 한 번에 평균
-                loss = criterion(pred, y_od, current_alpha, mask_2d)
-            else:
-                valid_diag_mask = diag_mask & mask_2d
-                valid_offdiag_mask = (~diag_mask) & mask_2d
-                
-                loss_diag = criterion(pred, y_od, current_alpha, valid_diag_mask) if valid_diag_mask.any() else 0.0
-                loss_offdiag = criterion(pred, y_od, current_alpha, valid_offdiag_mask) if valid_offdiag_mask.any() else 0.0
-                
-                loss = loss_offdiag + (args.lambda_diag * loss_diag)
+            loss = criterion(pred, y_od, current_alpha, mask_2d)
 
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             scheduler.step()
 
@@ -217,23 +180,23 @@ def main():
         if (epoch % 2 == 1 or epoch == args.epochs - 1):
             all_records = []
             
-            for year in year_labels:
-                if year in base_data_dict and year in val_meta_dict:
-                    records = evaluate_and_report(
-                        base_data=base_data_dict[year], 
-                        val_meta=val_meta_dict[year], 
-                        model=model, 
-                        year_label=year, 
-                        split_name='val', 
-                        n_workers=1, 
-                        device=device
-                    )
-                    all_records.extend(records)
+            if year in base_data_dict and year in val_meta_dict:
+                records = evaluate_and_report(
+                    base_data=base_data_dict[year], 
+                    val_meta=val_meta_dict[year], 
+                    model=model, 
+                    year_label=year, 
+                    split_name='val', 
+                    n_workers=1, 
+                    device=device
+                )
+                all_records.extend(records)
             
             if all_records:
                 print("\n=== Validation Results ===")
-                summarize_results(all_records, ['year', 'task'], "연도별 task 요약")
-                summarize_results(all_records, ['year'], "연도별 총 요약")
+                summarize_results(all_records, ['task'], "연도별 task 요약")
+                summarize_results(all_records, ['city'], "도시별 task 요약")
+                summarize_results(all_records, [], "연도별 총 요약")
                 
                 rmse = np.mean([r['rmse'] for r in all_records])
                 cpc = np.mean([r['cpc'] for r in all_records])

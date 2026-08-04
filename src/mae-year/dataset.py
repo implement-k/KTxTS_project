@@ -334,141 +334,40 @@ class ODDataset(Dataset):
                             a, b = candidates[np.random.randint(len(candidates))]
                             merge_events.append((a, b, 'mask_with_known'))
         
-        # 기본 마스킹: 특정(순수) 마스킹 노드들의 MASKING_COLUMNS만 0으로 처리 (면적 등은 유지)
-        if len(mask_indices) > 0:
-            X_static_masked[np.ix_(mask_indices, self.masking_indices)] = 0.0
-            X_static_raw_masked[np.ix_(mask_indices, self.masking_indices)] = 0.0
-            
-        base_mask = mask | hide_mask
-        if np.any(hide_mask):
-            X_static_masked[hide_mask, :-2] = 0.0
-            X_static_raw_masked[hide_mask, :-2] = 0.0
-            
-        X_static_masked[base_mask, -2] = 1.0   # is_masked
-        X_static_masked[base_mask, -1] = 0.0
-        X_static_raw_masked[base_mask, -2] = 1.0
-        X_static_raw_masked[base_mask, -1] = 0.0
-
-        used_b_nodes = set()  # 이미 병합되어 사라진 idx_b들 
-
-        for idx_a, idx_b, event_type in merge_events:
-            if idx_a in used_b_nodes or idx_b in used_b_nodes: continue  # 이미 다른 병합에 쓰인 노드는 건너뜀 
-
-            if event_type == 'mask_with_known':
-                primary_node, secondary_node = (idx_a, idx_b) if idx_b in mask_indices_set else (idx_b, idx_a)
-            else:
-                primary_node, secondary_node = (idx_a, idx_b)
-                
-            cache_key = (primary_node, secondary_node)
-            if cache_key not in self.merge_cache:
-                cache_key = (secondary_node, primary_node)
-                if cache_key not in self.merge_cache:
-                    continue
-                    
-            cache = self.merge_cache[cache_key]
-            
-            # A_spatial 갱신 (물리적 인접성 병합 및 대각선 0 초기화)
-            A_spatial_curr[primary_node, :] = np.logical_or(A_spatial_curr[primary_node, :], A_spatial_curr[secondary_node, :]).astype(np.float32)
-            A_spatial_curr[:, primary_node] = np.logical_or(A_spatial_curr[:, primary_node], A_spatial_curr[:, secondary_node]).astype(np.float32)
-            A_spatial_curr[primary_node, primary_node] = 0.0
-
-            # self-loop 병합 (raw scale)
-            new_self_loop = (
-                y_OD_raw[primary_node, primary_node] + y_OD_raw[secondary_node, secondary_node]
-                + y_OD_raw[primary_node, secondary_node] + y_OD_raw[secondary_node, primary_node]
-            )
-            raw_row_a = y_OD_raw[primary_node, :] + y_OD_raw[secondary_node, :]
-            raw_col_a = y_OD_raw[:, primary_node] + y_OD_raw[:, secondary_node]
-            y_OD_raw[primary_node, :] = raw_row_a
-            y_OD_raw[:, primary_node] = raw_col_a
-            y_OD_raw[primary_node, primary_node] = new_self_loop
-
-            active_node_mask[secondary_node] = False
-            used_b_nodes.add(secondary_node)
-
-            F = self.scaler.mean_.shape[0] # type:ignore
-            merged_raw_static = _coerce_numeric_raw_static(cache['merged_raw_static_at_a'], F)
-            merged_static = self.scaler.transform(merged_raw_static.reshape(1, -1))[0]
-            
-            merged_dist_row = cache['merged_dist_row_at_a']
-            X_dist_curr_raw[primary_node, :] = merged_dist_row       
-            X_dist_curr_raw[:, primary_node] = merged_dist_row
-            X_dist_curr[primary_node, :] = np.log1p(merged_dist_row)
-            X_dist_curr[:, primary_node] = np.log1p(merged_dist_row)
-
-            if event_type == 'known_merge':
-                # 둘 다 알려짐 -> 진짜 합산된 실제 값, 정보 손실 없음
-                mask[primary_node] = False
-                X_static_masked[primary_node, :-2] = merged_static
-                X_static_raw_masked[primary_node, :-2] = merged_raw_static
-                X_static_masked[primary_node, -2] = 0.0
-                X_static_masked[primary_node, -1] = 0.0  # 근사치 아님, 실측 합산
-                X_static_raw_masked[primary_node, -2] = 0.0
-                X_static_raw_masked[primary_node, -1] = 0.0
-
-            elif event_type == 'mask_with_mask':
-                # 둘 다 모름 -> 병합 결과의 특정 컬럼만 마스킹
-                mask[primary_node] = True
-                X_static_masked[primary_node, :-2] = merged_static
-                X_static_raw_masked[primary_node, :-2] = merged_raw_static
-                X_static_masked[primary_node, self.masking_indices] = 0.0
-                X_static_raw_masked[primary_node, self.masking_indices] = 0.0
-                X_static_masked[primary_node, -2] = 1.0
-                X_static_masked[primary_node, -1] = 1.0
-                X_static_raw_masked[primary_node, -2] = 1.0
-                X_static_raw_masked[primary_node, -1] = 1.0
-
-            elif event_type == 'mask_with_known':
-                mask[primary_node] = False
-                X_static_masked[primary_node, :-2] = merged_static
-                X_static_raw_masked[primary_node, :-2] = merged_raw_static
-                X_static_masked[primary_node, -2] = 0.0
-                X_static_masked[primary_node, -1] = 1.0  # 근사치임을 표시
-                X_static_raw_masked[primary_node, -2] = 0.0
-                X_static_raw_masked[primary_node, -1] = 1.0
-
-        # 4. 최종 정답
-        y_OD = np.log1p(y_OD_raw)
+        # -------------------------------------------------------------
+        # fixed_eval_utils.py의 apply_merge_events와 100% 동일한 로직을 보장하기 위해
+        # 동일한 함수를 호출하여 처리합니다.
+        # -------------------------------------------------------------
+        import sys
+        import os
+        sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+        from evaluation.fixed_eval_utils import apply_merge_events
         
-        final_mask = mask | hide_mask
-
-        X_OD_masked = y_OD.copy()
-        X_OD_masked[final_mask, :] = 0.0
-        X_OD_masked[:, final_mask] = 0.0
-        for b in used_b_nodes:
-            X_OD_masked[b, :] = 0.0
-            X_OD_masked[:, b] = 0.0
-            A_spatial_curr[b, :] = 0.0
-            A_spatial_curr[:, b] = 0.0
-            
-        X_OD_masked_raw = y_OD_raw.copy()
-        X_OD_masked_raw[final_mask, :] = 0.0
-        X_OD_masked_raw[:, final_mask] = 0.0
-        for b in used_b_nodes:
-            X_OD_masked_raw[b, :] = 0.0
-            X_OD_masked_raw[:, b] = 0.0
-
-        inactive = ~active_node_mask
-        X_dist_curr[inactive, :] = 5.5
-        X_dist_curr[:, inactive] = 5.5
-        X_dist_curr = np.where(np.isnan(X_dist_curr), 5.5, X_dist_curr)
+        base_data = {
+            'num_nodes': self.num_nodes,
+            'masking_indices': self.masking_indices,
+            'scaler': self.scaler,
+            'merge_cache': self.merge_cache,
+            'test_indices': self.test_indices,
+            'X_static': self.X_static,
+            'X_static_raw': self.X_static_raw,
+            'X_dist': self.X_dist,
+            'X_dist_raw': self.X_dist_raw,
+            'A_spatial': self.A_spatial,
+            'X_OD_raw': self.X_OD_raw,
+        }
         
-        inactive_raw_fill = np.expm1(5.5)
-        X_dist_curr_raw[inactive, :] = inactive_raw_fill
+        hide_indices = list(self.val_indices) + list(self.test_indices) if self.mode == 'train' else []
         
-        out_X_static_t = torch.tensor(np.nan_to_num(X_static_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
-        out_X_dist_t = torch.tensor(np.nan_to_num(X_dist_curr, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
-        out_X_OD_masked_t = torch.tensor(np.nan_to_num(X_OD_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
-        out_y_OD_t = torch.tensor(np.nan_to_num(y_OD, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
-        out_A_spatial_t = torch.tensor(A_spatial_curr, dtype=torch.float32)
+        sample = apply_merge_events(base_data, mask_indices, merge_events, hide_indices=hide_indices)
         
         return {
-            'X_static': out_X_static_t,
-            'X_dist': out_X_dist_t,
-            'X_OD_masked': out_X_OD_masked_t,
-            'A_spatial': out_A_spatial_t,
-            'y_OD': out_y_OD_t,
-            'mask': torch.tensor(mask, dtype=torch.bool),
-            'active_node_mask': torch.tensor(active_node_mask, dtype=torch.bool),
-            'loss_mask': torch.tensor(mask.copy(), dtype=torch.bool)
+            'X_static': sample['X_static'],
+            'X_dist': sample['X_dist'],
+            'X_OD_masked': sample['X_OD_masked'],
+            'A_spatial': sample['A_spatial'],
+            'y_OD': sample['y_OD'],
+            'mask': sample['mask'],
+            'active_node_mask': sample['active_node_mask'],
+            'loss_mask': sample['mask'].clone()
         }

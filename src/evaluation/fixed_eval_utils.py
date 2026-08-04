@@ -242,7 +242,7 @@ def make_base_data(dataset):
         'scaler': dataset.scaler,
         'merge_cache': dataset.merge_cache,
         'test_indices': dataset.test_indices,
-        'X_static': dataset.X_static,          # 스케일 + indicator 컬럼까지 포함된 원본(마스킹 전)
+        'X_static': dataset.X_static,         
         'X_static_raw': dataset.X_static_raw,
         'X_dist': dataset.X_dist,
         'X_dist_raw': dataset.X_dist_raw,

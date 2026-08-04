@@ -99,6 +99,12 @@ scaler.transform(raw_static)
 운영 요청이나 가상 신도시 입력으로 scaler를 새로 fit하면 안 된다.
 `mae_backend_adapter/artifacts/mae_year_2023_static_scaler.{npz,json}`을 process 당
 한 번 로드해 기존 node와 가상 node에 같이 사용한다.
+
+> 주의: 이 scaler는 현재 2023 Dataset과 split으로 복원한 값이며,
+> 현재 `ODDataset.scaler` 및 `X_static`과 수치적으로 일치한다. checkpoint에는 scaler가
+> 들어 있지 않아 학습 당시 값과 동일하다는 직접 기록은 없다. 저장소 이력과 checkpoint
+> 정보를 근거로 호환 scaler로 채택했다.
+
 `StaticFeatureScaler.transform_with_indicators()`의 처리 순서는 다음과 같다.
 
 1. feature 이름을 기준으로 artifact의 canonical 순서로 재정렬

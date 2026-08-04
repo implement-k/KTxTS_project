@@ -1,249 +1,129 @@
-# mae-year 백엔드 Adapter
+# mae-year 백엔드 연결 안내
 
-## 1. 패키지가 하는 일
+## 1. 한눈에 보기
 
-`mae_backend_adapter`는 Django 백엔드의 Mock Provider 자리에 최종 MAE 모델을 연결한다.
-모델은 process마다 한 번 로딩하고 요청마다 재사용한다.
+처음 읽을 때는 아래 순서로 보면 된다.
 
-호출 경계는 다음과 같다.
+1. 이 README에서 파일 위치와 연결 흐름을 확인한다.
+2. Django에 붙일 때는 [`docs/backend_integration.md`](docs/backend_integration.md)를 본다.
+3. 모델 입력을 만들 때는 [`docs/model_contract.md`](docs/model_contract.md)를 본다.
 
-| 경계 | 입력 |
+이 코드는 `experiment/new-mae`의 `src/mae-year` 모델을 Django에서 호출하기 위한
+연결 코드다.
+
+- 모델은 서버 process(독립 실행 단위)마다 한 번 불러오고 요청마다 다시 사용한다.
+- node(모델이 계산하는 지역 단위) 수 `N`은 고정값이 아니다. 입력 데이터 크기로 정한다.
+- 요청에서 `N`을 직접 받지 않는다.
+- 결과는 신도시와 관련된 일평균 OD 목록이다. OD는 출발지와 도착지 사이의 이동량이다.
+
+## 2. 백엔드가 볼 파일
+
+경로는 저장소 최상위 폴더를 기준으로 한다.
+
+| 경로 | 역할 |
 |---|---|
-| 공개 Django API | `newtown_code`, `total_population`, `age_ratios` |
-| 백엔드 `PredictionRequest` | `newtown_code`, `newtown_name`, `total_population`, `age_ratios` |
-| 내부 MAE Predictor | `newtown=<DB의 정식 이름>`, `total_population`, `age_ratios` |
+| [`mae_backend_adapter/`](./) | Django가 모델을 호출할 때 사용하는 Python 패키지 |
+| [`mae_backend_adapter/predictor.py`](predictor.py) | 요청을 확인하고 모델 실행 결과를 OD 목록으로 바꾸는 코드 |
+| [`mae_backend_adapter/static_scaler.py`](static_scaler.py) | 지역별 고정 특성값을 학습 때와 같은 기준으로 변환하는 코드 |
+| [`mae_backend_adapter/artifacts/`](artifacts/) | 2023년 특성값 변환 기준을 담은 NPZ·JSON 파일 |
+| [`mae_backend_adapter/requirements.txt`](requirements.txt) | 실행에 필요한 Python 패키지 목록 |
+| [`src/mae-year/models.py`](../src/mae-year/models.py) | 실제 `ODMAE` 모델 구조가 정의된 파일 |
+| [`best_model/mae:hybrid-86epoch.pth`](../best_model/mae:hybrid-86epoch.pth) | 학습된 모델 가중치 파일 |
+| [`best_model/best_lgbm_self_loop.txt`](../best_model/best_lgbm_self_loop.txt) | 출발지와 도착지가 같은 이동량을 보정하는 보조 모델 파일 |
 
-Adapter raw 결과는 신도시 관련 OD 목록이다. 전체 OD 행렬은 API 응답에 포함하지
-않는다. 시간대별 예측은 지원하지 않으며 현재 결과는 **일평균 이동량**이다.
-
-### Node 수 `N`
-
-현재 API는 도시 한 곳을 요청한다. 서버가 `newtown_code`에 맞게 선택한
-도시별 모델 입력 데이터 묶음(artifact)의
-`ModelInputs.x_static.shape[0]`이 `N`을 결정한다. `N`은 API 요청값이 아니며 특정 node
-수를 가정하지 않는다.
-
-가상 node 수가 달라져도 Adapter 수정은 필요 없다. 전체 도시 node의 합집합 데이터도
-구조상 가능하지만, 현재 연동에서는 도시별 데이터 묶음 방식을 권장한다.
-
-## 2. 백엔드가 준비할 데이터
-
-AI 팀은 모델·feature/node 계약과 전처리 재현 자료를 제공하고, 백엔드는 도시별 데이터
-선택·concrete `PopulationPreprocessor`·DB/서비스 연결을 구현한다. 상세 역할과 아직
-확정되지 않은 운영 데이터는 [`docs/backend_integration.md`](docs/backend_integration.md)에
-정리한다. 프론트의 더미 값은 모델 운영 기본값이 아니다.
-
-필수 데이터나 설정이 없으면 합성값을 만들지 않고
-`PreprocessingConfigurationError`를 발생시킨다.
-
-## 3. 빠른 연결 방법
-
-의존성을 설치한다.
+활성화된 Python 환경에 의존성을 설치한다.
 
 ```bash
 python -m pip install -r mae_backend_adapter/requirements.txt
 ```
 
-아래는 현재 백엔드의 `apps.predictions.integrations` 구조에 mae-year를 추가할 때의
-**의사 코드**다. `mae_preprocessor.py`는 아직 구현되지 않았다. 각 Django worker에서
-Predictor를 한 번 만들고 `PredictionRequest`를 명시적으로 변환한다.
+보통 백엔드 연결 작업은 `predictor.py`와 `docs/backend_integration.md`부터 보면 된다.
+입력 배열의 순서와 크기를 다룰 때만 `docs/model_contract.md`까지 확인한다.
+
+## 3. 요청과 결과
+
+공개 Django API가 받는 값은 다음 세 가지다.
+
+| 요청값 | 설명 |
+|---|---|
+| `newtown_code` | 신도시를 찾기 위한 코드. 백엔드가 이 코드로 도시 이름을 조회한다. |
+| `total_population` | 적용할 전체 인구. 공개 API에서는 1 이상의 정수다. |
+| `age_ratios` | `0_19`, `20_59`, `60_plus`의 비율. 세 값의 합은 1이어야 한다. |
+
+백엔드는 `newtown_code`를 그대로 모델에 넘기지 않는다.
+DB에서 조회한 도시 이름과 인구·연령 비율을 `MAEProvider.predict()`에 전달한다.
+
+`MAEProvider`의 주요 반환값은 다음과 같다.
+
+| 반환값 | 설명 |
+|---|---|
+| `newtown_zone_codes` | 선택한 신도시에 속한 node 코드 목록 |
+| `od` | 신도시 내부 이동, 유입, 유출을 담은 일평균 이동량 목록 |
+| `metadata` | 모델 버전, node 수 등 실행 정보를 담은 값 |
+
+`od`의 각 항목에는 `origin_code`, `destination_code`, `predicted_trips`와
+`movement_type`이 있다. `movement_type`은 `internal`, `outflow`, `inflow` 중 하나다.
+
+전체 OD 행렬과 시간대별 예측은 반환하지 않는다.
+Django의 최종 API 응답 형식은 백엔드 서비스 계층에서 따로 만든다.
+
+## 4. 백엔드 연결 방법
+
+각 Django worker는 `MAEProvider`를 한 번 만들고 같은 객체를 계속 사용해야 한다.
+요청마다 새로 만들면 모델 파일을 매번 다시 읽게 된다.
+
+핵심 호출은 아래와 같다. `get_mae_provider()`는 같은 process 안에서 같은 객체를
+돌려주도록 백엔드에서 구현한다.
 
 ```python
-from functools import lru_cache
-
-from django.conf import settings
-from apps.predictions.integrations.mae_preprocessor import get_population_preprocessor
-from mae_backend_adapter import MAEProvider
-
-
-@lru_cache(maxsize=1)
-def get_od_provider():
-    return MAEProvider(
-        model_path=settings.MAE_MODEL_PATH,
-        lgbm_model_path=settings.MAE_LGBM_MODEL_PATH,
-        device=settings.MAE_DEVICE,
-        preprocessor=get_population_preprocessor(),
-    )
-
-
-def predict_od(request):
-    predictor = get_od_provider()
-    result = predictor.predict(
-        newtown=request.newtown_name,
-        total_population=request.total_population,
-        age_ratios={
-            key: float(value)
-            for key, value in request.age_ratios.items()
-        },
-    )
-    return result
-```
-
-실제 Django Provider 위치, settings와 버전 매핑은
-[`docs/backend_integration.md`](docs/backend_integration.md)를 참고한다.
-
-## 4. 입력 DTO
-
-공개 Django API 요청은 도시 이름이 아닌 `newtown_code`를 받는다.
-
-```json
-{
-  "newtown_code": "gyosan",
-  "total_population": 100000,
-  "age_ratios": {
-    "0_19": 0.2,
-    "20_59": 0.6,
-    "60_plus": 0.2
-  }
-}
-```
-
-백엔드가 code를 DB의 정식 이름으로 조회한 뒤 내부 Predictor를 호출한다.
-`PopulationPreprocessor`는 이 요청과 선택된 도시별 데이터 묶음을 전처리 완료
-`ModelInputs`로
-변환한다.
-
-| 필드 | Shape / dtype | 전달할 값 |
-|---|---|---|
-| `x_static` | `(N, F)` floating | 학습 기준 scaler와 feature 정렬이 적용된 값. 현재 checkpoint의 `F=20` |
-| `x_od_masked` | `(N, N)` floating | `log1p`와 mask 처리가 끝난 OD |
-| `x_dist` | `(N, N)` floating | `log1p`가 적용된 거리 |
-| `a_spatial` | `(N, N)` floating | 공간 인접 0/1 행렬 |
-| `mask` | `(N,)` bool | 현재 운영은 선택 신도시 node만 `True` |
-| `active_node_mask` | `(N,)` bool | 현재 운영은 모두 `True`; 병합·삭제 node는 `False` 지원 |
-| `origin_codes` | 길이 `N` | 행 순서의 node code |
-| `destination_codes` | 길이 `N` | 열 순서의 node code. origin과 같은 순서 |
-| `newtown_zone_codes` | code 목록 | 전체 node code에 포함된 신도시 node |
-
-원본 OD·거리 파일은 code로 재정렬할 수 있어 파일 행 순서를 고정할 필요가 없다.
-하지만 `ModelInputs`에서는 한 canonical node code 목록을 기준으로 static feature,
-OD·거리·인접 행렬의 두 축, 두 mask와 origin/destination code 순서가 모두 같아야
-한다. code 기반 reindex는 concrete `PopulationPreprocessor`의 책임이다.
-
-Adapter는 `x_static.shape[0]`에서 `N`을 결정하고 shape와 code 길이를 검증하지만,
-tensor의 의미적 순서가 맞는지는 알 수 없다. 원본 static feature column 순서는 달라도
-되지만, 18개 feature 이름은 정확히 모두 제공해야 한다. helper가 이름을 기준으로
-artifact의 canonical feature 순서로 재정렬하며, 최종 `ModelInputs.x_static`은 이
-canonical 순서의 18개 feature 뒤에 indicator 2개가 붙은 순서여야 한다.
-
-### 2023 static scaler
-
-`load_static_scaler()`는 NPZ·JSON을 process 당 한 번 로드하고 같은 객체를 재사용한다.
-요청마다 scaler를 fit하지 말고, 기존 node와 신도시 가상 node의 raw static feature에
-모두 같은 2023 scaler를 적용한다. `is_masked`, `is_merged`는 scaling에서 제외하고
-18개 feature를 변환한 뒤 `is_masked == 1`인 행의 masking feature 4개를 scaling 공간의
-0으로 설정하고 두 indicator를 이 순서로 붙인다. `is_merged`만 1인 행은 mask하지 않는다.
-scaler 해시, feature 누락·추가·중복, metadata의 masking 이름·index 또는 입력 차원이
-맞지 않으면 임의 값으로 대체하지 않고 예외로 실패한다.
-
-> 주의: 이 scaler는 현재 2023 Dataset과 train/val/test split으로 복원한 값이며 현재
-> `ODDataset.scaler` 및 `X_static`과 수치적으로 일치한다. checkpoint 내부에는 scaler가
-> 없어 학습 당시 값과 역사적으로 동일하다는 직접 기록은 없다. 저장소 이력과 checkpoint
-> provenance를 근거로 현재 2023 scaler를 호환 scaler로 채택했다.
-
-```python
-from mae_backend_adapter import load_static_scaler
-
-static_scaler = load_static_scaler()  # server/worker 시작 시 한 번
-x_static = static_scaler.transform_with_indicators(
-    raw_values,
-    feature_names=raw_feature_names,
-    is_masked=is_masked,
-    is_merged=is_merged,
+provider = get_mae_provider()
+result = provider.predict(
+    newtown=request.newtown_name,
+    total_population=request.total_population,
+    age_ratios={key: float(value) for key, value in request.age_ratios.items()},
 )
 ```
 
-현재 운영 규칙에서 mask된 신도시 node의 OD 행·열은 0이고 해당 node는
-active 상태여야 한다. 전처리·feature 상세는
-[`docs/model_contract.md`](docs/model_contract.md)를 참고한다.
+`PopulationPreprocessor`는 백엔드가 구현할 “도시별 모델 입력 생성기”의
+인터페이스 이름이다.
 
-공개 `predict()`는 항상 명시적인 `total_population`과 `age_ratios`를 요구한다.
+현재 패키지는 이 구현부가 따라야 할 규칙만 제공한다.
+도시별 데이터를 고르고 모델 입력으로 바꾸는 코드는 백엔드에서 추가로 구현해야 한다.
+프론트의 임시 값을 운영 기본값으로 사용하면 안 된다.
 
-Ablation 설정은 학습·평가 실험 설정이며 백엔드 런타임 요청이 아니다.
+권장 구현 위치, Provider 선택 설정, 모델 경로 설정, 버전 연결 방법은
+[`docs/backend_integration.md`](docs/backend_integration.md)에 정리되어 있다.
+Django 세부 변경사항은 해당 문서를 기준으로 작업한다.
 
-## 5. 응답 예시
+## 5. 아직 필요한 데이터
 
-다음은 **Adapter raw 응답**이다. Django `/predict/`와 `/analyze/` 응답은 백엔드
-DTO와 service 계층이 별도로 만든다.
+### 실제 도시 모델 입력을 만들기 위해 필요한 데이터
 
-```json
-{
-  "newtown": "교산",
-  "newtown_zone_codes": ["VIRTUAL_GYOSAN"],
-  "od": [
-    {
-      "origin_code": "VIRTUAL_GYOSAN",
-      "destination_code": "11010530",
-      "predicted_trips": 123.5,
-      "movement_type": "outflow"
-    },
-    {
-      "origin_code": "11010530",
-      "destination_code": "VIRTUAL_GYOSAN",
-      "predicted_trips": 98.25,
-      "movement_type": "inflow"
-    }
-  ],
-  "metadata": {
-    "model_family": "mae-year/ODMAE",
-    "model_version": "mae:hybrid-86epoch",
-    "checkpoint": "mae:hybrid-86epoch.pth",
-    "output_transform": "log1p",
-    "self_loop_policy": "lightgbm_override"
-  }
-}
-```
+- 도시별 가상 node의 최종 코드와 순서
+- 가상 node별 static feature 배분 방법
+- 요청으로 받은 인구·연령 비율을 가상 node에 배분하는 방법
+- 가상 node가 포함된 OD·거리·인접 행렬 데이터 또는 생성 규칙
 
-`movement_type`은 `internal`, `outflow`, `inflow` 중 하나다. `predicted_trips`는 반올림하지
-않는 실수다. `metadata.model_version`은 checkpoint 파일명에서 나온 값으로 Django
-`ModelVersion.code`와 다를 수 있다. 백엔드는 별도의 안정적인 deployment version을
-mae-year 연결 시 명시적으로 매핑해야 한다. 현재 백엔드에는 이 정규화가 구현되어 있지
-않으며 설정값을 추가할지 활성 DB version을 사용할지는 백엔드 팀이 결정한다.
+이 데이터와 도시별 입력 생성 코드가 없으면 실제 교산·창릉·왕숙 예측을 실행할 수 없다.
 
-## 6. 후처리 정책
+### 추후 정할 화면·시나리오 기본값
 
-Provider가 보장하는 정책은 다음과 같다.
+- 초기·중기·완료 단계 인구
+- 도시별 기본 연령 비율
 
-- 음수 이동량은 0으로 보정
-- 동일 origin/destination code는 합산
-- 합산 결과가 0인 OD는 제외
-- 외부→외부 OD는 제외
-- 누락 node code는 `UNMAPPED`
-- inactive node는 결과에서 제외
+두 값은 화면의 기본 시나리오를 위한 값이다. 사용자가 `total_population`과
+`age_ratios`를 직접 전달하는 모델 호출에는 필수 데이터가 아니다.
 
-Matrix, 지도 node·이동선과 교통 인사이트는 Django service 계층이 계산한다. 다음
-임계값은 모델 출력 계약이 아니라 현재 Django settings로 바꿀 수 있는 휴리스틱 기본값이다.
+## 6. 상세 문서
 
-- 유입 우세: 유입/유출 ≥ 1.2
-- 유출 우세: 유입/유출 ≤ 0.8
-- 균형: 0.8 < 유입/유출 < 1.2
-- 권역 집중: Top 1 권역 비중 ≥ 40%
-- 내부 이동 중심: 내부 이동 비중 ≥ 50%
+- 모델 입력 크기, node 순서, 특성값 변환: [`docs/model_contract.md`](docs/model_contract.md)
+- 현재 Django 백엔드 연결 항목과 설정: [`docs/backend_integration.md`](docs/backend_integration.md)
 
-## 7. 테스트와 현재 제한사항
-
-저장소 root에서 실행한다.
+테스트는 저장소 최상위 폴더에서 실행한다.
 
 ```bash
 python -m unittest discover -s mae_backend_adapter/tests -v
 ```
 
-테스트는 다음을 확인한다.
-
-- 같은 Adapter가 서로 다른 작은 `N`을 연속 처리
-- 모든 `(N, N)` tensor, `(N,)` mask와 code 길이 검증
-- 요청 검증, checkpoint strict load와 후처리 계약
-- 저장소의 2023 `ODDataset` sample과 실제 checkpoint·LightGBM을 사용한 CPU 구조 smoke
-
-현재 smoke는 운영 교산·창릉·왕숙 추론 검증이 아니다. 운영용 도시별 데이터
-묶음과 concrete `PopulationPreprocessor`를 연결하기 전에는 고수준 `predict()`를
-실행할 수 없다.
-
-추가 제한사항은 다음과 같다.
-
-- CUDA/MPS는 배포 장비에서 추가 검증이 필요하다.
-- 추론 memory는 `N²`에 비례하므로 worker 수와 동시 요청 수를 부하 시험해야 한다.
-- 추적된 일부 fixed-eval 데이터는 최신 전처리 schema와 달라 재생성이 필요하다.
-
-모델 상세는 [`docs/model_contract.md`](docs/model_contract.md), Django 연결은
-[`docs/backend_integration.md`](docs/backend_integration.md)를 참고한다.
+이 테스트는 연결 코드의 요청 검사, 입력 크기 검사, 모델 파일 로드와 결과 변환을
+확인한다. 아직 필요한 도시별 운영 데이터가 준비됐음을 뜻하지는 않는다.

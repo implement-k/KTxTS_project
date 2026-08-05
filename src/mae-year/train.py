@@ -35,6 +35,8 @@ def parse_args():
     parser.add_argument('--wandb_id', type=str, default=None, help="기존 wandb run id (이어서 학습 시)")
     parser.add_argument('--use_stratfied_masking', type=str2bool, default=True)
     parser.add_argument('--use_merge_train', type=str2bool, default=True, help="행정동 병합 학습 여부")
+    parser.add_argument('--use_transformer', type=str2bool, default=True, help="Transformer 대신 FFN 사용 (Ablation)")
+    parser.add_argument('--od_scale_ablation', type=str, default='none', choices=['none', 'zero', 'global'], help="OD scale GCN ablation mode")
     parser.add_argument('--year', type=str, default='2023', choices=['2019', '2023'], help="학습할 연도")
     return parser.parse_args()
 
@@ -82,7 +84,10 @@ def main():
     
     F = dataset_dict[args.year].X_static.shape[1]
 
-    model = ODMAE(num_features=F, use_self_loop_predictor=args.use_self_loop_predictor).to(device)
+    model = ODMAE(num_features=F, 
+                  use_self_loop_predictor=args.use_self_loop_predictor, 
+                  use_transformer=args.use_transformer,
+                  od_scale_ablation=args.od_scale_ablation).to(device)
 
     optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
     total_steps = args.epochs * sum(len(loader) for loader in train_loaders.values())

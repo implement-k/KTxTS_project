@@ -56,38 +56,49 @@ class ODCrossAttention(nn.Module):
             observed_mask: (B, N, N) - 관측 가능한 노드 쌍만 True
         '''
         
-        # 메모리 최적화: (B, N, N, D) 크기의 keys, values 텐서 할당을 피하기 위해 
-        # 수학적으로 동일한 연산을 스칼라 차원에서 먼저 계산한 후 broadcast 적용
-        
         Q = self.query.squeeze() # (D)
         W_key = self.key_proj.weight.squeeze() # (D)
         b_key = self.key_proj.bias # (D)
         
-        # scores = (Q * (X * W_key + b_key)).sum() * scale
+        # flow 값 기반의 스코어 연산 (N, N의 각 flow마다 독립적인 projection)
         score_weight = (Q * W_key).sum() * self.scale
         score_bias = (Q * b_key).sum() * self.scale
         
-        # scores: (B, N, N)
-        scores = row_flows * score_weight + score_bias             
+        scores = row_flows * score_weight + score_bias
+        
+        # 마스킹 처리: 관측 불가 노드와의 attention은 -inf
         scores = scores.masked_fill(~observed_mask, float('-inf'))
         
+        # Softmax를 통해 (B, N, N) 의 attention map 생성
         attn = torch.softmax(scores, dim=-1)                # (B, N, N)
         attn = torch.nan_to_num(attn, nan=0.0)              # Prevent NaN when all scores are -inf
         
-        # values 연산 최적화: pooled = sum(attn * (X * V_W + V_b))
-        weighted_flows = (attn * row_flows).sum(dim=2, keepdim=True) # (B, N, 1)
-        sum_attn = attn.sum(dim=2, keepdim=True) # (B, N, 1)
+        # value 역시 flow 값에서 유도 
+        # 풀어서 쓰면:
+        # Values = row_flows * W_val + b_val
+        # output = attn @ Values
+        #        = sum_j (attn_ij * (row_flows_ij * W_val + b_val))
+        #        = (sum_j attn_ij * row_flows_ij) * W_val + (sum_j attn_ij) * b_val
+        W_val = self.value_proj.weight.squeeze()
+        b_val = self.value_proj.bias
         
-        V_W = self.value_proj.weight.squeeze() # (D)
-        V_b = self.value_proj.bias # (D)
+        # weighted_flows: (B, N, 1) - 각 row마다 attn * flow의 합
+        weighted_flows = (attn * row_flows).sum(dim=2, keepdim=True)
         
-        pooled = weighted_flows * V_W + sum_attn * V_b   # (B, N, D)
+        # sum_attn: (B, N, 1) - 각 row의 attention 합 (보통 1이지만, 모두 mask된 row는 0)
+        sum_attn = attn.sum(dim=2, keepdim=True)
+        
+        # 최종 pooling 값: (B, N, D)
+        pooled = weighted_flows * W_val + sum_attn * b_val
+        
         return pooled
 
 class ODMAE(nn.Module):
-    def __init__(self, num_features, d_model=128, nhead=8, num_layers=4, use_self_loop_predictor=True):
+    def __init__(self, num_features, d_model=128, nhead=8, num_layers=4, use_self_loop_predictor=True, use_transformer=True, od_scale_ablation='none'):
         super().__init__()
         self.use_self_loop_predictor = use_self_loop_predictor
+        self.use_transformer = use_transformer
+        self.od_scale_ablation = od_scale_ablation
 
         # X_static embeding: (B, N, F) -> (B, N, D) - leanable
         # OD feature embedding: (B, N, 2N or 3N) -> (B, N, D) - leanable
@@ -102,6 +113,9 @@ class ODMAE(nn.Module):
         
         self.od_gcn = ODGCNLayer(d_model, d_model)
         self.od_scale_gcn = ODGCNLayer(2, d_model) 
+        
+        if self.od_scale_ablation == 'global':
+            self.global_od_scale_proj = nn.Linear(2, d_model) 
         
         # === OD 관계 반영 === 
         # od_in_dim = 3 if self.use_mask_channel else 2
@@ -157,9 +171,22 @@ class ODMAE(nn.Module):
         self.mask_token_low = nn.Parameter(torch.zeros(1, 1, d_model))
         self.mask_token_high = nn.Parameter(torch.zeros(1, 1, d_model))
         
-        # Transformer Encoder
-        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=d_model*4, batch_first=True)
-        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        # Transformer Encoder vs FFN Ablation
+        if self.use_transformer:
+            encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=d_model*4, batch_first=True)
+            self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        else:
+            # Ablation FFN: Match parameter count (~12 * d_model^2 per layer)
+            # Linear(d, 6d) + Linear(6d, d) gives roughly 12 * d_model^2 parameters
+            layers = []
+            for _ in range(num_layers):
+                layers.extend([
+                    nn.Linear(d_model, d_model * 6),
+                    nn.GELU(),
+                    nn.Linear(d_model * 6, d_model),
+                    nn.GELU()
+                ])
+            self.ffn_ablation = nn.Sequential(*layers)
         
         # decoder: (B, N, D) -> (B, N, 2N)
         self.decoder = nn.Sequential(
@@ -261,7 +288,15 @@ class ODMAE(nn.Module):
         # inferred_od_scale: (B, N, D) - 이웃의 평균 통행량을 GCN으로 반영
         # gcn_emb: (B, N, D) - 이웃의 static feature 정보를 GCN으로 반영
         inferred_od_scale = self.od_scale_gcn(A_spatial, od_scale, active_mask_2d)
-        gcn_emb = self.od_gcn(A_spatial, feat_emb, active_mask_2d) 
+        
+        if self.od_scale_ablation == 'zero':
+            inferred_od_scale = torch.zeros_like(inferred_od_scale)
+        elif self.od_scale_ablation == 'global':
+            observed_1d = (~mask).float()  # (B, N)
+            global_od_scale = (od_scale * observed_1d.unsqueeze(-1)).sum(dim=1, keepdim=True) / observed_1d.sum(dim=1, keepdim=True).clamp(min=1)
+            inferred_od_scale = self.global_od_scale_proj(global_od_scale).expand(-1, N, -1)
+            
+        gcn_emb = self.od_gcn(A_spatial, feat_emb, active_mask_2d)  
         ########################################################################
         
         # === 5. OD 정보와 static feature를 합치고, mask 여부를 반영한 gating ===
@@ -295,8 +330,11 @@ class ODMAE(nn.Module):
         # bias: (B, N, N, nhead) -> (B * nhead, N, N)
         bias = bias.permute(0, 3, 1, 2).reshape(B * self.nhead, N, N)
         
-        # Transformer (bias 적용)
-        x = self.transformer(x, mask=bias) # (B, N, D)
+        # Transformer (bias 적용) vs FFN Ablation
+        if self.use_transformer:
+            x = self.transformer(x, mask=bias) # (B, N, D)
+        else:
+            x = self.ffn_ablation(x)
         
         node_repr = self.decoder(x)  # (B, N, 2D) — 최종 노드 표현
         out_repr, in_repr = node_repr.chunk(2, dim=-1)  # (B, N, D), (B, N, D)

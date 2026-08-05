@@ -45,7 +45,7 @@ base_data = make_base_data(dataset)
 val_meta = torch.load(os.path.join(current_dir, '../dataset/fixed_eval/fixed_val_meta_2023.pt'), map_location='cpu', weights_only=False)
 
 models = {
-    "mae:hybrid": load_model(os.path.join(current_dir, "../best_model/mae:hybrid-86epoch.pth"))
+    "mae:hybrid": load_model(os.path.join(current_dir, "../best_model/mae_best.pth"))
 }
 
 city_name = '동탄'

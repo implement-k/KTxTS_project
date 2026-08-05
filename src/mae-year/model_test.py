@@ -22,7 +22,7 @@ def cpc_score(y_true, y_pred):
     return numerator / denominator
 
 
-def test_model(model_path=None, use_friction=True, use_lgbm_self_loop=False, year='2023', mode = 'val'):
+def test_model(model_path=None, use_lgbm_self_loop=False, year='2023', mode = 'val'):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     best_model_dir = os.path.join(BASE_DIR, '../best_model')
@@ -56,6 +56,14 @@ def test_model(model_path=None, use_friction=True, use_lgbm_self_loop=False, yea
     else:
         model_name = os.path.basename(model_path)
         
+    print("\n==================================")
+    print("이 가중치는 Transformer를 사용한 원본 모델입니까, FFN Ablation 모델입니까?")
+    print("[1] Transformer (원본, 기본값)")
+    print("[2] FFN Ablation")
+    print("==================================")
+    trans_sel = input("번호 입력 (엔터시 기본값): ").strip()
+    use_transformer = False if trans_sel == '2' else True
+        
     model_base_name = os.path.splitext(model_name)[0]
     
     if not os.path.exists(model_path):
@@ -73,9 +81,8 @@ def test_model(model_path=None, use_friction=True, use_lgbm_self_loop=False, yea
     
     F = dataset.X_static.shape[1]
     
-    model = ODMAE(num_features=F,
-                  use_distance_friction=use_friction).to(device)
-    model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True), strict=False)
+    model = ODMAE(num_features=F, use_self_loop_predictor = False, use_transformer=use_transformer).to(device)
+    model.load_state_dict(torch.load(model_path, map_location=device, weights_only=False), strict=False)
     print(f"I: Loaded: {model_path}")
 
     model.eval()
@@ -222,18 +229,15 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_path', type=str, default=None, help='가중치 경로 직접 지정 (선택)')
-    parser.add_argument('--use_friction', type=str, default='False')
     parser.add_argument('--use_lgbm_self_loop', type=str, default='False')
     parser.add_argument('--year', type=str, default='2023', help='평가할 연도 (기본: 2023)')
-    parser.add_argument('--mode', type=str, default='val', help='평가 모드 (기본: test)', choices=['test', 'val'])
+    parser.add_argument('--mode', type=str, default='test', help='평가 모드 (기본: test)', choices=['test', 'val'])
     args = parser.parse_args()
     
-    use_friction_bool = str(args.use_friction).lower() in ("yes", "true", "t", "1")
     use_lgbm_self_loop_bool = str(args.use_lgbm_self_loop).lower() in ("yes", "true", "t", "1")
 
     test_model(
         model_path=args.model_path, 
-        use_friction=use_friction_bool, 
         use_lgbm_self_loop=use_lgbm_self_loop_bool,
         year = args.year,
         mode = args.mode

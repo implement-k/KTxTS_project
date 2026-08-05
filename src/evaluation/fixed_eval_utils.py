@@ -120,8 +120,7 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
         used_b_nodes.add(secondary_node)
 
         # X_static은 항상 indicator 2개가 끝에 붙어있음.
-        F = base_data['X_static'].shape[1] - 2
-        raw_has_indicators = (base_data['X_static_raw'].shape[1] == base_data['X_static'].shape[1])
+        F = 18
         
         merged_raw_static = _coerce_numeric_raw_static(
             cache['merged_raw_static_at_a'],
@@ -138,20 +137,16 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
         if event_type == 'known_merge':
             mask[primary_node] = False
             X_static_masked[primary_node, :-2] = merged_static
-            if raw_has_indicators:
-                X_static_raw_masked[primary_node, :-2] = merged_raw_static
-            else:
-                X_static_raw_masked[primary_node, :] = merged_raw_static
+            X_static_raw_masked[primary_node, :-2] = merged_raw_static
+
             X_static_masked[primary_node, -2] = 0.0
             X_static_masked[primary_node, -1] = 0.0
 
         elif event_type == 'mask_with_mask':
             mask[primary_node] = True
             X_static_masked[primary_node, :-2] = merged_static
-            if raw_has_indicators:
-                X_static_raw_masked[primary_node, :-2] = merged_raw_static
-            else:
-                X_static_raw_masked[primary_node, :] = merged_raw_static
+            X_static_raw_masked[primary_node, :-2] = merged_raw_static
+
             X_static_masked[primary_node, masking_indices] = scaled_impute_values
             X_static_raw_masked[primary_node, masking_indices] = raw_impute_values
             X_static_masked[primary_node, -2] = 1.0
@@ -160,10 +155,8 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
         elif event_type == 'mask_with_known':
             mask[primary_node] = False
             X_static_masked[primary_node, :-2] = merged_static
-            if raw_has_indicators:
-                X_static_raw_masked[primary_node, :-2] = merged_raw_static
-            else:
-                X_static_raw_masked[primary_node, :] = merged_raw_static
+            X_static_raw_masked[primary_node, :-2] = merged_raw_static
+            
             X_static_masked[primary_node, -2] = 0.0
             X_static_masked[primary_node, -1] = 1.0
 
@@ -172,22 +165,18 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
         X_static_raw_masked[np.ix_(mask_indices, masking_indices)] = raw_impute_values
 
     base_mask = mask | hide_mask
-    raw_has_indicators = (X_static_raw_masked.shape[1] == X_static_masked.shape[1])
     
     if np.any(hide_mask):
         X_static_masked[hide_mask, :-2] = 0.0
-        
-        if raw_has_indicators:
-            X_static_raw_masked[hide_mask, :-2] = 0.0
-        else:
-            X_static_raw_masked[hide_mask, :] = 0.0
+        X_static_raw_masked[hide_mask, :-2] = 0.0
+
 
     X_static_masked[base_mask, -2] = 1.0
     X_static_masked[base_mask, -1] = 0.0
+
+    X_static_raw_masked[base_mask, -2] = 1.0
+    X_static_raw_masked[base_mask, -1] = 0.0
     
-    if raw_has_indicators:
-        X_static_raw_masked[base_mask, -2] = 1.0
-        X_static_raw_masked[base_mask, -1] = 0.0
     y_OD = np.log1p(y_OD_raw)
     X_OD_masked = y_OD.copy()
     final_mask = mask | hide_mask
@@ -210,13 +199,13 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
     X_dist_curr_raw = np.where(np.isnan(X_dist_curr_raw), inactive_raw_fill, X_dist_curr_raw)
 
 
-    out_X_static = torch.tensor(np.nan_to_num(X_static_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(-20.0, 20.0)
+    out_X_static = torch.tensor(np.nan_to_num(X_static_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
     out_X_static_raw = torch.tensor(np.nan_to_num(X_static_raw_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
-    out_X_dist = torch.tensor(np.nan_to_num(X_dist_curr, nan=5.5, posinf=5.5, neginf=5.5), dtype=torch.float32).clamp(0.0, 20.0)
+    out_X_dist = torch.tensor(np.nan_to_num(X_dist_curr, nan=5.5, posinf=5.5, neginf=5.5), dtype=torch.float32)
     out_X_dist_raw = torch.tensor(np.nan_to_num(X_dist_curr_raw, nan=inactive_raw_fill, posinf=inactive_raw_fill, neginf=inactive_raw_fill), dtype=torch.float32)
     out_A_spatial = torch.tensor(A_spatial_curr, dtype=torch.float32)
-    out_X_OD_masked = torch.tensor(np.nan_to_num(X_OD_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(0.0, 30.0)
-    out_y_OD = torch.tensor(np.nan_to_num(y_OD, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32).clamp(0.0, 30.0)
+    out_X_OD_masked = torch.tensor(np.nan_to_num(X_OD_masked, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
+    out_y_OD = torch.tensor(np.nan_to_num(y_OD, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
     out_y_OD_raw = torch.tensor(np.nan_to_num(y_OD_raw, nan=0.0, posinf=0.0, neginf=0.0), dtype=torch.float32)
 
     return {

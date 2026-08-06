@@ -30,8 +30,10 @@
     "business_density"
   ],
   "masking_feature_indices": [
-    10, 
-    11
+    10,
+    0,
+    11,
+    1
   ],
   "indicator_feature_names": [
     "is_masked",

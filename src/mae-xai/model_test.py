@@ -113,6 +113,11 @@ def test_model(model_path=None, use_lgbm_self_loop=False, year='2023', mode = 'v
 
     print(f"  ➜ [Val] RMSE: {rmse:.2f} | CPC: {cpc:.4f} (Self:{cpc_s:.4f} Ext:{cpc_e:.4f}) | PRMSE: {prmse:.4f} | VolRatio: {vol:.4f} | Top20: {top20:.4f}")
     
+    if hasattr(model, 'residual_gate'):
+        print(f"  ➜ [Hybrid] residual_gate: {model.residual_gate.item():.4f}")
+    if hasattr(model, 'gravity'):
+        print(f"  ➜ [Hybrid] gravity_gamma: {model.gravity.gamma.item():.4f} | gravity_log_k: {model.gravity.log_k.item():.4f}")
+
     # === 5. 시각화 및 지표 계산 ===
     all_y_true, all_y_pred = [], []
     for record in records:

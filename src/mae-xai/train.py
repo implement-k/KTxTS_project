@@ -28,15 +28,9 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=TRAIN_CONFIG['epochs'])
     parser.add_argument('--batch_size', type=int, default=TRAIN_CONFIG['batch_size'])
-    parser.add_argument('--loss_type', type=str, default='hybrid', choices=['weighted_mse', 'hybrid', 'huber'])           
-    parser.add_argument('--use_self_loop_predictor', type=str2bool, default=True)                 
-    parser.add_argument('--use_lgbm_self_loop', type=str2bool, default=False)       
+    parser.add_argument('--loss_type', type=str, default='hybrid', choices=['weighted_mse', 'hybrid', 'huber'])                       
     parser.add_argument('--use_wandb', type=str2bool, default=False)
     parser.add_argument('--wandb_id', type=str, default=None, help="기존 wandb run id (이어서 학습 시)")
-    parser.add_argument('--use_stratfied_masking', type=str2bool, default=True)
-    parser.add_argument('--use_merge_train', type=str2bool, default=True, help="행정동 병합 학습 여부")
-    parser.add_argument('--use_transformer', type=str2bool, default=True, help="Transformer 대신 FFN 사용 (Ablation)")
-    parser.add_argument('--od_scale_ablation', type=str, default='none', choices=['none', 'zero', 'global'], help="OD scale GCN ablation mode")
     parser.add_argument('--year', type=str, default='2023', choices=['2019', '2023'], help="학습할 연도")
     return parser.parse_args()
 
@@ -62,9 +56,7 @@ def main():
 
     # === dataset 로드 ===
     # === train dataset 로드 ===
-    dataset_dict[year] = ODDataset(year=year, 
-                                    use_stratfied_masking=args.use_stratfied_masking, 
-                                    use_merge_train=args.use_merge_train)
+    dataset_dict[year] = ODDataset(year=year)
 
     train_loaders[year] = DataLoader(dataset_dict[year], batch_size=args.batch_size, shuffle=True)
 
@@ -84,10 +76,7 @@ def main():
     
     F = dataset_dict[args.year].X_static.shape[1]
 
-    model = ODMAE(num_features=F, 
-                  use_self_loop_predictor=args.use_self_loop_predictor, 
-                  use_transformer=args.use_transformer,
-                  od_scale_ablation=args.od_scale_ablation).to(device)
+    model = ODMAE(num_features=F).to(device)
 
     optimizer = optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
     total_steps = args.epochs * sum(len(loader) for loader in train_loaders.values())
@@ -229,6 +218,12 @@ def main():
                             log_dict[f"val_rmse_task{t}"] = np.mean([r['rmse'] for r in t_records])
                             log_dict[f"val_cpc_task{t}"] = np.mean([r['cpc'] for r in t_records])
                             log_dict[f"val_prmse_task{t}"] = np.mean([r['prmse'] for r in t_records])
+                # Hybrid 모형 파라미터 로깅
+                if hasattr(model, 'residual_gate'):
+                    log_dict["residual_gate"] = model.residual_gate.item()
+                if hasattr(model, 'gravity'):
+                    log_dict["gravity_gamma"] = model.gravity.gamma.item()
+                    log_dict["gravity_log_k"] = model.gravity.log_k.item()
                             
                 wandb.log(log_dict)
             if rmse < best_val_rmse:
@@ -263,23 +258,6 @@ def main():
 
     print(f"\nTraining Complete. Best RMSE: {best_val_rmse:.2f} | Best CPC: {best_cpc:.4f} | Best PRMSE: {prmse:.4f}")
     
-    if args.use_lgbm_self_loop:
-        print(f"\nLGBM 모델 학습 시작 ({args.year} 데이터 기준)")
-        
-        train_idx = dataset_dict[args.year].train_indices
-        
-        X_train_lgb = dataset_dict[args.year].X_static[train_idx]
-        y_train_lgb = np.diag(dataset_dict[args.year].X_OD)[train_idx]
-        
-        lgbm_model = lgb.LGBMRegressor(n_estimators=100, random_state=42)
-        lgbm_model.fit(X_train_lgb, y_train_lgb)
-        
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        lgbm_path = os.path.join(current_dir, '../best_model/best_lgbm_self_loop.txt')
-        os.makedirs(os.path.dirname(lgbm_path), exist_ok=True)
-        lgbm_model.booster_.save_model(lgbm_path)
-        print(f"LGBM 모델 저장: {lgbm_path}")
-
     if args.use_wandb: wandb.finish()
 
 if __name__ == '__main__':

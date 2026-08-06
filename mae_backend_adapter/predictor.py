@@ -58,7 +58,7 @@ class ModelInputs:
       학습 scaler 결과가 적용된 값을 백엔드 전처리기가 제공한다.
     - ``x_od_masked``, ``x_dist``, ``a_spatial``: 각각 ``(N, N)`` floating tensor.
       OD·거리 전처리와 인접 행렬 구성이 끝난 값이며 백엔드 전처리기가 제공한다.
-    - ``mask``, ``active_node_mask``: 각각 ``(N,)`` bool tensor. 현재 운영은 선택
+    - ``mask``:``(N,)`` bool tensor. 현재 운영은 선택
       신도시만 ``mask=True``이고 모두 active다. 일반 계약은 비활성 node도 지원한다.
     - ``origin_codes``, ``destination_codes``: 길이 ``N``의 code sequence. 수치
       전처리 대상이 아니며 canonical node 순서로 제공한다.
@@ -78,8 +78,7 @@ class ModelInputs:
     a_spatial: Tensor
     mask: Tensor
     # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
-    origin_codes: Sequence[Any]
-    destination_codes: Sequence[Any]
+    city_codes: Sequence[Any]
     newtown_zone_codes: Collection[Any]
     population_allocation_method: str
     output_transform: str = "log1p"
@@ -498,7 +497,7 @@ class MAEPredictor:
         list[str]
     ]:
         float_names = ("x_static", "x_od_masked", "x_dist", "a_spatial")
-        for name in (*float_names, "mask", "active_node_mask"):
+        for name in (*float_names, "mask"):
             if not isinstance(getattr(inputs, name), Tensor):
                 raise TensorShapeError(f"{name}는 torch.Tensor여야 합니다.")
         for name in float_names:
@@ -530,8 +529,8 @@ class MAEPredictor:
         if torch.any((inputs.a_spatial < 0) | (inputs.a_spatial > 1)):
             raise TensorShapeError("a_spatial 값은 0~1 범위여야 합니다.")
 
-        origins = [_normalize_node_code(code) for code in inputs.origin_codes]
-        destinations = [_normalize_node_code(code) for code in inputs.destination_codes]
+        origins = [_normalize_node_code(code) for code in inputs.city_codes]
+        destinations = [_normalize_node_code(code) for code in inputs.city_codes]
         zones = [_normalize_node_code(code) for code in inputs.newtown_zone_codes]
         if len(origins) != node_count or len(destinations) != node_count:
             raise TensorShapeError("origin/destination code 수가 node 수와 다릅니다.")

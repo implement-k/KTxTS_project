@@ -120,8 +120,6 @@ class PredictorContractTests(unittest.TestCase):
         self.predictor = MAEProvider(
             self.checkpoint,
             preprocessor=TestPreprocessor(),
-            model_factory=self.factory,
-            use_lgbm_self_loop=False,
         )
 
     def tearDown(self) -> None:

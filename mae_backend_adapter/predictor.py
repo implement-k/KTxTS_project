@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import atexit
 import importlib.util
 import json
 import math
-import subprocess
-import sys
 import threading
 from collections import OrderedDict
 from collections.abc import Callable, Collection, Mapping, Sequence
@@ -80,7 +77,7 @@ class ModelInputs:
     x_dist: Tensor
     a_spatial: Tensor
     mask: Tensor
-    active_node_mask: Tensor
+    # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
     origin_codes: Sequence[Any]
     destination_codes: Sequence[Any]
     newtown_zone_codes: Collection[Any]
@@ -117,9 +114,9 @@ class PopulationPreprocessor(Protocol):
         age_ratios: Mapping[str, float],
     ) -> ModelInputs:
         """명시적 인구·연령 입력으로 canonical 순서 DTO를 만들고, 필수 데이터가 없으면 실패한다."""
+        ...
 
 
-ModelFactory = Callable[[Mapping[str, Tensor], Mapping[str, Any]], nn.Module]
 SelfLoopPredictor = Callable[[Tensor], Sequence[float] | Tensor]
 
 
@@ -140,7 +137,7 @@ class ODOutputAdapter:
         origin_codes: Sequence[str],
         destination_codes: Sequence[str],
         newtown_zone_codes: Sequence[str],
-        active_node_mask: Sequence[bool],
+        # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
     ) -> list[dict[str, Any]]:
         node_count = len(origin_codes)
         if matrix.ndim != 2 or tuple(matrix.shape) != (node_count, node_count):
@@ -148,20 +145,16 @@ class ODOutputAdapter:
                 f"출력 Adapter 입력은 ({node_count}, {node_count})여야 하지만 "
                 f"{tuple(matrix.shape)}입니다."
             )
-        if len(destination_codes) != node_count or len(active_node_mask) != node_count:
-            raise TensorShapeError("출력 code 또는 active_node_mask 수가 node 수와 다릅니다.")
+        if len(destination_codes) != node_count:
+            raise TensorShapeError("출력 code 수가 node 수와 다릅니다.")
         if not torch.isfinite(matrix).all():
             raise MAEAdapterError("출력 Adapter 입력에 NaN 또는 무한대가 있습니다.")
 
         zone_set = set(newtown_zone_codes)
         totals: OrderedDict[tuple[str, str, str], float] = OrderedDict()
         for origin_index, origin_code in enumerate(origin_codes):
-            if not active_node_mask[origin_index]:
-                continue
             origin_is_zone = origin_code in zone_set
             for destination_index, destination_code in enumerate(destination_codes):
-                if not active_node_mask[destination_index]:
-                    continue
                 destination_is_zone = destination_code in zone_set
                 if not (origin_is_zone or destination_is_zone):
                     # 외부 -> 외부는 신도시 대시보드 계산 대상이 아니다.
@@ -188,124 +181,41 @@ class ODOutputAdapter:
             if trips > 0.0
         ]
 
-
-_LGBM_WORKER_CODE = r"""
-import json
-import sys
-try:
-    import lightgbm as lgb
-    import numpy as np
-    booster = lgb.Booster(model_file=sys.argv[1])
-    print(json.dumps({"ready": True}), flush=True)
-    for line in sys.stdin:
-        values = json.loads(line)
-        prediction = booster.predict(np.asarray(values, dtype=np.float32))
-        print(json.dumps(prediction.tolist(), allow_nan=False), flush=True)
-except Exception as exc:
-    print(json.dumps({"error": str(exc)}), flush=True)
-    raise
-"""
-
-
-class _LightGBMWorker:
-    """macOS에서 PyTorch와 LightGBM의 OpenMP runtime을 별도 process로 격리한다."""
-
-    def __init__(self, model_path: Path) -> None:
-        self._lock = threading.Lock()
-        self._process = subprocess.Popen(
-            [sys.executable, "-c", _LGBM_WORKER_CODE, str(model_path)],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
-        )
-        ready_line = self._process.stdout.readline() if self._process.stdout else ""
-        try:
-            ready = json.loads(ready_line)
-        except (TypeError, json.JSONDecodeError):
-            ready = {}
-        if ready.get("ready") is not True:
-            error = ready.get("error") or self._read_stderr()
-            self.close()
-            raise CheckpointLoadError(f"LightGBM worker 시작에 실패했습니다: {error}")
-        atexit.register(self.close)
-
-    def __call__(self, x_static: Tensor) -> Sequence[float]:
-        with self._lock:
-            if self._process.poll() is not None:
-                raise RuntimeError(f"LightGBM worker가 종료됐습니다: {self._read_stderr()}")
-            assert self._process.stdin is not None and self._process.stdout is not None
-            self._process.stdin.write(json.dumps(x_static.tolist(), allow_nan=False) + "\n")
-            self._process.stdin.flush()
-            response = json.loads(self._process.stdout.readline())
-        if isinstance(response, Mapping) and "error" in response:
-            raise RuntimeError(str(response["error"]))
-        return response
-
-    def _read_stderr(self) -> str:
-        if self._process.stderr is None:
-            return "stderr 없음"
-        if self._process.poll() is None:
-            return "상세 오류 없음"
-        return self._process.stderr.read().strip()
-
-    def close(self) -> None:
-        if self._process.poll() is None:
-            if self._process.stdin is not None:
-                self._process.stdin.close()
-            try:
-                self._process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                self._process.terminate()
-                try:
-                    self._process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    self._process.kill()
-                    self._process.wait()
-
+# 구현: LGBM 코드 삭제 - 모델에 없음 
 
 class _TorchMAERunner:
     """최종 모델 생성, strict load 및 6-tensor forward를 격리한다."""
 
     def __init__(
         self,
-        model_path: Path,
         device: torch.device,
+        weight_path: Path,
         *,
-        model_factory: ModelFactory | None,
-        model_module_path: Path,
-        use_lgbm_self_loop: bool,
-        lgbm_model_path: Path | None,
-        self_loop_predictor: SelfLoopPredictor | None,
+        model_path: Path,
     ) -> None:
-        self.model_path = model_path
-        self.device = device
         self._inference_lock = threading.RLock()
-        state_dict, model_config = self._load_checkpoint(model_path)
-        factory = model_factory or (
-            lambda state, config: self._build_mae_year_model(
-                state, config, model_module_path=model_module_path
-            )
-        )
+        state_dict = self._load_checkpoint(weight_path)
+        
+        # 1. model 생성
         try:
-            model = factory(state_dict, model_config)
+            model = self._build_mae_model(state_dict = state_dict, model_path=model_path)
         except CheckpointCompatibilityError:
             raise
         except Exception as exc:
             raise CheckpointCompatibilityError(
-                f"최종 ODMAE 구조 생성에 실패했습니다: {model_path.name}: {exc}"
+                f"최종 ODMAE 구조 생성에 실패했습니다: {weight_path.name}: {exc}"
             ) from exc
         if not isinstance(model, nn.Module):
-            raise CheckpointCompatibilityError("model_factory는 torch.nn.Module을 반환해야 합니다.")
+            raise CheckpointCompatibilityError("생성된 모델은 torch.nn.Module이어야 합니다.")
         try:
             model.load_state_dict(state_dict, strict=True)
         except RuntimeError as exc:
             raise CheckpointCompatibilityError(
                 f"체크포인트가 최종 모델 구조와 strict 호환되지 않습니다: "
-                f"{model_path.name}: {exc}"
+                f"{weight_path.name}: {exc}"
             ) from exc
 
+        # 2. 모델 평가 모드
         self.model = model.to(device).eval()
         feature_weight = state_dict.get("feature_embed.0.weight")
         self.num_features = (
@@ -313,20 +223,15 @@ class _TorchMAERunner:
             if isinstance(feature_weight, Tensor) and feature_weight.ndim == 2
             else None
         )
-        # 이전 호출부 호환용 속성이다. N은 checkpoint가 아니라 매 ModelInputs에서 결정된다.
-        self.num_nodes: int | None = None
-        self.self_loop_predictor = self_loop_predictor
-        self.lgbm_execution = "injected" if self_loop_predictor is not None else "disabled"
-        self.lgbm_model_path = lgbm_model_path
-        if use_lgbm_self_loop and self_loop_predictor is None:
-            self.self_loop_predictor, self.lgbm_execution = self._load_lgbm(lgbm_model_path)
+        # 구현: self-loop predictor 삭제 - 모델에 없음
+        # 구현: LGBM 코드 삭제 - 모델에 없음
 
         # head별 3차원 additive mask가 native MHA fast path에서 NaN이 되는 것을 막는다.
         mha_backend = getattr(torch.backends, "mha", None)
         if mha_backend is not None and hasattr(mha_backend, "set_fastpath_enabled"):
             mha_backend.set_fastpath_enabled(False)
 
-    def forward(self, tensors: tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]) -> Tensor:
+    def forward(self, tensors: tuple[Tensor, Tensor, Tensor, Tensor, Tensor]) -> Tensor:
         """eval 모델을 inference mode로 한 번 실행해 batch 포함 전체 N×N을 반환한다."""
 
         with self._inference_lock, torch.inference_mode():
@@ -336,33 +241,13 @@ class _TorchMAERunner:
             raise TensorShapeError("모델의 첫 번째 출력은 torch.Tensor여야 합니다.")
         return pred_od
 
-    def replace_self_loops(self, pred_od: Tensor, x_static: Tensor) -> Tensor:
-        """최종 평가 설정처럼 LightGBM의 log 출력으로 대각 성분을 덮는다."""
-
-        if self.self_loop_predictor is None:
-            return pred_od
-        try:
-            lgbm_input = x_static.detach().to(device="cpu", dtype=torch.float32)
-            predicted = self.self_loop_predictor(lgbm_input)
-            diagonal = torch.as_tensor(predicted, dtype=pred_od.dtype, device=pred_od.device)
-        except Exception as exc:
-            raise MAEAdapterError(f"LightGBM self-loop 예측에 실패했습니다: {exc}") from exc
-        if tuple(diagonal.shape) != (pred_od.shape[0],):
-            raise TensorShapeError(
-                f"LightGBM self-loop 출력은 ({pred_od.shape[0]},)여야 하지만 "
-                f"{tuple(diagonal.shape)}입니다."
-            )
-        if not torch.isfinite(diagonal).all():
-            raise MAEAdapterError("LightGBM self-loop 출력에 NaN 또는 무한대가 있습니다.")
-        result = pred_od.clone()
-        index = torch.arange(pred_od.shape[0], device=pred_od.device)
-        result[index, index] = torch.expm1(torch.clamp_min(diagonal, 0))
-        return result
+    # 구현: 모델 self-loop도 한번에 예측함 -> 삭제
 
     @staticmethod
-    def _load_checkpoint(path: Path) -> tuple[Mapping[str, Tensor], Mapping[str, Any]]:
+    def _load_checkpoint(path: Path) -> Mapping[str, Tensor]:
         if not path.is_file():
             raise CheckpointLoadError(f"체크포인트 파일이 없습니다: {path}")
+        
         try:
             with path.open("rb") as checkpoint_file:
                 prefix = checkpoint_file.read(128)
@@ -377,32 +262,27 @@ class _TorchMAERunner:
         except Exception as exc:
             raise CheckpointLoadError(f"체크포인트 로딩에 실패했습니다: {path}: {exc}") from exc
 
-        model_config: Mapping[str, Any] = {}
         state_dict: Any = loaded
         if isinstance(loaded, Mapping):
             if isinstance(loaded.get("model_state_dict"), Mapping):
                 state_dict = loaded["model_state_dict"]
             elif isinstance(loaded.get("state_dict"), Mapping):
                 state_dict = loaded["state_dict"]
-            raw_config = loaded.get("model_config", {})
-            if isinstance(raw_config, Mapping):
-                model_config = raw_config
         if not isinstance(state_dict, Mapping) or not state_dict:
             raise CheckpointLoadError("체크포인트에 비어 있지 않은 state_dict가 필요합니다.")
         if not all(isinstance(k, str) and isinstance(v, Tensor) for k, v in state_dict.items()):
             raise CheckpointLoadError("state_dict는 문자열 key와 Tensor 값만 포함해야 합니다.")
-        return state_dict, model_config
+        return state_dict
 
     @classmethod
-    def _build_mae_year_model(
+    def _build_mae_model(
         cls,
         state_dict: Mapping[str, Tensor],
-        model_config: Mapping[str, Any],
         *,
-        model_module_path: Path,
+        model_path: Path,
     ) -> nn.Module:
         """state shape와 최종 학습 설정으로 src/mae-year ODMAE를 만든다."""
-
+        # 구현: 최신 모델 구조로 변경
         try:
             feature_weight = state_dict["feature_embed.0.weight"]
             d_model, num_features = map(int, feature_weight.shape)
@@ -418,27 +298,21 @@ class _TorchMAERunner:
         }
         if not layer_numbers:
             raise CheckpointCompatibilityError("transformer layer 수를 판별할 수 없습니다.")
-        use_self_loop_predictor = any(
-            key.startswith("self_loop_predictor.") for key in state_dict
-        )
-        use_distance_friction = bool(model_config.get("use_distance_friction", False))
-        module = cls._load_model_module(model_module_path)
+        module = cls._load_model(model_path)
         model_class = getattr(module, "ODMAE", None)
         if not isinstance(model_class, type) or not issubclass(model_class, nn.Module):
             raise CheckpointCompatibilityError(
-                f"최종 모델 파일에 torch.nn.Module ODMAE가 없습니다: {model_module_path}"
+                f"최종 모델 파일에 torch.nn.Module ODMAE가 없습니다: {model_path}"
             )
         return model_class(
             num_features=num_features,
             d_model=d_model,
             nhead=nhead,
             num_layers=max(layer_numbers) + 1,
-            use_distance_friction=use_distance_friction,
-            use_self_loop_predictor=use_self_loop_predictor,
         )
 
     @staticmethod
-    def _load_model_module(path: Path) -> ModuleType:
+    def _load_model(path: Path) -> ModuleType:
         if not path.is_file():
             raise CheckpointCompatibilityError(
                 f"최종 모델 파일이 없습니다: {path}. src/mae-year/models.py를 함께 배포하세요."
@@ -455,26 +329,8 @@ class _TorchMAERunner:
                 f"최종 모델 module import에 실패했습니다: {path}: {exc}"
             ) from exc
         return module
-
-    @staticmethod
-    def _load_lgbm(path: Path | None) -> tuple[SelfLoopPredictor, str]:
-        if path is None or not path.is_file():
-            raise CheckpointLoadError(f"LightGBM self-loop 파일이 없습니다: {path}")
-        try:
-            if sys.platform == "darwin":
-                return _LightGBMWorker(path), "worker"
-            import lightgbm as lgb
-
-            booster = lgb.Booster(model_file=str(path))
-
-            def predict(x_static: Tensor) -> Sequence[float]:
-                return booster.predict(x_static.numpy())
-
-            return predict, "in_process"
-        except Exception as exc:
-            if isinstance(exc, CheckpointLoadError):
-                raise
-            raise CheckpointLoadError(f"LightGBM 모델 로딩에 실패했습니다: {path}: {exc}") from exc
+    
+    # 구현: LGBM 코드 삭제 - 모델에 없음
 
 
 class MAEPredictor:
@@ -482,49 +338,38 @@ class MAEPredictor:
 
     def __init__(
         self,
-        model_path: str | Path,
         device: str = "cpu",
         *,
         preprocessor: PopulationPreprocessor | None = None,
-        supported_newtowns: Collection[str] | None = None,
-        ratio_tolerance: float = 1e-6,
-        model_factory: ModelFactory | None = None,
-        model_module_path: str | Path | None = None,
-        use_lgbm_self_loop: bool = True,
-        lgbm_model_path: str | Path | None = None,
-        self_loop_predictor: SelfLoopPredictor | None = None,
+        # 구현: 직접 도시와 시기를 받는 방식으로 수정
+        # 구현: ratio-tolerance는 바꿀일이 없을 것 같아서 내부에서 처리
+        weight_file_name: str = "mae.pth",
+        model_file_name: str = "mae.py",
+        # 구현: self-loop predictor는 모델에 없음 -> 삭제
         output_adapter: ODOutputAdapter | None = None,
+        # 구현: factory 인자 삭제 - 주어진 모델만 사용해야함.
     ) -> None:
-        self.model_path = Path(model_path).expanduser().resolve()
         self.device = self._validate_device(device)
-        self.ratio_tolerance = self._validate_ratio_tolerance(ratio_tolerance)
-        self.preprocessor = preprocessor
-        if supported_newtowns is None and preprocessor is not None:
-            supported_newtowns = getattr(preprocessor, "supported_newtowns", None)
-        self.supported_newtowns = frozenset(str(name) for name in (supported_newtowns or ()))
-        repository_root = Path(__file__).resolve().parents[1]
-        module_path = (
-            Path(model_module_path).expanduser().resolve()
-            if model_module_path is not None
-            else repository_root / "src" / "mae-year" / "models.py"
-        )
-        lgbm_path = (
-            Path(lgbm_model_path).expanduser().resolve()
-            if lgbm_model_path is not None
-            else self.model_path.with_name("best_lgbm_self_loop.txt")
-        )
+        
+        root_path = Path(__file__).resolve().parent
+        self.weight_path = root_path / 'model' / weight_file_name
+        model_path = root_path / 'model' / model_file_name
         self._runner = _TorchMAERunner(
-            self.model_path,
-            self.device,
-            model_factory=model_factory,
-            model_module_path=module_path,
-            use_lgbm_self_loop=use_lgbm_self_loop,
-            lgbm_model_path=lgbm_path,
-            self_loop_predictor=self_loop_predictor,
+            device = self.device,
+            weight_path = self.weight_path,
+            model_path=model_path,
         )
+        
+        self.preprocessor = preprocessor
+        # 구현: 직접 도시와 시기를 받는 방식으로 수정
+        self.supported_newtowns = frozenset(['all', 'changneung', 'gyosan', 'wangsuk'])
+        self.supported_period = frozenset(['initial', 'middle', 'final'])
+        
+        # 구현: LGBM 코드 삭제 - 모델에 없음
+        
         self.output_adapter = output_adapter or ODOutputAdapter()
         self.model = self._runner.model
-        self.num_nodes = self._runner.num_nodes
+        self.num_nodes = None
         self.num_features = self._runner.num_features
 
     def predict(
@@ -535,6 +380,7 @@ class MAEPredictor:
         clean_newtown = self._validate_newtown(newtown)
         clean_population = self._validate_total_population(total_population)
         clean_ratios = self._validate_age_ratios(age_ratios)
+        
         if self.preprocessor is None:
             raise PreprocessingConfigurationError(
                 "신도시 zone, 20개 static feature, 학습 scaler, OD/거리/인접 행렬과 "
@@ -569,7 +415,7 @@ class MAEPredictor:
     ) -> dict[str, Any]:
         """전처리 완료 DTO를 실행하는 Provider 내부/테스트용 진입점."""
 
-        matrix, metadata, origins, destinations, zones, active = self._run_full(
+        matrix, metadata, origins, destinations, zones = self._run_full(
             inputs, request_metadata=request_metadata
         )
         od = self.output_adapter.adapt(
@@ -577,7 +423,6 @@ class MAEPredictor:
             origin_codes=origins,
             destination_codes=destinations,
             newtown_zone_codes=zones,
-            active_node_mask=active,
         )
         metadata["returned_od_count"] = len(od)
         result = {
@@ -594,8 +439,8 @@ class MAEPredictor:
         inputs: ModelInputs,
         *,
         request_metadata: Mapping[str, Any] | None,
-    ) -> tuple[Tensor, dict[str, Any], list[str], list[str], list[str], list[bool]]:
-        tensors, origins, destinations, zones, active = self._prepare_tensors(inputs)
+    ) -> tuple[Tensor, dict[str, Any], list[str], list[str], list[str]]:
+        tensors, origins, destinations, zones = self._prepare_tensors(inputs)
         pred_od = self._runner.forward(tensors)
         # _prepare_tensors에서 검증한 것과 같은 x_static 기반 동적 N을 사용한다.
         node_count = inputs.x_static.shape[0]
@@ -613,7 +458,6 @@ class MAEPredictor:
         if not torch.isfinite(pred_od).all():
             raise MAEAdapterError("MAE 출력 변환 결과에 NaN 또는 무한대가 있습니다.")
         pred_od = torch.clamp_min(pred_od, 0)
-        pred_od = self._runner.replace_self_loops(pred_od, inputs.x_static)
 
         metadata: dict[str, Any] = dict(inputs.metadata)
         if request_metadata:
@@ -621,17 +465,13 @@ class MAEPredictor:
         metadata.update(
             {
                 "model_family": "mae-year/ODMAE",
-                "model_version": self.model_path.stem,
-                "checkpoint": self.model_path.name,
+                "model_version": self.weight_path.stem,
+                "checkpoint": self.weight_path.name,
                 "node_count": node_count,
                 "feature_count": inputs.x_static.shape[1],
                 "device": str(self.device),
                 "population_allocation_method": inputs.population_allocation_method,
                 "output_transform": inputs.output_transform,
-                "self_loop_policy": (
-                    "lightgbm_override" if self._runner.self_loop_predictor else "mae"
-                ),
-                "lightgbm_execution": self._runner.lgbm_execution,
                 "negative_values_policy": "clamped_to_zero",
                 "duplicate_od_policy": "summed",
                 "zero_od_policy": "excluded",
@@ -646,17 +486,16 @@ class MAEPredictor:
             origins,
             destinations,
             zones,
-            active,
+            # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
         )
 
     def _prepare_tensors(
         self, inputs: ModelInputs
     ) -> tuple[
-        tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor],
+        tuple[Tensor, Tensor, Tensor, Tensor, Tensor],
         list[str],
         list[str],
-        list[str],
-        list[bool],
+        list[str]
     ]:
         float_names = ("x_static", "x_od_masked", "x_dist", "a_spatial")
         for name in (*float_names, "mask", "active_node_mask"):
@@ -668,8 +507,8 @@ class MAEPredictor:
                 raise TensorShapeError(f"{name}는 floating-point tensor여야 합니다.")
             if not torch.isfinite(tensor).all():
                 raise TensorShapeError(f"{name}에 NaN 또는 무한대가 있습니다.")
-        if inputs.mask.dtype != torch.bool or inputs.active_node_mask.dtype != torch.bool:
-            raise TensorShapeError("mask와 active_node_mask dtype은 torch.bool이어야 합니다.")
+        if inputs.mask.dtype != torch.bool:
+            raise TensorShapeError("mask dtype은 torch.bool이어야 합니다.")
         if inputs.x_static.ndim != 2:
             raise TensorShapeError(f"x_static은 (N, F)여야 하지만 {tuple(inputs.x_static.shape)}입니다.")
         # 동적 N의 유일한 기준. N 자체를 API나 checkpoint 설정에서 받지 않는다.
@@ -680,8 +519,6 @@ class MAEPredictor:
                 raise TensorShapeError(f"{name}는 {expected_square}여야 합니다.")
         if tuple(inputs.mask.shape) != (node_count,):
             raise TensorShapeError(f"mask는 ({node_count},)여야 합니다.")
-        if tuple(inputs.active_node_mask.shape) != (node_count,):
-            raise TensorShapeError(f"active_node_mask는 ({node_count},)여야 합니다.")
         if self.num_features is not None and feature_count != self.num_features:
             raise TensorShapeError(
                 f"x_static feature 수는 {self.num_features}여야 하지만 {feature_count}입니다."
@@ -716,8 +553,7 @@ class MAEPredictor:
         zone_indices = [index for index, code in enumerate(origins) if code in set(zones)]
         if not all(bool(inputs.mask[index]) for index in zone_indices):
             raise PreprocessingConfigurationError("모든 신도시 zone node는 mask=True여야 합니다.")
-        if not all(bool(inputs.active_node_mask[index]) for index in zone_indices):
-            raise PreprocessingConfigurationError("신도시 zone node는 active 상태여야 합니다.")
+        # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
         masked = inputs.mask
         if torch.any(inputs.x_od_masked[masked, :] != 0) or torch.any(
             inputs.x_od_masked[:, masked] != 0
@@ -725,30 +561,19 @@ class MAEPredictor:
             raise PreprocessingConfigurationError(
                 "mask=True인 node의 x_od_masked 행과 열은 0이어야 합니다."
             )
-        inactive = ~inputs.active_node_mask
-        if torch.any(inputs.x_od_masked[inactive, :] != 0) or torch.any(
-            inputs.x_od_masked[:, inactive] != 0
-        ):
-            raise PreprocessingConfigurationError(
-                "비활성 node의 x_od_masked 행과 열은 0이어야 합니다."
-            )
-        if torch.any(inputs.a_spatial[inactive, :] != 0) or torch.any(
-            inputs.a_spatial[:, inactive] != 0
-        ):
-            raise PreprocessingConfigurationError("비활성 node의 a_spatial 행과 열은 0이어야 합니다.")
+        # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
         if not inputs.population_allocation_method:
             raise PreprocessingConfigurationError("population_allocation_method를 명시해야 합니다.")
 
-        active = [bool(value) for value in inputs.active_node_mask.tolist()]
         tensors = (
             inputs.x_static.to(self.device, dtype=torch.float32).unsqueeze(0),
             inputs.x_od_masked.to(self.device, dtype=torch.float32).unsqueeze(0),
             inputs.x_dist.to(self.device, dtype=torch.float32).unsqueeze(0),
             inputs.a_spatial.to(self.device, dtype=torch.float32).unsqueeze(0),
             inputs.mask.to(self.device, dtype=torch.bool).unsqueeze(0),
-            inputs.active_node_mask.to(self.device, dtype=torch.bool).unsqueeze(0),
+            # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
         )
-        return tensors, origins, destinations, zones, active
+        return tensors, origins, destinations, zones
 
     def _validate_newtown(self, value: str) -> str:
         if not isinstance(value, str) or not value.strip():
@@ -783,7 +608,7 @@ class MAEPredictor:
             if not math.isfinite(number) or number < 0:
                 raise InputValidationError(f"age_ratios[{key!r}]는 유한한 0 이상의 숫자여야 합니다.")
             cleaned[key] = number
-        if not math.isclose(sum(cleaned.values()), 1.0, rel_tol=0, abs_tol=self.ratio_tolerance):
+        if not math.isclose(sum(cleaned.values()), 1.0, rel_tol=0, abs_tol=1e-6):
             raise InputValidationError("age_ratios 합계는 1이어야 합니다.")
         return cleaned
 
@@ -800,15 +625,6 @@ class MAEPredictor:
         if device.type not in {"cpu", "cuda", "mps"}:
             raise InputValidationError("device는 cpu, cuda 또는 mps여야 합니다.")
         return device
-
-    @staticmethod
-    def _validate_ratio_tolerance(value: float) -> float:
-        if isinstance(value, bool) or not isinstance(value, Real):
-            raise InputValidationError("ratio_tolerance는 0 이상의 유한한 숫자여야 합니다.")
-        clean = float(value)
-        if not math.isfinite(clean) or clean < 0:
-            raise InputValidationError("ratio_tolerance는 0 이상의 유한한 숫자여야 합니다.")
-        return clean
 
     @staticmethod
     def _ensure_json(result: Mapping[str, Any]) -> None:

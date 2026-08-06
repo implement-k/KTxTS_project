@@ -79,10 +79,32 @@ for folder in folders:
     if len(only_in_dong) == 0 and len(only_in_geo) == 0:
         print("✅ MATCH! (매핑 후 OD_dong_list와 dong_area의 동 코드가 완벽히 일치합니다.)")
     else:
-        print("❌ MISMATCH DETECTED!")
+        print("❌ MISMATCH DETECTED (geojson)!")
         if only_in_dong:
             print(f" - OD_dong_list 에만 있는 코드 ({len(only_in_dong)}개): {sorted(list(only_in_dong))}")
         if only_in_geo:
             print(f" - dong_area.geojson 에만 있는 코드 ({len(only_in_geo)}개): {sorted(list(only_in_geo))}")
+            
+    # Check static features
+    for static_file in ['static_features_initial.csv', 'static_features_middle.csv', 'static_features_final.csv']:
+        static_path = os.path.join(base_dir, folder, static_file)
+        if not os.path.exists(static_path):
+            continue
+            
+        static_df = pd.read_csv(static_path, encoding='utf-8-sig')
+        static_raw = set(static_df['dong_code'].dropna().unique())
+        static_norm = normalize_codes(static_raw)
+        
+        only_in_dong_vs_static = dong_norm - static_norm
+        only_in_static = static_norm - dong_norm
+        
+        if len(only_in_dong_vs_static) == 0 and len(only_in_static) == 0:
+            print(f"✅ MATCH! (매핑 후 OD_dong_list와 {static_file}의 동 코드가 완벽히 일치합니다.)")
+        else:
+            print(f"❌ MISMATCH DETECTED ({static_file})!")
+            if only_in_dong_vs_static:
+                print(f" - OD_dong_list 에만 있는 코드 ({len(only_in_dong_vs_static)}개): {sorted(list(only_in_dong_vs_static))}")
+            if only_in_static:
+                print(f" - {static_file} 에만 있는 코드 ({len(only_in_static)}개): {sorted(list(only_in_static))}")
             
     print()

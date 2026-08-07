@@ -23,6 +23,14 @@ from .static_scaler import (
     clear_static_scaler_cache,
     load_static_scaler,
 )
+from .newtown_predictor import (
+    DEFAULT_PERIOD,
+    SUPPORTED_NEWTOWNS,
+    SUPPORTED_PERIODS,
+    NewtownPredictor,
+    NewtownPreprocessor,
+    predict_newtown,
+)
 
 __all__ = [
     "CheckpointCompatibilityError",
@@ -44,4 +52,10 @@ __all__ = [
     "StaticScalerArtifactError",
     "clear_static_scaler_cache",
     "load_static_scaler",
+    "DEFAULT_PERIOD",
+    "SUPPORTED_NEWTOWNS",
+    "SUPPORTED_PERIODS",
+    "NewtownPredictor",
+    "NewtownPreprocessor",
+    "predict_newtown",
 ]

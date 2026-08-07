@@ -66,7 +66,7 @@ def build_artifacts(repository_root: Path, output_directory: Path) -> tuple[Path
     repository_root = repository_root.resolve()
     dataset_source = repository_root / "src" / "mae-year" / "dataset.py"
     config_source = repository_root / "src" / "config.py"
-    checkpoint_path = repository_root / "best_model" / "mae:hybrid-86epoch.pth"
+    checkpoint_path = repository_root / "mae_backend_adapter" / "model" / "mae.pth"
 
     src_path = str(repository_root / "src")
     mae_path = str(repository_root / "src" / "mae-year")

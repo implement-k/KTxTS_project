@@ -2,10 +2,9 @@
 
 ## 백엔드 연동
 
-최종 `src/mae-year/` 모델의 Django Provider, 입력 DTO, 출력 Adapter, 호출 예시와 실제
+번들 신도시 데이터와 배포용 MAE 모델의 Django 연결 방법, 입력·출력 계약과 실제
 checkpoint smoke test는 [`mae_backend_adapter/README.md`](mae_backend_adapter/README.md)에
-정리되어 있다. 기본 checkpoint는 `best_model/mae:hybrid-86epoch.pth`이며 모델 학습 구조는
-연동 코드에서 수정하지 않는다.
+정리되어 있다. 배포 모델과 checkpoint는 `mae_backend_adapter/model/`에서 내부 로드한다.
 
 ❗ 주의 ❗ 모델 수정할때는 각 브랜치에서 수정
 

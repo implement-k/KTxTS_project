@@ -176,9 +176,9 @@
   },
   "checkpoint": {
     "role": "target_checkpoint",
-    "path": "best_model/mae:hybrid-86epoch.pth",
-    "size_bytes": 3886047,
-    "sha256": "9ff66ca04fff9f3847bdac7c3e39a7fb8a3761f6e2675f500d5e90c499ad3076"
+    "path": "mae_backend_adapter/model/mae.pth",
+    "size_bytes": 3885946,
+    "sha256": "4ba6cd4d24d5f85af5405ecc36aab6bbfbb8ff2462d8630fdec69d4079cd72cc"
   },
   "verification": {
     "reference": "ODDataset(year='2023').X_static[:, :18] after Dataset test masking",

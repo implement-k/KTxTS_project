@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import sys
@@ -42,7 +43,13 @@ class StaticScalerContractTests(unittest.TestCase):
         self.assertEqual(self.scaler.masking_feature_indices, (10, 0, 11, 1))
         self.assertEqual(
             self.scaler.metadata["checkpoint"]["sha256"],
-            "9ff66ca04fff9f3847bdac7c3e39a7fb8a3761f6e2675f500d5e90c499ad3076",
+            "4ba6cd4d24d5f85af5405ecc36aab6bbfbb8ff2462d8630fdec69d4079cd72cc",
+        )
+        checkpoint = self.root / self.scaler.metadata["checkpoint"]["path"]
+        self.assertEqual(checkpoint.stat().st_size, 3885946)
+        self.assertEqual(
+            hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
+            self.scaler.metadata["checkpoint"]["sha256"],
         )
 
     def test_transform_with_indicators_reorders_and_masks_only_masked_rows(self) -> None:

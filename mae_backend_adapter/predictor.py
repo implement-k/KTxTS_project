@@ -7,7 +7,7 @@ import json
 import math
 import threading
 from collections import OrderedDict
-from collections.abc import Callable, Collection, Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from numbers import Integral, Real
 from pathlib import Path
@@ -35,7 +35,7 @@ class TensorShapeError(InputValidationError):
 
 
 class CheckpointLoadError(MAEAdapterError):
-    """체크포인트 또는 필수 보조 모델을 읽을 수 없을 때 발생한다."""
+    """체크포인트를 읽을 수 없을 때 발생한다."""
 
 
 class CheckpointCompatibilityError(CheckpointLoadError):
@@ -58,10 +58,9 @@ class ModelInputs:
       학습 scaler 결과가 적용된 값을 백엔드 전처리기가 제공한다.
     - ``x_od_masked``, ``x_dist``, ``a_spatial``: 각각 ``(N, N)`` floating tensor.
       OD·거리 전처리와 인접 행렬 구성이 끝난 값이며 백엔드 전처리기가 제공한다.
-    - ``mask``:``(N,)`` bool tensor. 현재 운영은 선택
-      신도시만 ``mask=True``이고 모두 active다. 일반 계약은 비활성 node도 지원한다.
-    - ``origin_codes``, ``destination_codes``: 길이 ``N``의 code sequence. 수치
-      전처리 대상이 아니며 canonical node 순서로 제공한다.
+    - ``mask``: ``(N,)`` bool tensor. 선택 신도시 node만 ``True``다.
+    - ``city_codes``: 길이 ``N``의 code sequence. 수치 전처리 대상이 아니며
+      canonical node 순서로 제공한다.
     - ``newtown_zone_codes``: 신도시 code collection. 백엔드 도시 설정이 제공한다.
     - ``population_allocation_method``: 배분 설정 이름 문자열. 백엔드 설정이 제공한다.
     - ``output_transform``: 모델 출력 변환 이름 문자열. AI 팀 모델 계약이 제공한다.
@@ -77,7 +76,6 @@ class ModelInputs:
     x_dist: Tensor
     a_spatial: Tensor
     mask: Tensor
-    # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
     city_codes: Sequence[Any]
     newtown_zone_codes: Collection[Any]
     population_allocation_method: str
@@ -116,9 +114,6 @@ class PopulationPreprocessor(Protocol):
         ...
 
 
-SelfLoopPredictor = Callable[[Tensor], Sequence[float] | Tensor]
-
-
 def _normalize_node_code(value: Any) -> str:
     if value is None:
         return UNMAPPED_NODE_CODE
@@ -136,7 +131,6 @@ class ODOutputAdapter:
         origin_codes: Sequence[str],
         destination_codes: Sequence[str],
         newtown_zone_codes: Sequence[str],
-        # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
     ) -> list[dict[str, Any]]:
         node_count = len(origin_codes)
         if matrix.ndim != 2 or tuple(matrix.shape) != (node_count, node_count):
@@ -180,10 +174,8 @@ class ODOutputAdapter:
             if trips > 0.0
         ]
 
-# 구현: LGBM 코드 삭제 - 모델에 없음 
-
 class _TorchMAERunner:
-    """최종 모델 생성, strict load 및 6-tensor forward를 격리한다."""
+    """번들 모델 생성, strict load 및 5-tensor forward를 격리한다."""
 
     def __init__(
         self,
@@ -222,9 +214,6 @@ class _TorchMAERunner:
             if isinstance(feature_weight, Tensor) and feature_weight.ndim == 2
             else None
         )
-        # 구현: self-loop predictor 삭제 - 모델에 없음
-        # 구현: LGBM 코드 삭제 - 모델에 없음
-
         # head별 3차원 additive mask가 native MHA fast path에서 NaN이 되는 것을 막는다.
         mha_backend = getattr(torch.backends, "mha", None)
         if mha_backend is not None and hasattr(mha_backend, "set_fastpath_enabled"):
@@ -239,8 +228,6 @@ class _TorchMAERunner:
         if not isinstance(pred_od, Tensor):
             raise TensorShapeError("모델의 첫 번째 출력은 torch.Tensor여야 합니다.")
         return pred_od
-
-    # 구현: 모델 self-loop도 한번에 예측함 -> 삭제
 
     @staticmethod
     def _load_checkpoint(path: Path) -> Mapping[str, Tensor]:
@@ -280,8 +267,7 @@ class _TorchMAERunner:
         *,
         model_path: Path,
     ) -> nn.Module:
-        """state shape와 최종 학습 설정으로 src/mae-year ODMAE를 만든다."""
-        # 구현: 최신 모델 구조로 변경
+        """state shape와 번들 배포 설정으로 ODMAE를 만든다."""
         try:
             feature_weight = state_dict["feature_embed.0.weight"]
             d_model, num_features = map(int, feature_weight.shape)
@@ -314,7 +300,7 @@ class _TorchMAERunner:
     def _load_model(path: Path) -> ModuleType:
         if not path.is_file():
             raise CheckpointCompatibilityError(
-                f"최종 모델 파일이 없습니다: {path}. src/mae-year/models.py를 함께 배포하세요."
+                f"번들 모델 파일이 없습니다: {path}"
             )
         module_name = f"_mae_year_models_{abs(hash(path))}"
         spec = importlib.util.spec_from_file_location(module_name, path)
@@ -328,10 +314,6 @@ class _TorchMAERunner:
                 f"최종 모델 module import에 실패했습니다: {path}: {exc}"
             ) from exc
         return module
-    
-    # 구현: LGBM 코드 삭제 - 모델에 없음
-
-
 class MAEPredictor:
     """입력 검증, 최종 모델 실행 및 백엔드 OD 변환을 담당하는 Provider."""
 
@@ -340,13 +322,9 @@ class MAEPredictor:
         device: str = "cpu",
         *,
         preprocessor: PopulationPreprocessor | None = None,
-        # 구현: 직접 도시와 시기를 받는 방식으로 수정
-        # 구현: ratio-tolerance는 바꿀일이 없을 것 같아서 내부에서 처리
         weight_file_name: str = "mae.pth",
         model_file_name: str = "mae.py",
-        # 구현: self-loop predictor는 모델에 없음 -> 삭제
         output_adapter: ODOutputAdapter | None = None,
-        # 구현: factory 인자 삭제 - 주어진 모델만 사용해야함.
     ) -> None:
         self.device = self._validate_device(device)
         
@@ -360,12 +338,8 @@ class MAEPredictor:
         )
         
         self.preprocessor = preprocessor
-        # 구현: 직접 도시와 시기를 받는 방식으로 수정
-        self.supported_newtowns = frozenset(['all', 'changneung', 'gyosan', 'wangsuk'])
-        self.supported_period = frozenset(['initial', 'middle', 'final'])
-        
-        # 구현: LGBM 코드 삭제 - 모델에 없음
-        
+        self.supported_newtowns = frozenset({"all", "changneung", "gyosan", "wangsuk"})
+
         self.output_adapter = output_adapter or ODOutputAdapter()
         self.model = self._runner.model
         self.num_nodes = None
@@ -485,7 +459,6 @@ class MAEPredictor:
             origins,
             destinations,
             zones,
-            # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
         )
 
     def _prepare_tensors(
@@ -530,14 +503,10 @@ class MAEPredictor:
             raise TensorShapeError("a_spatial 값은 0~1 범위여야 합니다.")
 
         origins = [_normalize_node_code(code) for code in inputs.city_codes]
-        destinations = [_normalize_node_code(code) for code in inputs.city_codes]
+        destinations = list(origins)
         zones = [_normalize_node_code(code) for code in inputs.newtown_zone_codes]
         if len(origins) != node_count or len(destinations) != node_count:
             raise TensorShapeError("origin/destination code 수가 node 수와 다릅니다.")
-        if origins != destinations:
-            raise PreprocessingConfigurationError(
-                "origin_codes와 destination_codes는 동일한 node 순서여야 합니다."
-            )
         if not zones or len(zones) != len(set(zones)):
             raise PreprocessingConfigurationError(
                 "중복 없는 newtown_zone_codes를 하나 이상 제공해야 합니다."
@@ -552,7 +521,6 @@ class MAEPredictor:
         zone_indices = [index for index, code in enumerate(origins) if code in set(zones)]
         if not all(bool(inputs.mask[index]) for index in zone_indices):
             raise PreprocessingConfigurationError("모든 신도시 zone node는 mask=True여야 합니다.")
-        # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
         masked = inputs.mask
         if torch.any(inputs.x_od_masked[masked, :] != 0) or torch.any(
             inputs.x_od_masked[:, masked] != 0
@@ -560,7 +528,6 @@ class MAEPredictor:
             raise PreprocessingConfigurationError(
                 "mask=True인 node의 x_od_masked 행과 열은 0이어야 합니다."
             )
-        # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
         if not inputs.population_allocation_method:
             raise PreprocessingConfigurationError("population_allocation_method를 명시해야 합니다.")
 
@@ -570,7 +537,6 @@ class MAEPredictor:
             inputs.x_dist.to(self.device, dtype=torch.float32).unsqueeze(0),
             inputs.a_spatial.to(self.device, dtype=torch.float32).unsqueeze(0),
             inputs.mask.to(self.device, dtype=torch.bool).unsqueeze(0),
-            # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
         )
         return tensors, origins, destinations, zones
 

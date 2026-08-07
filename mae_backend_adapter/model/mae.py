@@ -145,28 +145,23 @@ class ODMAE(nn.Module):
             nn.Linear(d_model, d_model * 2)
         )
 
-    def forward(self, x_static, x_od_masked, x_dist, A_spatial, mask, active_node_mask=None):
+    def forward(self, x_static, x_od_masked, x_dist, A_spatial, mask):
         """
         x_static: (B, N, F) - mask 노드에 대해서는 (사업체 수, 종사자 수, 밀도)등은 0으로 대체된 X_static
         x_od_masked: (B, N, N)
         x_dist: (B, N, N) distance matrix (log-scaled)
         A_spatial: (B, N, N) geographical adjacency matrix
         mask: (B, N) boolean mask where True means masked (predict this)
-        active_node_mask: (B, N) boolean mask where False means the node is deactivated (merged/deleted)
         """
         # === 1. 사전 작업 ===
         B, N, _ = x_static.shape
-            
-        if active_node_mask is None:
-            print("W: [model.forward] active_node_mask is None, assuming all nodes are active.")
-            active_node_mask = torch.ones(B, N, dtype=torch.bool, device=x_static.device)
-            
-        # observed_1d: (B, N) - 활성화 + masked 안된 노드만 관측 가능
+
+        # observed_1d: (B, N) - masked 안된 노드만 관측 가능
         # observed_mask_2d: (B, N, N) - 관측 가능한 노드 쌍만 True
-        observed_1d = (~mask) & active_node_mask
+        observed_1d = ~mask
         observed_mask_2d = observed_1d.unsqueeze(1) & observed_1d.unsqueeze(2)
-        
-        active_mask_2d = active_node_mask.unsqueeze(1) & active_node_mask.unsqueeze(2)  # (B, N, N)
+
+        all_nodes_mask_2d = torch.ones(B, N, N, dtype=torch.bool, device=x_static.device)
 
         # 제외해야 할 정보 차단 (self-loop 제외)
         x_od_no_diag = x_od_masked.clone()
@@ -205,9 +200,9 @@ class ODMAE(nn.Module):
 
         # inferred_od_scale: (B, N, D) - 이웃의 평균 통행량을 GCN으로 반영
         # gcn_emb: (B, N, D) - 이웃의 static feature 정보를 GCN으로 반영
-        inferred_od_scale = self.od_scale_gcn(A_spatial, od_scale, active_mask_2d)
+        inferred_od_scale = self.od_scale_gcn(A_spatial, od_scale, all_nodes_mask_2d)
             
-        gcn_emb = self.od_gcn(A_spatial, feat_emb, active_mask_2d)  
+        gcn_emb = self.od_gcn(A_spatial, feat_emb, all_nodes_mask_2d)
         ########################################################################
         
         # === 5. OD 정보와 static feature를 합치고, mask 여부를 반영한 gating ===
@@ -233,7 +228,7 @@ class ODMAE(nn.Module):
         
         # === 6. distance 기반 bias 적용 Transformer ===
         # Bucketize distance
-        distance_bins = torch.bucketize(x_dist, self.boundaries) # (B, N, N) # type: ignore
+        distance_bins = torch.bucketize(x_dist.contiguous(), self.boundaries) # (B, N, N) # type: ignore
         
         # bias: (B, N, N, nhead) - 각 distance bin에 대해 nhead 차원의 bias를 가져옴
         bias = self.distance_bias(distance_bins) 

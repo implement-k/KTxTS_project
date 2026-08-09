@@ -154,8 +154,18 @@ def apply_merge_events(base_data, mask_indices, merge_events, hide_indices=None,
 
         elif event_type == 'mask_with_known':
             mask[primary_node] = False
-            X_static_masked[primary_node, :-2] = merged_static
+            
+            # --- FIX DATA LEAK (CHEATING) ---
             X_static_raw_masked[primary_node, :-2] = merged_raw_static
+            # leak 수정: known 동의 원본 + imputed 값
+            X_static_raw_masked[primary_node, masking_indices] = (
+                base_data['X_static_raw'][primary_node, masking_indices] + raw_impute_values
+            )
+            corrected_raw = X_static_raw_masked[primary_node, :-2]
+            
+            # 수정된 raw 값을 다시 scaler로 transform 하여 scaled 버전에 반영
+            corrected_scaled = scaler.transform(corrected_raw.reshape(1, -1))[0]
+            X_static_masked[primary_node, :-2] = corrected_scaled
             
             X_static_masked[primary_node, -2] = 0.0
             X_static_masked[primary_node, -1] = 1.0

@@ -8,10 +8,6 @@ from collections import defaultdict
 from model import DoublyConstrainedGravityModel
 os.path.dirname(os.path.abspath(__file__))
 from evaluation.fixed_eval_utils import apply_merge_events
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 
 warnings.filterwarnings('ignore')
 
@@ -67,14 +63,8 @@ def _eval_one_sample(args):
             imputation_values=imputation_values,
         )
         
-        # gravity 모델은 indicator 없는 raw_static(18 feature)으로 학습됨.
-        # base_data의 X_static_raw는 mae-year dataset 기준으로 끝에
-        # is_masked/is_merged indicator 2개가 붙어있을 수 있으므로 제거.
-        n_lgbm_features = getattr(model.model_O, 'n_features_in_', None)
-        x_raw = sample['X_static_raw'].float().numpy()
-        if n_lgbm_features is not None and x_raw.shape[1] != n_lgbm_features:
-            x_raw = x_raw[:, :n_lgbm_features]
-        O_pred, D_pred = model.predict_O_D(x_raw, useLog)
+        # gravity 모델은 항상 raw_static(18 피치)으로 학습
+        O_pred, D_pred = model.predict_O_D(sample['X_static_raw'].float().numpy(), useLog)
         
         dist_matrix = sample['X_dist'].float().numpy()
         dist_no_diag = dist_matrix.copy()
@@ -103,11 +93,8 @@ def _eval_one_sample(args):
         prmse_eval = rmse_eval / np.mean(y_od_eval) if np.mean(y_od_eval) > 0 else 0.0
         
         return {'year': year_label, 'city': city_name, 'task': task,
-                        'rmse': rmse_eval, 'cpc': cpc_eval, 'prmse': prmse_eval,
-                        'split': split_name,
-                        'y_od_eval': y_od_eval,     # eval 대상 셀만 (1D) - 시각화용
-                        'y_pred_eval': y_pred_eval, # eval 대상 셀만 (1D) - 시각화용
-                        'T_pred': T_pred}           # 메모리 절약: evaluate_and_report에서 첫 결과 외 None으로 교체됨
+                'rmse': rmse_eval, 'cpc': cpc_eval, 'prmse': prmse_eval,
+                'split': split_name}
     except Exception as e:
         print(f"  [WARN] 샘플 실패 ({city_name} task={task}): {e}")
         return None
@@ -129,7 +116,6 @@ def evaluate_and_report(base_data, val_meta, useRaw, model, useLog, year_label, 
     print(f"  [{year_label}/{split_name}] {total}개 샘플 병렬 평가 중 (threads={n_workers})...")
     
     results = [None] * total
-    heatmap_record = None  # 히트맵용 T_pred를 가진 대표 샘플 1개만 보존
     start_time = time.time()
     progress_every = 30
     with ThreadPoolExecutor(max_workers=n_workers) as executor:
@@ -138,14 +124,7 @@ def evaluate_and_report(base_data, val_meta, useRaw, model, useLog, year_label, 
             for i, args in enumerate(job_args)
         }
         for done_count, future in enumerate(as_completed(futures), start=1):
-            result = future.result()
-            if result is not None:
-                # 첫 번째 성공 결과에서만 T_pred 보존, 나머지는 None으로 교체해 메모리 절약
-                if heatmap_record is None and result.get('T_pred') is not None:
-                    heatmap_record = result
-                else:
-                    result['T_pred'] = None
-            results[futures[future]] = result
+            results[futures[future]] = future.result()
 
             if done_count % progress_every == 0 or done_count == total:
                 elapsed = time.time() - start_time
@@ -171,13 +150,6 @@ def evaluate_and_report(base_data, val_meta, useRaw, model, useLog, year_label, 
                 )
     
     records = [r for r in results if r is not None]
-    # heatmap_record를 records 첫 번째 요소에 다시 반영 (T_pred 보존)
-    for r in records:
-        if r is heatmap_record:
-            break
-    else:
-        # records 리스트 중 heatmap_record가 있으면 T_pred 복원 (이미 포함됨)
-        pass
     print(f"  [{year_label}/{split_name}] 완료: {len(records)}/{total}")
     return records
 
@@ -219,16 +191,25 @@ def main():
     parser.add_argument('--log_dir', type=str,
                         default=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs'),
                         help='콘솔 출력 로그 저장 폴더')
+    parser.add_argument('--train_years', nargs='+', default=['2019', '2023'],
+                        choices=['2019', '2023'])
+    parser.add_argument('--eval_years', nargs='+', default=None,
+                        choices=['2019', '2023'])
+    parser.add_argument('--eval_splits', nargs='+', default=['val', 'test'],
+                        choices=['val', 'test'])
     args = parser.parse_args()
+    if args.eval_years is None:
+        args.eval_years = list(args.train_years)
     log_file, log_path = setup_logging(args)
     
-    year_labels = ['2019', '2023']
+    train_year_labels = list(args.train_years)
+    eval_year_labels = list(args.eval_years)
     datasets = []
     imputation_values_by_year = {}
     X_static_train_list = []
     X_o_train_list, X_d_train_list = [], []
     
-    for year in year_labels:
+    for year in train_year_labels:
         dataset = ODDataset(year=year, imputation=args.imputation, use_raw_static=args.model_type in ('trip_rate', 'cross_class', 'linear_regression'))
         X_static_train_list.append(dataset.X_static_train)
         X_o_train_list.append(dataset.y_o[dataset.train_mask])
@@ -256,23 +237,22 @@ def main():
     useRaw = args.model_type in ('trip_rate', 'cross_class', 'linear_regression')
     
     # 4. LGBM 통합 학습
-    print("Start Model Training on Combined Data...")
+    print(f"Start Model Training on years: {', '.join(train_year_labels)}")
     model.fit_O_D(X_static_train, X_o_train, X_d_train, useLog)
     
     # 프로젝트 루트: src/gravity(경훈)/ -> src/ -> 루트
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     fixed_eval_dir = os.path.join(base_dir, "dataset", "fixed_eval")
     all_records = []
-    year_records = {year: [] for year in year_labels}
     
-    for year in year_labels:
+    for year in eval_year_labels:
         base_data_path = os.path.join(fixed_eval_dir, f"base_data_{year}.pt")
         if not os.path.exists(base_data_path):
             print(f"[SKIP] base_data_{year}.pt not found")
             continue
         base_data = torch.load(base_data_path, weights_only=False)
         
-        for split_name in ['val', 'test']:
+        for split_name in args.eval_splits:
             meta_path = os.path.join(fixed_eval_dir, f"fixed_{split_name}_meta_{year}.pt")
             if not os.path.exists(meta_path):
                 print(f"[SKIP] fixed_{split_name}_meta_{year}.pt not found")
@@ -291,8 +271,6 @@ def main():
                 imputation_values=imputation_values_by_year[year],
             )
             all_records.extend(records)
-            if split_name == 'test':
-                year_records[year].extend(records)
             
     print("1. 절대 모델의 구조와 하이퍼파라미터를 test가 좋아지는 방향으로 하지 말 것. -> val이 좋아지는 방향으로 조정")
     print("2. 모델의 성능이 좋아지는 게 목적이 아니라 기존 방식을 잘 재현하는게 목적이야.")
@@ -309,125 +287,6 @@ def main():
     print("\n===총 종합===")
     summarize_results(all_records, ['split'], "전체 종합 (연도/task/도시 모두 무관)")
     print(f"[LOG] saved to {log_path}")
-    
-    for year in year_labels:
-        all_y_true, all_y_pred = [], []
-        for record in year_records[year]:
-            if record is not None:
-                all_y_true.append(record['y_od_eval'])
-                all_y_pred.append(record['y_pred_eval'])
-                
-        rmse = np.mean([r['rmse'] for r in year_records[year]])
-        cpc = np.mean([r['cpc'] for r in year_records[year]])
-        prmse = np.mean([r['prmse'] for r in year_records[year]])
-        
-        all_y_true = np.concatenate(all_y_true)
-        all_y_pred = np.concatenate(all_y_pred)
-        fig = plt.figure(figsize=(18, 14))
-        gs  = gridspec.GridSpec(2, 3, figure=fig, hspace=0.4, wspace=0.35)
-    
-        # 5.1. Scatter (log scale)
-        ax1 = fig.add_subplot(gs[0, 0])
-        max_val = max(np.log1p(all_y_true).max(), np.log1p(all_y_pred).max())
-        ax1.scatter(np.log1p(all_y_true), np.log1p(all_y_pred),
-                    alpha=0.15, s=2, c='steelblue')
-        ax1.plot([0, max_val], [0, max_val], 'r--', lw=1.5, label='y=x')
-        ax1.set_xlabel('True OD (log1p)')
-        ax1.set_ylabel('Pred OD (log1p)')
-        ax1.set_title(f'Scatter (log scale)')
-        ax1.legend()
-    
-        # 2. Residual Plot
-        ax2 = fig.add_subplot(gs[0, 1])
-        residuals = all_y_pred - all_y_true
-        ax2.scatter(np.log1p(all_y_true), residuals, alpha=0.15, s=2, c='darkorange')
-        ax2.axhline(0, color='r', linestyle='--', lw=1.5)
-        ax2.set_xlabel('True OD (log1p)')
-        ax2.set_ylabel('Residual (Pred - True)')
-        ax2.set_title('Residual Plot')
-    
-        # 3. Residual Distribution
-        ax3 = fig.add_subplot(gs[0, 2])
-        ax3.hist(residuals, bins=80, color='slateblue', alpha=0.8,
-                    edgecolor='white', linewidth=0.3)
-        ax3.axvline(0, color='r', linestyle='--')
-        ax3.set_xlabel('Residual')
-        ax3.set_ylabel('Count')
-        ax3.set_title(f'Residual Dist (bias={residuals.mean():.1f})')
-    
-        # 4. 구간별 RMSE
-        ax4 = fig.add_subplot(gs[1, 0])
-        bins   = [0, 10, 50, 100, 300, 1000, np.inf]
-        labels = ['0-10', '10-50', '50-100', '100-300', '300-1k', '1k+']
-        bin_rmse, bin_cpc, bin_cnt = [], [], []
-        for lo, hi in zip(bins[:-1], bins[1:]):
-            idx = (all_y_true >= lo) & (all_y_true < hi)
-            if idx.sum() == 0:
-                bin_rmse.append(0); bin_cpc.append(0); bin_cnt.append(0)
-            else:
-                bin_rmse.append(np.sqrt(np.mean((all_y_true[idx] - all_y_pred[idx])**2)))
-                bin_cpc.append(cpc_score(all_y_true[idx], all_y_pred[idx]))
-                bin_cnt.append(idx.sum())
-        bars = ax4.bar(labels, bin_rmse, color='tomato', alpha=0.85)
-        ax4.set_xlabel('True OD Range')
-        ax4.set_ylabel('RMSE')
-        ax4.set_title('RMSE by True OD Range')
-        for bar, cnt in zip(bars, bin_cnt):
-            ax4.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5,
-                        f'n={cnt}', ha='center', va='bottom', fontsize=7)
-    
-        # 5. 구간별 CPC
-        ax5 = fig.add_subplot(gs[1, 1])
-        ax5.bar(labels, bin_cpc, color='mediumseagreen', alpha=0.85)
-        ax5.set_ylim(0, 1)
-        ax5.set_xlabel('True OD Range')
-        ax5.set_ylabel('CPC')
-        ax5.set_title('CPC by True OD Range')
-    
-        # 6. 예측 OD 히트맵 (대표 샘플 1개)
-        ax6 = fig.add_subplot(gs[1, 2])
-        rep_record = next((r for r in records if r is not None and r.get('T_pred') is not None), None)
-        if rep_record is not None:
-            T_rep = np.maximum(rep_record['T_pred'], 0)
-            mask_idx = np.array(list(set(np.where(T_rep.sum(axis=1) > 0)[0])))[:20]
-            if len(mask_idx) > 1:
-                pred_sub = T_rep[np.ix_(mask_idx, mask_idx)]
-            else:
-                pred_sub = T_rep[:20, :20]
-            im = ax6.imshow(np.log1p(pred_sub), aspect='auto', cmap='YlOrRd')
-            ax6.set_title(f'Pred OD Heatmap\n({rep_record["city"]} task={rep_record["task"]}, log1p)')
-            ax6.set_xlabel('Dest city index')
-            ax6.set_ylabel('Origin city index')
-            plt.colorbar(im, ax=ax6, fraction=0.046, pad=0.04)
-        else:
-            ax6.set_visible(False)
-    
-        fig.suptitle(
-            f'SpatialODMAE Test Results\n'
-            f'RMSE={rmse:.2f}  CPC={cpc:.4f}  %RMSE={prmse:.4f}',
-            fontsize=13, fontweight='bold'
-        )
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        result_dir = os.path.join(BASE_DIR, '../result')
-    
-        save_path = os.path.join(result_dir, f'result_gravity_{year}.png')
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
-        plt.close()
-        print(f"Visualization saved -> {save_path}")
-    
-        # ── Full OD Matrix CSV 저장 ───────────────────────────────────────────────
-        try:
-            import pandas as pd
-            dong_path = os.path.join(current_dir, '..', '..', 'dataset', 'raw', 'OD_dong_list.xlsx')
-            dong_df   = pd.read_excel(dong_path)
-            dongs     = dong_df['dong_code'].values
-            # df_pred   = pd.DataFrame(np.maximum(pred_full, 0), index=dongs, columns=dongs)
-            csv_path  = os.path.join(result_dir, f'predicted_OD_matrix_gravity_{year}.csv')
-            # df_pred.to_csv(csv_path)
-            print(f"Full OD matrix saved -> {csv_path}")
-        except Exception as e:
-            print(f"(CSV 저장 스킵: {e})")
     sys.stdout = sys.__stdout__
     sys.stderr = sys.__stderr__
     log_file.close()

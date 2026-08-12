@@ -93,12 +93,28 @@ class ODCrossAttention(nn.Module):
         
         return pooled
 
-class ODMAE(nn.Module):
-    def __init__(self, num_features, d_model=128, nhead=8, num_layers=4, use_self_loop_predictor=True, use_transformer=True, od_scale_ablation='none'):
+class GravityBase(nn.Module):
+    def __init__(self, static_dim):
         super().__init__()
-        self.use_self_loop_predictor = use_self_loop_predictor
-        self.use_transformer = use_transformer
-        self.od_scale_ablation = od_scale_ablation
+        self.O_weight = nn.Parameter(torch.ones(static_dim)) 
+        self.D_weight = nn.Parameter(torch.ones(static_dim))
+        
+        self.gamma = nn.Parameter(torch.tensor(1.0)) 
+        self.log_k = nn.Parameter(torch.tensor(0.0)) 
+
+    def forward(self, x_static, x_dist, O_importance_adj=None, D_importance_adj=None):
+        Ow = self.O_weight if O_importance_adj is None else self.O_weight * O_importance_adj
+        Dw = self.D_weight if D_importance_adj is None else self.D_weight * D_importance_adj
+        
+        O_i = torch.sum(x_static * Ow, dim=-1, keepdim=True) # (B, N, 1)
+        D_j = torch.sum(x_static * Dw, dim=-1, keepdim=True) # (B, N, 1)
+        
+        gravity_logit = O_i + D_j.transpose(1, 2) - self.gamma * x_dist + self.log_k
+        return gravity_logit
+
+class ODMAE(nn.Module):
+    def __init__(self, num_features, d_model=128, nhead=8, num_layers=4):
+        super().__init__()
 
         # X_static embeding: (B, N, F) -> (B, N, D) - leanable
         # OD feature embedding: (B, N, 2N or 3N) -> (B, N, D) - leanable
@@ -108,37 +124,17 @@ class ODMAE(nn.Module):
             nn.Linear(d_model, d_model)
         )
         
+        # Hybrid Components
+        self.gravity = GravityBase(num_features)
+        self.residual_gate = nn.Parameter(torch.tensor(0.01))
+        
         # row_attn_pool + col_attn_pool 출력 D로 변환: (B, N, 2D) -> (B, N, D)
         self.od_combine = nn.Linear(d_model * 2, d_model)
         
         self.od_gcn = ODGCNLayer(d_model, d_model)
         self.od_scale_gcn = ODGCNLayer(2, d_model) 
         
-        if self.od_scale_ablation == 'global':
-            self.global_od_scale_proj = nn.Linear(2, d_model) 
-        
         # === OD 관계 반영 === 
-        # od_in_dim = 3 if self.use_mask_channel else 2
-        
-        # 기존: od_embed(Linear)
-        # if self.od_embed_layers == 3:
-        #     self.od_embed = nn.Sequential(
-        #         nn.Linear(od_in_dim, d_model * 2),
-        #         nn.GELU(),
-        #         nn.Linear(d_model * 2, d_model),
-        #         nn.GELU(),
-        #         nn.Linear(d_model, d_model)
-        #     )
-        # elif self.od_embed_layers == 2:
-        #     self.od_embed = nn.Sequential(
-        #         nn.Linear(od_in_dim, d_model * 2),
-        #         nn.GELU(),
-        #         nn.Linear(d_model * 2, d_model)
-        #     )
-        # else:
-        #     self.od_embed = nn.Linear(od_in_dim, d_model)
-            
-        # 신규: attention pooling 모듈 2개 (outgoing, incoming 각각)
         self.row_attn_pool = ODCrossAttention(d_model)
         self.col_attn_pool = ODCrossAttention(d_model)
         ########################################################
@@ -148,15 +144,6 @@ class ODMAE(nn.Module):
             nn.Linear(d_model * 2 + 1, d_model),
             nn.Sigmoid()
         )
-        
-        if self.use_self_loop_predictor:
-            self.self_loop_predictor = nn.Sequential(
-                nn.Linear(d_model * 3, d_model),
-                nn.GELU(),
-                nn.Linear(d_model, d_model // 2),
-                nn.GELU(),
-                nn.Linear(d_model // 2, 1)
-            )
         
         # distance based 상대 positional bias 및 최종 Friction
         self.nhead = nhead
@@ -171,23 +158,9 @@ class ODMAE(nn.Module):
         self.mask_token_low = nn.Parameter(torch.zeros(1, 1, d_model))
         self.mask_token_high = nn.Parameter(torch.zeros(1, 1, d_model))
         
-        # Transformer Encoder vs FFN Ablation
-        if self.use_transformer:
-            encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=d_model*4, batch_first=True)
-            self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        else:
-            # Ablation FFN: Match parameter count (~12 * d_model^2 per layer)
-            # Linear(d, 6d) + Linear(6d, d) gives roughly 12 * d_model^2 parameters
-            layers = []
-            for _ in range(num_layers):
-                layers.extend([
-                    nn.Linear(d_model, d_model * 6),
-                    nn.GELU(),
-                    nn.Linear(d_model * 6, d_model),
-                    nn.GELU()
-                ])
-            self.ffn_ablation = nn.Sequential(*layers)
-        
+        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=d_model*4, batch_first=True)
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+
         # decoder: (B, N, D) -> (B, N, 2N)
         self.decoder = nn.Sequential(
             nn.Linear(d_model, d_model),
@@ -195,7 +168,8 @@ class ODMAE(nn.Module):
             nn.Linear(d_model, d_model * 2)
         )
 
-    def forward(self, x_static, x_od_masked, x_dist, A_spatial, mask, active_node_mask=None):
+    def forward(self, x_static, x_od_masked, x_dist, A_spatial, mask, active_node_mask=None,
+                O_importance_adj=None, D_importance_adj=None):
         """
         x_static: (B, N, F) - mask 노드에 대해서는 (사업체 수, 종사자 수, 밀도)등은 0으로 대체된 X_static
         x_od_masked: (B, N, N)
@@ -224,38 +198,6 @@ class ODMAE(nn.Module):
         ########################################################################
         
         # === 2. OD feature embedding(주변과 OD 관계가 어떻게 되어있지?) ===
-        '''
-            기존: od 노드들을 3개의 feature로 요약 (row mean, col mean, mask) -> Linear embedding
-            문제점: 너무 적은 정보로 요약될 수 있음.
-        '''
-        # # 2. Masked Mean 연산 
-        # # 관측 가능한 목적지들에게만 나간 통행량의 합 / 관측 가능한 목적지의 개수 = 관측 가능한 목적지들의 평균 통행량
-        # observed_col_mask = observed_1d.unsqueeze(1).expand_as(x_od_no_diag) # (B, N, N)
-        # row_sum = x_od_no_diag.sum(dim=-1, keepdim=True)
-        # row_count = observed_col_mask.float().sum(dim=-1, keepdim=True).clamp(min=1)
-        # row_feat = row_sum / row_count
-        
-        # # 관측 가능한 목적지들에게만 들어온 통행량의 합 / 관측 가능한 목적지의 개수 = 관측 가능한 목적지들의 평균 통행량
-        # observed_row_mask = observed_1d.unsqueeze(2).expand_as(x_od_no_diag)
-        # col_sum = x_od_no_diag.sum(dim=-2, keepdim=True).transpose(1, 2)
-        # col_count = observed_row_mask.float().sum(dim=-2, keepdim=True).transpose(1, 2).clamp(min=1)
-        # col_feat = col_sum / col_count
-        
-        # # 3. mask 채널 추가 여부에 따라 OD feature 구성
-        # # mask 채널 추가 시: (B, N, 3) = (row_feat, col_feat, mask)
-        # # mask 채널 미추가 시: (B, N, 2) = (row_feat, col_feat)
-        # if self.use_mask_channel:
-        #     mask_feat = mask.float().unsqueeze(-1)
-        #     node_od_feat = torch.cat([row_feat, col_feat, mask_feat], dim=-1)  # (B, N, 3)
-        # else:
-        #     node_od_feat = torch.cat([row_feat, col_feat], dim=-1)  # (B, N, 2)
-            
-        # od_emb = self.od_embed(node_od_feat)  
-        
-        '''
-            개선: OD 정보를 row_attn_pool, col_attn_pool로 각각 요약 후, 최종 od_emb로 합침
-            장점: 단순 평균이 아닌, attention으로 중요한 목적지에 더 큰 가중치를 부여할 수 있음
-        '''
         # row_repr: (B, N, D) - 각 노드의 outgoing 통행량을 attention으로 요약
         # col_repr: (B, N, D) - 각 노드의 incoming 통행량을 attention으로 요약
         row_repr = self.row_attn_pool(x_od_no_diag, observed_mask_2d)         
@@ -288,15 +230,7 @@ class ODMAE(nn.Module):
         # inferred_od_scale: (B, N, D) - 이웃의 평균 통행량을 GCN으로 반영
         # gcn_emb: (B, N, D) - 이웃의 static feature 정보를 GCN으로 반영
         inferred_od_scale = self.od_scale_gcn(A_spatial, od_scale, active_mask_2d)
-        
-        if self.od_scale_ablation == 'zero':
-            inferred_od_scale = torch.zeros_like(inferred_od_scale)
-        elif self.od_scale_ablation == 'global':
-            observed_1d = (~mask).float()  # (B, N)
-            # sum over N (dim=1). The numerator is (B, 1, 2) and the denominator must be (B, 1, 1) to broadcast correctly.
-            global_od_scale = (od_scale * observed_1d.unsqueeze(-1)).sum(dim=1, keepdim=True) / observed_1d.sum(dim=1, keepdim=True).unsqueeze(-1).clamp(min=1)
-            inferred_od_scale = self.global_od_scale_proj(global_od_scale).expand(-1, N, -1)
-            
+        inferred_od_scale = torch.zeros_like(inferred_od_scale)
         gcn_emb = self.od_gcn(A_spatial, feat_emb, active_mask_2d)  
         ########################################################################
         
@@ -331,11 +265,7 @@ class ODMAE(nn.Module):
         # bias: (B, N, N, nhead) -> (B * nhead, N, N)
         bias = bias.permute(0, 3, 1, 2).reshape(B * self.nhead, N, N)
         
-        # Transformer (bias 적용) vs FFN Ablation
-        if self.use_transformer:
-            x = self.transformer(x, mask=bias) # (B, N, D)
-        else:
-            x = self.ffn_ablation(x)
+        x = self.transformer(x, mask=bias) # (B, N, D)
         
         node_repr = self.decoder(x)  # (B, N, 2D) — 최종 노드 표현
         out_repr, in_repr = node_repr.chunk(2, dim=-1)  # (B, N, D), (B, N, D)
@@ -349,16 +279,8 @@ class ODMAE(nn.Module):
         decode_bias = self.distance_decode_bias(distance_bins).squeeze(-1)  # (B, N, N)
         pred_od = pred_od + decode_bias
         
-        if self.use_self_loop_predictor:
-            combined_self_loop_feat = torch.cat([feat_emb, inferred_od_scale, gcn_emb], dim=-1) # (B, N, 3D)
-            self_loop_pred = self.self_loop_predictor(combined_self_loop_feat).squeeze(-1) # (B, N, 3D) -> (B, N)
-        else:
-            self_loop_pred = 0
-
-        # Batch 차원과 Node 차원을 위한 인덱스 생성
-        b_idx = torch.arange(B).unsqueeze(-1) # (B, 1)
-        n_idx = torch.arange(N).unsqueeze(0)  # (1, N)
+        # Hybrid Combination
+        gravity_logit = self.gravity(x_static, x_dist, O_importance_adj, D_importance_adj)
+        final_logit = gravity_logit + self.residual_gate * pred_od
         
-        pred_od[b_idx, n_idx, n_idx] += self_loop_pred
-        
-        return pred_od
+        return final_logit

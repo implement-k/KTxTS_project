@@ -75,7 +75,6 @@ def main():
     if not os.path.exists(meta_data_path):
         raise FileNotFoundError(f"E: fixed_val_meta_{year}.pt 파일이 없습니다: {meta_data_path}")
 
-    # 메모리 절약을 위해 base_data.pt를 디스크에서 로드하지 않고 현재 로드된 dataset에서 직접 생성
     base_data = torch.load(base_data_path, weights_only=False)
     base_data_dict[year] = base_data
     

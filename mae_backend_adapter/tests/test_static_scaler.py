@@ -221,8 +221,6 @@ class CurrentDatasetScalerEquivalenceTests(unittest.TestCase):
                 sys.path.insert(0, import_path)
 
         dataset_path = cls.root / "src" / "mae-year" / "dataset.py"
-        if not dataset_path.is_file():
-            raise unittest.SkipTest("전체 학습 저장소에서만 Dataset 동등성을 검증합니다.")
         spec = importlib.util.spec_from_file_location("_scaler_test_dataset", dataset_path)
         if spec is None or spec.loader is None:
             raise RuntimeError(f"Dataset module을 로드할 수 없습니다: {dataset_path}")

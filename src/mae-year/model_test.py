@@ -96,7 +96,6 @@ def test_model(model_path=None, use_lgbm_self_loop=False, year='2023', mode = 'v
         split_name=mode,
         n_workers=1,
         device=device,
-        use_lgbm_self_loop=use_lgbm_self_loop
     )
     print("\n=== Validation Results ===")
     summarize_results(records, ['task'], "연도별 task 요약")

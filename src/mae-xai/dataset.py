@@ -37,12 +37,10 @@ def _coerce_numeric_raw_static(raw_static, expected_len):
 
 # train 시에만 쓰이는 dataset 클래스
 class ODDataset(Dataset):
-    def __init__(self, year: str='2023', use_stratfied_masking=True, use_merge_train=True, mode = 'train'):
+    def __init__(self, year: str='2023', mode = 'train'):
         self.mode = mode # -> train에만 쓰이는 데이터셋
         self.year = year
         self.max_mask_size = TRAIN_CONFIG['min_mask_size']
-        self.use_stratfied_masking = use_stratfied_masking
-        self.use_merge_train = use_merge_train
         
         # === 행정동 코드 로드 ===
         if self.year == '2019':
@@ -217,12 +215,9 @@ class ODDataset(Dataset):
         if num_chunks > 0:
             avail_list = list(available_train)
             # 추출 시 가중치 반영 (Stratified Masking)
-            if self.use_stratfied_masking:
-                weights = self.node_weights[avail_list]
-                probs = weights / weights.sum()
-                seeds = np.random.choice(avail_list, size=num_chunks, replace=False, p=probs)
-            else:
-                seeds = np.random.choice(avail_list, size=num_chunks, replace=False)
+            weights = self.node_weights[avail_list]
+            probs = weights / weights.sum()
+            seeds = np.random.choice(avail_list, size=num_chunks, replace=False, p=probs)
         else:
             seeds = []
             
@@ -291,48 +286,47 @@ class ODDataset(Dataset):
         #   b. 마스킹된 동끼리 병합 - 발생 안할 수 있음
         #   c. 마스킹된 동 + 알려진 동 병합 - 발생 안할 수 있음
         merge_events = []  # [(idx_a, idx_b, event_type), ...]
-        if self.use_merge_train:
-            p_known_merges = 0.3
-            max_known_merges = 30
-            p_masked_merge = 0.5
-            max_masked_merges = max(1, min(10, len(mask_indices)//3))
+        p_known_merges = 0.3
+        max_known_merges = 30
+        p_masked_merge = 0.5
+        max_masked_merges = max(1, min(10, len(mask_indices)//3))
 
-            # a. 알려진 동끼리 병합 -- 확률적으로 발생, 발생 시 여러 쌍 가능
-            if len(self.adjacency_candidates) > 0 and np.random.rand() < p_known_merges:
-                n_known_merges = np.random.randint(1, max_known_merges + 1)
-                chosen_idxs = np.random.choice(len(self.adjacency_candidates), 
-                                                size=min(n_known_merges, len(self.adjacency_candidates)), 
-                                                replace=False)
-                for i in chosen_idxs:
-                    a, b = self.adjacency_candidates[i]
-                    if a not in mask_indices_set and b not in mask_indices_set:
-                        if not hide_mask[a] and not hide_mask[b]:
-                            merge_events.append((a, b, 'known_merge'))
+        # a. 알려진 동끼리 병합 -- 확률적으로 발생, 발생 시 여러 쌍 가능
+        if len(self.adjacency_candidates) > 0 and np.random.rand() < p_known_merges:
+            n_known_merges = np.random.randint(1, max_known_merges + 1)
+            chosen_idxs = np.random.choice(len(self.adjacency_candidates), 
+                                            size=min(n_known_merges, len(self.adjacency_candidates)), 
+                                            replace=False)
+            for i in chosen_idxs:
+                a, b = self.adjacency_candidates[i]
+                if a not in mask_indices_set and b not in mask_indices_set:
+                    if not hide_mask[a] and not hide_mask[b]:
+                        merge_events.append((a, b, 'known_merge'))
 
-            # b., c. 마스킹 클러스터 관련 병합
-            if np.random.rand() < p_masked_merge and len(mask_indices) >= 1:
-                n_masked_merges = np.random.randint(1, max_masked_merges + 1)
-                for _ in range(n_masked_merges):
-                    sub_p = np.random.rand()
+        # b., c. 마스킹 클러스터 관련 병합
+        if np.random.rand() < p_masked_merge and len(mask_indices) >= 1:
+            n_masked_merges = np.random.randint(1, max_masked_merges + 1)
+            for _ in range(n_masked_merges):
+                sub_p = np.random.rand()
 
-                    # b. 마스킹된 두 동끼리 병합
-                    if sub_p < 0.5:
-                        candidates = [
-                            (a, b) for a in mask_indices for b in self.adj_list[a]
-                            if b in mask_indices_set and a < b
-                        ]
-                        if candidates:
-                            a, b = candidates[np.random.randint(len(candidates))]
-                            merge_events.append((a, b, 'mask_with_mask'))
-                    # c. 마스킹된 동 + 알려진(비마스킹) 이웃 병합
-                    else: 
-                        candidates = [
-                            (a, b) for a in mask_indices for b in self.adj_list[a]
-                            if b not in mask_indices_set and b not in self.val_indices and b not in self.test_indices
-                        ]
-                        if candidates:
-                            a, b = candidates[np.random.randint(len(candidates))]
-                            merge_events.append((a, b, 'mask_with_known'))
+                # b. 마스킹된 두 동끼리 병합
+                if sub_p < 0.5:
+                    candidates = [
+                        (a, b) for a in mask_indices for b in self.adj_list[a]
+                        if b in mask_indices_set and a < b
+                    ]
+                    if candidates:
+                        a, b = candidates[np.random.randint(len(candidates))]
+                        merge_events.append((a, b, 'mask_with_mask'))
+                # c. 마스킹된 동 + 알려진(비마스킹) 이웃 병합
+                else: 
+                    candidates = [
+                        (a, b) for a in mask_indices for b in self.adj_list[a]
+                        if b not in mask_indices_set and b not in self.val_indices and b not in self.test_indices
+                    ]
+                    if candidates:
+                        a, b = candidates[np.random.randint(len(candidates))]
+                        merge_events.append((a, b, 'mask_with_known'))
         
         # 기본 마스킹: 특정(순수) 마스킹 노드들의 MASKING_COLUMNS만 0으로 처리 (면적 등은 유지)
         if len(mask_indices) > 0:

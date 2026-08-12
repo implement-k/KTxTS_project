@@ -7,13 +7,12 @@ import json
 import math
 import threading
 from collections import OrderedDict
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from numbers import Integral, Real
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Protocol
-
 
 import torch
 from torch import Tensor, nn
@@ -59,7 +58,8 @@ class ModelInputs:
       학습 scaler 결과가 적용된 값을 백엔드 전처리기가 제공한다.
     - ``x_od_masked``, ``x_dist``, ``a_spatial``: 각각 ``(N, N)`` floating tensor.
       OD·거리 전처리와 인접 행렬 구성이 끝난 값이며 백엔드 전처리기가 제공한다.
-    - ``mask``: ``(N,)`` bool tensor. 선택 신도시 node만 ``True``다.
+    - ``mask``:``(N,)`` bool tensor. 현재 운영은 선택
+      신도시만 ``mask=True``이고 모두 active다. 일반 계약은 비활성 node도 지원한다.
     - ``origin_codes``, ``destination_codes``: 길이 ``N``의 code sequence. 수치
       전처리 대상이 아니며 canonical node 순서로 제공한다.
     - ``newtown_zone_codes``: 신도시 code collection. 백엔드 도시 설정이 제공한다.
@@ -77,8 +77,8 @@ class ModelInputs:
     x_dist: Tensor
     a_spatial: Tensor
     mask: Tensor
-    origin_codes: Sequence[Any]
-    destination_codes: Sequence[Any]
+    # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
+    city_codes: Sequence[Any]
     newtown_zone_codes: Collection[Any]
     population_allocation_method: str
     output_transform: str = "log1p"
@@ -116,6 +116,9 @@ class PopulationPreprocessor(Protocol):
         ...
 
 
+SelfLoopPredictor = Callable[[Tensor], Sequence[float] | Tensor]
+
+
 def _normalize_node_code(value: Any) -> str:
     if value is None:
         return UNMAPPED_NODE_CODE
@@ -133,6 +136,7 @@ class ODOutputAdapter:
         origin_codes: Sequence[str],
         destination_codes: Sequence[str],
         newtown_zone_codes: Sequence[str],
+        # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
     ) -> list[dict[str, Any]]:
         node_count = len(origin_codes)
         if matrix.ndim != 2 or tuple(matrix.shape) != (node_count, node_count):
@@ -176,8 +180,10 @@ class ODOutputAdapter:
             if trips > 0.0
         ]
 
+# 구현: LGBM 코드 삭제 - 모델에 없음 
+
 class _TorchMAERunner:
-    """최종 모델 생성, strict load 및 5-tensor forward를 격리한다."""
+    """최종 모델 생성, strict load 및 6-tensor forward를 격리한다."""
 
     def __init__(
         self,
@@ -188,10 +194,10 @@ class _TorchMAERunner:
     ) -> None:
         self._inference_lock = threading.RLock()
         state_dict = self._load_checkpoint(weight_path)
-
+        
         # 1. model 생성
         try:
-            model = self._build_mae_model(state_dict=state_dict, model_path=model_path)
+            model = self._build_mae_model(state_dict = state_dict, model_path=model_path)
         except CheckpointCompatibilityError:
             raise
         except Exception as exc:
@@ -216,6 +222,9 @@ class _TorchMAERunner:
             if isinstance(feature_weight, Tensor) and feature_weight.ndim == 2
             else None
         )
+        # 구현: self-loop predictor 삭제 - 모델에 없음
+        # 구현: LGBM 코드 삭제 - 모델에 없음
+
         # head별 3차원 additive mask가 native MHA fast path에서 NaN이 되는 것을 막는다.
         mha_backend = getattr(torch.backends, "mha", None)
         if mha_backend is not None and hasattr(mha_backend, "set_fastpath_enabled"):
@@ -231,11 +240,13 @@ class _TorchMAERunner:
             raise TensorShapeError("모델의 첫 번째 출력은 torch.Tensor여야 합니다.")
         return pred_od
 
+    # 구현: 모델 self-loop도 한번에 예측함 -> 삭제
+
     @staticmethod
     def _load_checkpoint(path: Path) -> Mapping[str, Tensor]:
         if not path.is_file():
             raise CheckpointLoadError(f"체크포인트 파일이 없습니다: {path}")
-
+        
         try:
             with path.open("rb") as checkpoint_file:
                 prefix = checkpoint_file.read(128)
@@ -269,7 +280,8 @@ class _TorchMAERunner:
         *,
         model_path: Path,
     ) -> nn.Module:
-        """state shape와 배포 모델 코드로 ODMAE를 만든다."""
+        """state shape와 최종 학습 설정으로 src/mae-year ODMAE를 만든다."""
+        # 구현: 최신 모델 구조로 변경
         try:
             feature_weight = state_dict["feature_embed.0.weight"]
             d_model, num_features = map(int, feature_weight.shape)
@@ -302,7 +314,7 @@ class _TorchMAERunner:
     def _load_model(path: Path) -> ModuleType:
         if not path.is_file():
             raise CheckpointCompatibilityError(
-                f"최종 모델 파일이 없습니다: {path}"
+                f"최종 모델 파일이 없습니다: {path}. src/mae-year/models.py를 함께 배포하세요."
             )
         module_name = f"_mae_year_models_{abs(hash(path))}"
         spec = importlib.util.spec_from_file_location(module_name, path)
@@ -316,6 +328,8 @@ class _TorchMAERunner:
                 f"최종 모델 module import에 실패했습니다: {path}: {exc}"
             ) from exc
         return module
+    
+    # 구현: LGBM 코드 삭제 - 모델에 없음
 
 
 class MAEPredictor:
@@ -326,32 +340,46 @@ class MAEPredictor:
         device: str = "cpu",
         *,
         preprocessor: PopulationPreprocessor | None = None,
+        # 구현: 직접 도시와 시기를 받는 방식으로 수정
+        # 구현: ratio-tolerance는 바꿀일이 없을 것 같아서 내부에서 처리
         weight_file_name: str = "mae.pth",
         model_file_name: str = "mae.py",
+        # 구현: self-loop predictor는 모델에 없음 -> 삭제
         output_adapter: ODOutputAdapter | None = None,
+        # 구현: factory 인자 삭제 - 주어진 모델만 사용해야함.
     ) -> None:
         self.device = self._validate_device(device)
-
+        
         root_path = Path(__file__).resolve().parent
-        self.weight_path = root_path / "model" / weight_file_name
-        model_path = root_path / "model" / model_file_name
+        self.weight_path = root_path / 'model' / weight_file_name
+        model_path = root_path / 'model' / model_file_name
         self._runner = _TorchMAERunner(
-            device=self.device,
-            weight_path=self.weight_path,
+            device = self.device,
+            weight_path = self.weight_path,
             model_path=model_path,
         )
-
+        
         self.preprocessor = preprocessor
-        self.supported_newtowns = frozenset({"all", "changneung", "gyosan", "wangsuk"})
-
+        # 구현: 직접 도시와 시기를 받는 방식으로 수정
+        self.supported_newtowns = frozenset(['all', 'changneung', 'gyosan', 'wangsuk'])
+        self.supported_period = frozenset(['initial', 'middle', 'final'])
+        
+        # 구현: LGBM 코드 삭제 - 모델에 없음
+        
         self.output_adapter = output_adapter or ODOutputAdapter()
         self.model = self._runner.model
         self.num_nodes = None
         self.num_features = self._runner.num_features
         
-        # Load calibration quantiles
-        from .explainability.prediction_uncertainty import load_calibration_quantiles
-        self.calibration_quantiles = load_calibration_quantiles()
+        self.calibration_quantiles = None
+        try:
+            val_results_path = root_path / "model" / "validation_raw_results.json"
+            if val_results_path.exists():
+                with open(val_results_path, "r", encoding="utf-8") as f:
+                    val_data = json.load(f)
+                    self.calibration_quantiles = val_data.get("quantiles")
+        except Exception:
+            pass
 
     def predict(
         self, *, newtown: str, total_population: int, age_ratios: Mapping[str, float]
@@ -361,7 +389,7 @@ class MAEPredictor:
         clean_newtown = self._validate_newtown(newtown)
         clean_population = self._validate_total_population(total_population)
         clean_ratios = self._validate_age_ratios(age_ratios)
-
+        
         if self.preprocessor is None:
             raise PreprocessingConfigurationError(
                 "신도시 zone, 20개 static feature, 학습 scaler, OD/거리/인접 행렬과 "
@@ -406,131 +434,10 @@ class MAEPredictor:
             newtown_zone_codes=zones,
         )
         metadata["returned_od_count"] = len(od)
-        
-        # 설명가능성 분석 추가
-        explainability = {}
-        try:
-            # 각 신도시 동의 총 유출량/총 유입량, 같은 동 내부이동, 신도시 내부 이동, 외부 이동, 주요 유출·유입 행정동 TOP20 등을 계산.
-            from .explainability.mobility_summary import get_mobility_summary
-            mobility_summary = get_mobility_summary(
-                predicted_od=matrix,
-                city_codes=origins,
-                target_codes=zones,
-            )
-            explainability["mobility_summary"] = mobility_summary
-            
-            # 이웃 행정동 영향도 계산.target 동과 이웃동의 adjacency 연결을 하나씩 제거한 뒤 다시 예측해서, 어떤 이웃동이 해당 동의 OD 예측에 얼마나 영향을 줬는지 계산
-            from .explainability.neighbors import get_neighbors
-            neighbors = get_neighbors(
-                a_spatial=inputs.a_spatial.squeeze(0).cpu(),
-                city_codes=origins,
-                target_codes=zones,
-            )
-            explainability["neighbors"] = neighbors
-            
-            # 어떤 이웃이 영향을 줬는지
-            from .explainability.neighbor_contribution import get_neighbor_contributions
-            neighbor_contributions = get_neighbor_contributions(
-                predictor=self,
-                inputs=inputs,
-                baseline_matrix=matrix,
-                city_codes=origins,
-                target_codes=zones,
-                neighbors=neighbors,
-            )
-            explainability["neighbor_contributions"] = neighbor_contributions
-            
-            # 피처 중요도 계산을 위해 Top 통행량 추출
-            od_pairs = []
-            for target_code, summary in mobility_summary.items():
-                for item in summary.get("top_outgoing", []):
-                    od_pairs.append((target_code, item["dong_code"]))
-                for item in summary.get("top_incoming", []):
-                    od_pairs.append((item["dong_code"], target_code))
-                for item in summary.get("internal_outgoing", []):
-                    od_pairs.append((target_code, item["destination_code"]))
-                for item in summary.get("internal_incoming", []):
-                    od_pairs.append((item["origin_code"], target_code))
-                    
-            # 중복 제거
-            od_pairs = list(set(od_pairs))
-            
-            # feature_names 구하기
-            _scaler = getattr(self.preprocessor, "scaler", None)
-            _feature_names = getattr(_scaler, "feature_names", None)
-            
-            if _feature_names is not None:
-                feature_names = _feature_names
-            else:
-                feature_names = [
-                    "business_count", "business_density", "pop_0_19", "pop_20_59", "pop_60_plus",
-                    "station_count_고속철도", "station_count_일반철도", "station_count_준고속철도",
-                    "station_count_지하철", "station_density_지하철", "worker_count", "worker_density",
-                    "공공시설지역비율_pct", "기타지역비율_pct", "상업업무지역비율_pct", "아파트비율_퍼센트",
-                    "주거지역비율_pct", "행정동전체면적_m2"
-                ]
-            
-            # 이웃 행정동의 어떤 피처가 영향을 크게 미치는지.
-            from .explainability.neighbor_feature_importance import get_neighbor_feature_importance
-            neighbor_feature_importance = get_neighbor_feature_importance(
-                predictor=self,
-                inputs=inputs,
-                baseline_matrix=matrix,
-                city_codes=origins,
-                target_codes=zones,
-                neighbors_dict=neighbors,
-                feature_names=feature_names,
-            )
-            explainability["neighbor_feature_importance"] = neighbor_feature_importance
-            
-            from .explainability.feature_importance import get_feature_importance
-            feature_importance = get_feature_importance(
-                predictor=self,
-                inputs=inputs,
-                baseline_matrix=matrix,
-                city_codes=origins,
-                target_codes=zones,
-                feature_names=feature_names,
-                top_k=20,
-            )
-            explainability["feature_importance"] = feature_importance
-            
-            from .explainability.od_feature_importance import get_od_feature_importance
-            od_feature_importance = get_od_feature_importance(
-                predictor=self,
-                inputs=inputs,
-                baseline_matrix=matrix,
-                city_codes=origins,
-                od_pairs=od_pairs,
-                feature_names=feature_names,
-                top_k=5,
-            )
-            explainability["od_feature_importance"] = od_feature_importance
-            
-            from .explainability.prediction_uncertainty import get_prediction_uncertainty
-            # Map task string "task0", "task1" etc or output_transform to a task number
-            # For simplicity, default to task 0 unless defined
-            task_num = metadata.get("task", 0) 
-            prediction_uncertainty = get_prediction_uncertainty(
-                predicted_matrix=matrix,
-                city_codes=origins,
-                od_pairs=od_pairs,
-                task=task_num,
-                calibration_quantiles=self.calibration_quantiles
-            )
-            explainability["prediction_uncertainty"] = prediction_uncertainty
-            
-            
-        except Exception as e:
-            import traceback
-            explainability["error"] = str(e)
-            explainability["traceback"] = traceback.format_exc()
-
         result = {
             "newtown": metadata.get("newtown"),
             "newtown_zone_codes": zones,
             "od": od,
-            "explainability": explainability,
             "metadata": metadata,
         }
         self._ensure_json(result)
@@ -588,6 +495,7 @@ class MAEPredictor:
             origins,
             destinations,
             zones,
+            # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
         )
 
     def _prepare_tensors(
@@ -631,8 +539,8 @@ class MAEPredictor:
         if torch.any((inputs.a_spatial < 0) | (inputs.a_spatial > 1)):
             raise TensorShapeError("a_spatial 값은 0~1 범위여야 합니다.")
 
-        origins = [_normalize_node_code(code) for code in inputs.origin_codes]
-        destinations = [_normalize_node_code(code) for code in inputs.destination_codes]
+        origins = [_normalize_node_code(code) for code in inputs.city_codes]
+        destinations = [_normalize_node_code(code) for code in inputs.city_codes]
         zones = [_normalize_node_code(code) for code in inputs.newtown_zone_codes]
         if len(origins) != node_count or len(destinations) != node_count:
             raise TensorShapeError("origin/destination code 수가 node 수와 다릅니다.")
@@ -654,6 +562,7 @@ class MAEPredictor:
         zone_indices = [index for index, code in enumerate(origins) if code in set(zones)]
         if not all(bool(inputs.mask[index]) for index in zone_indices):
             raise PreprocessingConfigurationError("모든 신도시 zone node는 mask=True여야 합니다.")
+        # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
         masked = inputs.mask
         if torch.any(inputs.x_od_masked[masked, :] != 0) or torch.any(
             inputs.x_od_masked[:, masked] != 0
@@ -661,6 +570,7 @@ class MAEPredictor:
             raise PreprocessingConfigurationError(
                 "mask=True인 node의 x_od_masked 행과 열은 0이어야 합니다."
             )
+        # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
         if not inputs.population_allocation_method:
             raise PreprocessingConfigurationError("population_allocation_method를 명시해야 합니다.")
 
@@ -670,6 +580,7 @@ class MAEPredictor:
             inputs.x_dist.to(self.device, dtype=torch.float32).unsqueeze(0),
             inputs.a_spatial.to(self.device, dtype=torch.float32).unsqueeze(0),
             inputs.mask.to(self.device, dtype=torch.bool).unsqueeze(0),
+            # 구현: 실제 사용할때는 모든 노드가 active -> 삭제
         )
         return tensors, origins, destinations, zones
 

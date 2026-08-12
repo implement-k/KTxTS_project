@@ -6,7 +6,6 @@ class ODGCNLayer(nn.Module):
         super().__init__()
         self.linear_in = nn.Linear(in_features, out_features)
         self.linear_out = nn.Linear(in_features, out_features)
-
     def forward(self, A_spatial, feat_emb, observed_mask):
         # A_spatial: (B, N, N) - geographical adjacency matrix
         # feat_emb: (B, N, D) - 각 노드의 임베딩 벡터
@@ -22,7 +21,6 @@ class ODGCNLayer(nn.Module):
         has_neighbor_out = deg_out > 1e-3
         A_norm_out = A / deg_out.clamp(min=1e-3)
         A_norm_out = A_norm_out * has_neighbor_out.float()
-
         # Incoming Normalize adjacency (transpose)
         A_t = A.transpose(1, 2)
         deg_in = A_t.sum(dim=-1, keepdim=True)
@@ -121,7 +119,7 @@ class ODMAE(nn.Module):
             nn.Linear(d_model * 2 + 1, d_model),
             nn.Sigmoid()
         )
-
+        
         # distance based 상대 positional bias 및 최종 Friction
         self.nhead = nhead
         self.distance_bias = nn.Embedding(50, nhead)
@@ -177,12 +175,12 @@ class ODMAE(nn.Module):
         # od_emb: (B, N, 2D) - 임베딩
         od_emb = self.od_combine(torch.cat([row_repr, col_repr], dim=-1))
         ########################################################################
-
+        
         # === 3. static feature embedding(이 노드는 어떤 특성을 가지고 있지?) ===
         # feat_emb: (B, N, D)
         feat_emb = self.feature_embed(x_static)
         ########################################################################
-
+        
         # === 4. GCN embedding(이 노드는 주변 노드들과 어떤 관계가 있지?) ===
         # 4.1. 총 유출량 평균
         row_sum = x_od_no_diag.sum(dim=-1, keepdim=True)
@@ -248,5 +246,4 @@ class ODMAE(nn.Module):
         # 디코더 출력에 직접 더해지는 거리 편향 (distance_decode_bias 활용)
         decode_bias = self.distance_decode_bias(distance_bins).squeeze(-1)  # (B, N, N)
         pred_od = pred_od + decode_bias
-
         return pred_od

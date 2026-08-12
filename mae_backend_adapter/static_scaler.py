@@ -201,8 +201,6 @@ def _load_static_scaler(npz_path: Path, json_path: Path) -> StaticFeatureScaler:
             f"지원하지 않는 scaler schema_version입니다: {metadata.get('schema_version')!r}"
         )
     year = metadata.get("year")
-    if year != "2023":
-        raise StaticScalerArtifactError(f"2023 scaler artifact가 아닙니다: year={year!r}")
     feature_names_value = metadata.get("feature_names")
     if not isinstance(feature_names_value, list) or not all(
         isinstance(name, str) and name for name in feature_names_value

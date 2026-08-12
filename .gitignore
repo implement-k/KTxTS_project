@@ -16,3 +16,10 @@ __pycache__/
 .idea/
 
 /KTDB/src/model/test_xgb.py
+
+scratch_neurogravity
+# Ignore large raw/processed dataset files
+dataset/raw/od_*.xlsx
+dataset/raw/mountain/
+dataset/processed/od_*.csv
+*.OUT

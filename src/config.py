@@ -3,22 +3,26 @@ import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, 'dataset')
-DIST_DATA_PATH = os.path.join(DATA_DIR, 'dist_data.csv')
-STATIC_DATA_PATH = os.path.join(DATA_DIR, 'final_static_features.csv')
-OD_DATA_PATH = os.path.join(DATA_DIR, 'od_data.csv')
-DONG_CODE_PATH = os.path.join(DATA_DIR, 'raw', 'OD_dong_list.xlsx')
+DIST_DATA_23_PATH = os.path.join(DATA_DIR, 'dist_data_2023.csv')
+DIST_DATA_19_PATH = os.path.join(DATA_DIR, 'dist_data_2019.csv')
+STATIC_DATA_23_PATH = os.path.join(DATA_DIR, 'final_static_features_2023.csv')
+STATIC_DATA_19_PATH = os.path.join(DATA_DIR, 'final_static_features_2019.csv')
+OD_DATA_23_PATH = os.path.join(DATA_DIR, 'od_data_2023.csv')
+OD_DATA_19_PATH = os.path.join(DATA_DIR, 'od_data_2019.csv')
+DONG_CODE_23_PATH = os.path.join(DATA_DIR, 'raw', 'dong', 'OD_dong_list_2023.xlsx')
+DONG_CODE_19_PATH = os.path.join(DATA_DIR, 'raw', 'dong', 'OD_dong_list_2019_unique.xlsx')
 
 # 테스트용 신도시 행정동 코드
 # 2026-07-12 수정: dataset/raw/OD_dong_list.xlsx에 실제 존재하는 dong_code 기준으로 갱신.
 # 기존 검단 코드는 현재 OD_dong_list.xlsx에 없어 테스트 구역에 포함되지 않았음.
-TEST_CITIES_CODES = {
+VAL_CITIES_23_CODES = {
     '동탄': [
         '31240600',  # 동탄2동
         '31240610',  # 동탄1동
         '31240620',  # 동탄3동
         '31240640',  # 동탄4동
         '31240650',  # 동탄5동
-        '31240690',  # 동탄7동
+        '31240690',  # 동탄7동(동탄9동 포함)
         '31240700',  # 동탄6동
         '31240710',  # 동탄8동
     ],
@@ -34,17 +38,95 @@ TEST_CITIES_CODES = {
         '23080860',  # 마전동
         '23080870',  # 원당동
         '23080880',  # 아라동
+        '23080840',  # 오류왕길동
+    ],
+}
+
+TEST_CITIES_23_CODES = {
+    '다산': [
+        '31130580',  # 다산1동
+        '31130590',  # 다산2동
+    ],
+    '미사': [
+        '31180620',  # 미사1동
+        '31180630',  # 미사2동
+    ],
+    '배곧': [
+        '31150740',  # 배곧1동
+        '31150750',  # 배곧2동
+        '31150720',  # 정왕4동
+    ],
+    '감일동': [
+        '31180670',  # 감일동
+        '31180660',  # 감북동
+    ],
+    '랜덤1': [
+        '11150590', '11150600', '11150570', '11150630', '11160730' # 신월3동, 신월4동, 신월1동, 신월7동, 화곡1동
+    ],
+    '랜덤2': [
+        '11140630', '11140600', '11140760' # 신수동, 대흥동, 서강동
+    ],
+    '랜덤3': [
+        '31130150', '31130120', '31130130', '31130340' # 오남읍, 진접읍, 화도읍, 수동면
+    ],
+}
+
+VAL_CITIES_19_CODES = {
+    '동탄': [
+        '31240700', # 동탄면(동탄6동, 동탄7동, 동탄8동, 동탄9동 포함)
+        '31240610', # 동탄1동
+        '31240600', # 동탄2동
+        '31240620', # 동탄3동
+        '31240640', # 동탄4동
+    ],
+    '위례': [
+        '11240820',  # 위례동
+        '31021680',  # 위례동
+        '31180650',  # 위례동
+    ],
+    '검단': [
+        '23080800',  # 검단1동(검단동)
+        '23080810',  # 검단2동(불로대곡동)
+        '23080850',  # 검단4동(당하동, 마전동)
+        '23080870',  # 검단3동(원당동, 아라동)
+        '23080840',  # 검단5동(오류왕길동)
+    ],
+}
+
+TEST_CITIES_19_CODES = {
+    '다산': [
+        '31130580',  # 도농동(다산2동)
+        '31130590',  # 지금동(다산1동)
+    ],
+    '미사': [
+        '31180620',  # 미사1동
+        '31180630',  # 미사2동
+    ],
+    '배곧': [
+        '31150720',  # 정왕4동(배곧1동, 배곧2동)
+    ],
+    '감일동': [
+        '31180660',  # 감북동(감북동, 감일동)
+    ],
+    '랜덤1': [
+        '11150590', '11150600', '11150570', '11150630', '11160730' # 신월3동, 신월4동, 신월1동, 신월7동, 화곡1동
+    ],
+    '랜덤2': [
+        '11140630', '11140600', '11140760' # 신수동, 대흥동, 서강동
+    ],
+    '랜덤3': [
+        '31130150', '31130120', '31130130', '31130340' # 오남읍, 진접읍, 화도읍, 수동면
     ],
 }
 
 # 마스킹 대상 컬럼
-MASKING_COLUMNS = ['worker_count', 'business_count']
+MASKING_COLUMNS = ['worker_count', 'business_count', 'worker_density', 'business_density']
 
 TRAIN_CONFIG = {
     'min_mask_size': 3,
-    'max_mask_size': 10,
-    'batch_size': 16,
-    'epochs': 50,
+    'max_mask_size': 150,
+    'batch_size': 32,
+    'epochs': 70,
     'learning_rate': 1e-3,
     'model_type': 'mae',
 }

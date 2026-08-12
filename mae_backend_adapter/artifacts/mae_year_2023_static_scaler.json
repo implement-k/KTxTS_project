@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "artifact_type": "sklearn_standard_scaler",
+  "year": "2023",
+  "feature_count": 18,
+  "feature_names": [
+    "business_count",
+    "business_density",
+    "pop_0_19",
+    "pop_20_59",
+    "pop_60_plus",
+    "station_count_고속철도",
+    "station_count_일반철도",
+    "station_count_준고속철도",
+    "station_count_지하철",
+    "station_density_지하철",
+    "worker_count",
+    "worker_density",
+    "공공시설지역비율_pct",
+    "기타지역비율_pct",
+    "상업업무지역비율_pct",
+    "아파트비율_퍼센트",
+    "주거지역비율_pct",
+    "행정동전체면적_m2"
+  ],
+  "masking_feature_names": [
+    "worker_count",
+    "business_count",
+    "worker_density",
+    "business_density"
+  ],
+  "masking_feature_indices": [
+    10,
+    0,
+    11,
+    1
+  ],
+  "indicator_feature_names": [
+    "is_masked",
+    "is_merged"
+  ],
+  "indicator_contract": "is_masked and is_merged are excluded from StandardScaler; append them in this order after transforming the 18 raw static features",
+  "scaler": {
+    "implementation": "sklearn.preprocessing.StandardScaler",
+    "fit_scope": "raw_static[train_indices] only",
+    "npz_file": "mae_year_2023_static_scaler.npz",
+    "npz_sha256": "2681d1d7ede8b89a8b961d312e0a458743b1092e633f894cd60e646f371f135f",
+    "n_samples_seen": 1098,
+    "dtype": "float64"
+  },
+  "split": {
+    "algorithm": "train = all node indices - union(validation indices, test indices)",
+    "index_basis": "zero-based row order of dataset/raw/dong/OD_dong_list_2023.xlsx",
+    "all_count": 1137,
+    "train_count": 1098,
+    "val_count": 18,
+    "test_count": 21,
+    "dong_codes_sha256": "df605f70396effef442a72543dec3d87a6c1f03a044af90a6f2b1b495ccca966",
+    "train_indices_sha256": "67af72f2279e91e7f9590073c69c212aa71c2eb05f658071919cb54cc2153fe0",
+    "val_indices_sha256": "f5f807ac6ec2cf7a5b43566485293d87c98196df4afc33168d5f3ac20abb4271",
+    "test_indices_sha256": "10c4a9701372e81306ca7add3b0b224ab6a8a882b393b24b5922cf36db2f227b",
+    "train_dong_codes_sha256": "a07bec919dccf9c3413cb34bad63615520ca86b71e48c269d3031710d27145e5",
+    "validation_groups": {
+      "동탄": [
+        31240600,
+        31240610,
+        31240620,
+        31240640,
+        31240650,
+        31240690,
+        31240700,
+        31240710
+      ],
+      "위례": [
+        11240820,
+        31021680,
+        31180650
+      ],
+      "검단": [
+        23080800,
+        23080810,
+        23080850,
+        23080860,
+        23080870,
+        23080880,
+        23080840
+      ]
+    },
+    "test_groups": {
+      "다산": [
+        31130580,
+        31130590
+      ],
+      "미사": [
+        31180620,
+        31180630
+      ],
+      "배곧": [
+        31150740,
+        31150750,
+        31150720
+      ],
+      "감일동": [
+        31180670,
+        31180660
+      ],
+      "랜덤1": [
+        11150590,
+        11150600,
+        11150570,
+        11150630,
+        11160730
+      ],
+      "랜덤2": [
+        11140630,
+        11140600,
+        11140760
+      ],
+      "랜덤3": [
+        31130150,
+        31130120,
+        31130130,
+        31130340
+      ]
+    }
+  },
+  "inputs": [
+    {
+      "role": "canonical_node_order",
+      "path": "dataset/raw/dong/OD_dong_list_2023.xlsx",
+      "size_bytes": 435876,
+      "sha256": "91105a606d03d3e967d2aec1a3371a68f5b87f026447deacad96d733639d87c6"
+    },
+    {
+      "role": "scaler_raw_static_features",
+      "path": "dataset/final_static_features_2023.csv",
+      "size_bytes": 238287,
+      "sha256": "090641e7565019463dfe916801aea3b0fb9bf53589e4ffb374b2a196268f1483"
+    },
+    {
+      "role": "checkpoint_assumed_training_od",
+      "path": "dataset/od_data_2023.csv",
+      "size_bytes": 67484870,
+      "sha256": "b199b413c2a6e91ead90e8ec4451cb910d19ef7d0256945eacf38d0ce097b9f3"
+    },
+    {
+      "role": "checkpoint_assumed_training_distance",
+      "path": "dataset/dist_data_2023.csv",
+      "size_bytes": 32060839,
+      "sha256": "31e92d326a174a29a6eb98a63977aec836ce783ac2307f72cc71e5fe3d093259"
+    },
+    {
+      "role": "checkpoint_assumed_training_merge_cache",
+      "path": "src/mae-year/merge_cache_2023.pkl",
+      "size_bytes": 31347695,
+      "sha256": "239d79489b5141b406936b03d1a4082aa9b01302f3baf06a772b5e70f814e340"
+    }
+  ],
+  "source": {
+    "git_commit": "233aacd444d7cb6872fb298c8b40f5ad38d12534",
+    "git_branch": "feature/mae-year-backend-adapter",
+    "files": [
+      {
+        "role": "dataset_implementation",
+        "path": "src/mae-year/dataset.py",
+        "size_bytes": 22693,
+        "sha256": "8cedcd0b1cede349a925ab7c4dd61d65442aabbb49cc76c10f919e4b4eefc316"
+      },
+      {
+        "role": "split_and_path_configuration",
+        "path": "src/config.py",
+        "size_bytes": 4323,
+        "sha256": "c045f34c24b03fccc4e95fe7ae0cc6de9b80ca57a632ae1af6ff64ef31b1f774"
+      }
+    ]
+  },
+  "checkpoint": {
+    "role": "target_checkpoint",
+    "path": "best_model/mae:hybrid-86epoch.pth",
+    "size_bytes": 3886047,
+    "sha256": "9ff66ca04fff9f3847bdac7c3e39a7fb8a3761f6e2675f500d5e90c499ad3076"
+  },
+  "verification": {
+    "reference": "ODDataset(year='2023').X_static[:, :18] after Dataset test masking",
+    "rtol": 0.0,
+    "atol": 1e-12,
+    "max_abs_diff": 0.0
+  }
+}

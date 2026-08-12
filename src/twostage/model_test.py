@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import DataLoader
 import joblib
 import matplotlib.pyplot as plt
-from KTDB.src.twostage.model import TwoStageGravity
+from twostage.model import TwoStageGravity
 from dataset import ODDataset
 
 def cpc_score(y_true, y_pred):

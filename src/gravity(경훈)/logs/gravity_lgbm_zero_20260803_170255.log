@@ -1,0 +1,2011 @@
+[LOG] saving console output to /Users/implement/KT/KTDB/src/gravity(경훈)/logs/gravity_lgbm_zero_20260803_170255.log
+Dataset 초기화 완료 (Imputation: zero)
+Dataset 초기화 완료 (Imputation: zero)
+argument='lgbm'
+Start Model Training on Combined Data...
+Training Model for Origin Generation (O_i) using lgbm...
+[LightGBM] [Info] Auto-choosing row-wise multi-threading, the overhead of testing was 0.000229 seconds.
+You can set `force_row_wise=true` to remove the overhead.
+And if memory is not enough, you can set `force_col_wise=true`.
+[LightGBM] [Info] Total Bins 3625
+[LightGBM] [Info] Number of data points in the train set: 2168, number of used features: 18
+[LightGBM] [Info] Start training from score 37238.876553
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Info] Auto-choosing row-wise multi-threading, the overhead of testing was 0.000067 seconds.
+You can set `force_row_wise=true` to remove the overhead.
+And if memory is not enough, you can set `force_col_wise=true`.
+[LightGBM] [Info] Total Bins 3625
+[LightGBM] [Info] Number of data points in the train set: 2168, number of used features: 18
+[LightGBM] [Info] Start training from score 37238.878552
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+
+Evaluating 2019 / val ...
+  [2019/val] 750개 샘플 병렬 평가 중 (threads=4)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+  [2019/val] 진행 30/750 (4.0%) | 누적 CPC 0.1261 | RMSE 297.4172 | %RMSE 14.7505 | 경과 0.0분 | 예상 남음 0.4분
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...IPF converged at iteration 5
+
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.170071, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+  [2019/val] 진행 60/750 (8.0%) | 누적 CPC 0.1229 | RMSE 274.3444 | %RMSE 15.1199 | 경과 0.0분 | 예상 남음 0.4분
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+  [2019/val] 진행 90/750 (12.0%) | 누적 CPC 0.1177 | RMSE 235.8898 | %RMSE 15.7356 | 경과 0.1분 | 예상 남음 0.4분
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...IPF converged at iteration 5
+
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+  [2019/val] 진행 120/750 (16.0%) | 누적 CPC 0.1121 | RMSE 216.6126 | %RMSE 16.0895 | 경과 0.1분 | 예상 남음 0.4분
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.105274, col error: 0.000000
+  [2019/val] 진행 150/750 (20.0%) | 누적 CPC 0.1075 | RMSE 205.0264 | %RMSE 16.3203 | 경과 0.1분 | 예상 남음 0.3분
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.179871, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 7.250505, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.152985, col error: 0.000000
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.308693, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.231164, col error: 0.000000
+IPF row error: 7.593949, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.285644, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF row error: 7.341515, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 6.927417, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF row error: 8.199329, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.177794, col error: 0.000000
+IPF row error: 8.185343, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.204277, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+  [2019/val] 진행 180/750 (24.0%) | 누적 CPC 0.1106 | RMSE 220.4542 | %RMSE 16.0514 | 경과 0.1분 | 예상 남음 0.3분
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 7.992068, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.140443, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF row error: 8.220170, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.012835, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.058227, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+IPF row error: 8.306571, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 7.293585, col error: 0.000000
+IPF converged at iteration 6
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 5.841120, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.170071, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.137875, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.264790, col error: 0.000000
+IPF converged at iteration 5Starting Iterative Proportional Fitting (IPF)...
+
+IPF row error: 7.998927, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.269427, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.395808, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.393064, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.228544, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.293004, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 10.437327, col error: 0.000000
+  [2019/val] 진행 210/750 (28.0%) | 누적 CPC 0.1119 | RMSE 224.8638 | %RMSE 15.9657 | 경과 0.1분 | 예상 남음 0.3분
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.237845, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.163771, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 7.785423, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.036248, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.328851, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 7.934969, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.491665, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.312135, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.303536, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.072334, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.377426, col error: 0.000000
+IPF row error: 8.579733, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.528220, col error: 0.000000
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.456071, col error: 0.000000
+IPF row error: 9.093499, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...IPF row error: 8.249437, col error: 0.000000
+
+IPF converged at iteration 5
+IPF row error: 5.937524, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+  [2019/val] 진행 240/750 (32.0%) | 누적 CPC 0.1114 | RMSE 216.6312 | %RMSE 16.0777 | 경과 0.1분 | 예상 남음 0.3분
+IPF row error: 8.033700, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5Starting Iterative Proportional Fitting (IPF)...
+
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.342637, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 7.984419, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.094920, col error: 0.000000
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.307146, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.281420, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.247741, col error: 0.000000
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.343712, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.324434, col error: 0.000000
+IPF row error: 8.259496, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.272954, col error: 0.000000
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.496138, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...IPF converged at iteration 5
+IPF row error: 8.454640, col error: 0.000000
+
+  [2019/val] 진행 270/750 (36.0%) | 누적 CPC 0.1096 | RMSE 210.2043 | %RMSE 16.1899 | 경과 0.2분 | 예상 남음 0.3분
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.223463, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 7.816166, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.197822, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.193636, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.267898, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.008445, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.314450, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.406262, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.333286, col error: 0.000000
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.424819, col error: 0.000000
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.296872, col error: 0.000000
+IPF row error: 7.440312, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.292194, col error: 0.000000
+IPF row error: 8.466338, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260055, col error: 0.000000
+IPF row error: 8.500763, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.315640, col error: 0.000000
+IPF row error: 8.260055, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.481953, col error: 0.000000
+  [2019/val] 진행 300/750 (40.0%) | 누적 CPC 0.1076 | RMSE 205.0584 | %RMSE 16.2880 | 경과 0.2분 | 예상 남음 0.3분
+IPF row error: 8.158440, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.181214, col error: 0.000000
+IPF row error: 8.137068, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.165614, col error: 0.000000
+IPF row error: 7.927749, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.162417, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.149753, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.146602, col error: 0.000000
+IPF row error: 8.082800, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.133327, col error: 0.000000
+IPF row error: 8.148448, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.192408, col error: 0.000000
+IPF row error: 8.297274, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 6.363096, col error: 0.000000
+IPF row error: 8.157824, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.253605, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.152129, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.149753, col error: 0.000000
+IPF row error: 10.425317, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.143330, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.009199, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.338626, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.157190, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.183650, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 7.893557, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.148072, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.151194, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.299361, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.198658, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.171060, col error: 0.000000
+  [2019/val] 진행 330/750 (44.0%) | 누적 CPC 0.1068 | RMSE 226.7796 | %RMSE 16.2670 | 경과 0.2분 | 예상 남음 0.2분
+IPF row error: 8.055128, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.143464, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.554225, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.157459, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.164369, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.153994, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.145957, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.146812, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.103002, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.162129, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 7.433426, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.171361, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.535958, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.215205, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.372275, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.304087, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.164231, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 7.751375, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.163919, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.135923, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 7
+IPF row error: 8.237226, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.258357, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.258357, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.079319, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.004651, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.248961, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.244285, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.246936, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.322312, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 6
+IPF row error: 6.259728, col error: 0.000000
+  [2019/val] 진행 360/750 (48.0%) | 누적 CPC 0.1059 | RMSE 237.3137 | %RMSE 16.2444 | 경과 0.2분 | 예상 남음 0.2분
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.246342, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 7.555742, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.256562, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.247823, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 7
+IPF row error: 8.162584, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 7
+IPF row error: 8.245055, col error: 0.000000
+IPF row error: 8.179221, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.239838, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.246115, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.433439, col error: 0.000000
+IPF row error: 8.259493, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 7
+IPF row error: 8.616303, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.254945, col error: 0.000000
+IPF converged at iteration 7
+IPF converged at iteration 7
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.153800, col error: 0.000000
+IPF row error: 8.179221, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 7.935855, col error: 0.000000
+IPF row error: 8.250778, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5Starting Iterative Proportional Fitting (IPF)...
+
+IPF row error: 8.410697, col error: 0.000000
+IPF converged at iteration 7
+IPF row error: 8.153800, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.197057, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 7
+IPF row error: 8.114187, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 7
+IPF row error: 8.255287, col error: 0.000000
+IPF row error: 8.162584, col error: 0.000000
+IPF converged at iteration 7
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.180305, col error: 0.000000
+IPF converged at iteration 7
+IPF row error: 8.154387, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 7
+IPF converged at iteration 7
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.162584, col error: 0.000000
+IPF row error: 8.162584, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.324142, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.443360, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.134874, col error: 0.000000
+IPF row error: 8.247824, col error: 0.000000
+  [2019/val] 진행 390/750 (52.0%) | 누적 CPC 0.1045 | RMSE 234.3408 | %RMSE 16.2331 | 경과 0.2분 | 예상 남음 0.2분
+IPF converged at iteration 5
+IPF row error: 8.271722, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 7
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.653161, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.247824, col error: 0.000000
+IPF row error: 8.250778, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.242201, col error: 0.000000
+IPF converged at iteration 7
+IPF row error: 8.488680, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.246342, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 7.763925, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.266956, col error: 0.000000
+IPF converged at iteration 7
+IPF row error: 8.245359, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.238579, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 7.336521, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.238239, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.244779, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.119423, col error: 0.000000
+IPF row error: 8.240542, col error: 0.000000Starting Iterative Proportional Fitting (IPF)...
+
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.271163, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.248235, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.272009, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.259652, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.194662, col error: 0.000000
+IPF row error: 8.212728, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 7.992489, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.260060, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.270375, col error: 0.000000
+IPF row error: 8.488317, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.264403, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.254674, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.266129, col error: 0.000000
+IPF converged at iteration 5
+  [2019/val] 진행 420/750 (56.0%) | 누적 CPC 0.1030 | RMSE 232.7424 | %RMSE 16.2741 | 경과 0.2분 | 예상 남음 0.2분
+IPF row error: 8.301246, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.202461, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.375945, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.143836, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.259584, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 7.875136, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.250975, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.240243, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.238771, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.178987, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 6.605635, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.268209, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.239950, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 7.844041, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.238133, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.120620, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.267410, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.347215, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.238771, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.247689, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.215755, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.257370, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.315461, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.267102, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.276811, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.255016, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 6.505614, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.267591, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.269725, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.405401, col error: 0.000000
+  [2019/val] 진행 450/750 (60.0%) | 누적 CPC 0.1014 | RMSE 231.3435 | %RMSE 16.3224 | 경과 0.3분 | 예상 남음 0.2분
+IPF converged at iteration 5
+IPF row error: 8.156246, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.143063, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.193109, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.149028, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.145080, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 6.322989, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.200132, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 7.608749, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.143063, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.227340, col error: 0.000000
+IPF row error: 8.155836, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.146686, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.156246, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.156246, col error: 0.000000
+IPF row error: 8.404733, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.154667, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.156246, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.156570, col error: 0.000000
+IPF row error: 7.995025, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 7.203911, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.194618, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.144620, col error: 0.000000
+IPF row error: 8.137495, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.163155, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.419742, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.161074, col error: 0.000000
+IPF row error: 8.130352, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.158263, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.154803, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.151434, col error: 0.000000
+  [2019/val] 진행 480/750 (64.0%) | 누적 CPC 0.1019 | RMSE 255.4024 | %RMSE 16.4520 | 경과 0.3분 | 예상 남음 0.2분
+IPF row error: 8.069820, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.151410, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.167649, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.161876, col error: 0.000000
+IPF row error: 8.163786, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.032669, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.157355, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.260276, col error: 0.000000
+IPF row error: 8.153279, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.172146, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.155836, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.149910, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.145405, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.149355, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.156441, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.175320, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.155836, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.373552, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.345357, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.073447, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 7.697556, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.215293, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.257435, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 7.440997, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 7.971720, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 6
+IPF converged at iteration 5
+IPF row error: 4.729191, col error: 0.000000
+IPF row error: 8.294290, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.051768, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.306690, col error: 0.000000
+IPF row error: 8.357152, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.475978, col error: 0.000000
+IPF row error: 7.664719, col error: 0.000000
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 10.038142, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...IPF converged at iteration 5
+
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 7.992003, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.279639, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF row error: 8.259900, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.359267, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+IPF row error: 8.189976, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.151494, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.280837, col error: 0.000000
+IPF row error: 8.136475, col error: 0.000000
+IPF converged at iteration 6
+IPF row error: 35.964743, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.240071, col error: 0.000000
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.142525, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.118573, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.249437, col error: 0.000000
+IPF converged at iteration 5
+IPF row error: 8.259037, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.491484, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.249437, col error: 0.000000
+IPF row error: 8.249437, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.265155, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 7.711377, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.569397, col error: 0.000000
+IPF row error: 8.357588, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.297090, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.267696, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.263092, col error: 0.000000
+IPF row error: 8.203069, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 7.910063, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.267102, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.393055, col error: 0.000000
+IPF row error: 8.264131, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.306413, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.326910, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.267107, col error: 0.000000
+IPF row error: 8.268757, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.264426, col error: 0.000000
+Traceback (most recent call last):
+  File "/Users/implement/KT/KTDB/src/gravity(경훈)/train_and_val.py", line 139, in evaluate_and_report
+    for done_count, future in enumerate(as_completed(futures), start=1):
+                              ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/concurrent/futures/_base.py", line 243, in as_completed
+    waiter.event.wait(wait_timeout)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/threading.py", line 659, in wait
+    signaled = self._cond.wait(timeout)
+  File "/opt/anaconda3/lib/python3.13/threading.py", line 359, in wait
+    waiter.acquire()
+    ~~~~~~~~~~~~~~^^
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/implement/KT/KTDB/src/gravity(경훈)/train_and_val.py", line 427, in <module>
+    main()
+    ~~~~^^
+  File "/Users/implement/KT/KTDB/src/gravity(경훈)/train_and_val.py", line 268, in main
+    records = evaluate_and_report(
+        base_data,
+    ...<6 lines>...
+        imputation_values=imputation_values_by_year[year],
+    )
+  File "/Users/implement/KT/KTDB/src/gravity(경훈)/train_and_val.py", line 134, in evaluate_and_report
+    with ThreadPoolExecutor(max_workers=n_workers) as executor:
+         ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/concurrent/futures/_base.py", line 647, in __exit__
+    self.shutdown(wait=True)
+    ~~~~~~~~~~~~~^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/concurrent/futures/thread.py", line 239, in shutdown
+    t.join()
+    ~~~~~~^^
+  File "/opt/anaconda3/lib/python3.13/threading.py", line 1094, in join
+    self._handle.join(timeout)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^
+KeyboardInterrupt
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.202675, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+IPF row error: 8.267139, col error: 0.000000
+IPF row error: 8.264607, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 8.560754, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF row error: 5.805272, col error: 0.000000
+Starting Iterative Proportional Fitting (IPF)...
+IPF converged at iteration 5
+IPF converged at iteration 5
+Starting Iterative Proportional Fitting (IPF)...
+IPF row error: 8.267113, col error: 0.000000
+IPF row error: 8.251827, col error: 0.000000
+IPF converged at iteration 5
+Exception ignored on threading shutdown:
+Traceback (most recent call last):
+  File "/opt/anaconda3/lib/python3.13/threading.py", line 1536, in _shutdown
+    atexit_call()
+  File "/opt/anaconda3/lib/python3.13/threading.py", line 1507, in <lambda>
+    _threading_atexits.append(lambda: func(*arg, **kwargs))
+  File "/opt/anaconda3/lib/python3.13/concurrent/futures/thread.py", line 31, in _python_exit
+    t.join()
+  File "/opt/anaconda3/lib/python3.13/threading.py", line 1094, in join
+    self._handle.join(timeout)
+KeyboardInterrupt: 

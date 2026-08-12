@@ -1,0 +1,212 @@
+{
+  "0_0": {
+    "quantile": 0.2694328815355556,
+    "samples": 1,
+    "fallback": true,
+    "bin_range": "0~10"
+  },
+  "0_1": {
+    "quantile": 0.2694328815355556,
+    "samples": 8,
+    "fallback": true,
+    "bin_range": "10~50"
+  },
+  "0_2": {
+    "quantile": 0.2694328815355556,
+    "samples": 25,
+    "fallback": true,
+    "bin_range": "50~100"
+  },
+  "0_3": {
+    "quantile": 0.2807574980365362,
+    "samples": 64,
+    "fallback": false,
+    "bin_range": "100~300"
+  },
+  "0_4": {
+    "quantile": 0.27110463521338235,
+    "samples": 234,
+    "fallback": false,
+    "bin_range": "300~1000"
+  },
+  "0_5": {
+    "quantile": 0.25897786943733153,
+    "samples": 168,
+    "fallback": false,
+    "bin_range": "1000~inf"
+  },
+  "1_0": {
+    "quantile": 0.26720163726223806,
+    "samples": 3,
+    "fallback": true,
+    "bin_range": "0~10"
+  },
+  "1_1": {
+    "quantile": 0.26720163726223806,
+    "samples": 12,
+    "fallback": true,
+    "bin_range": "10~50"
+  },
+  "1_2": {
+    "quantile": 0.26720163726223806,
+    "samples": 12,
+    "fallback": true,
+    "bin_range": "50~100"
+  },
+  "1_3": {
+    "quantile": 0.26747184866932106,
+    "samples": 74,
+    "fallback": false,
+    "bin_range": "100~300"
+  },
+  "1_4": {
+    "quantile": 0.26850595697124924,
+    "samples": 242,
+    "fallback": false,
+    "bin_range": "300~1000"
+  },
+  "1_5": {
+    "quantile": 0.2629340022178954,
+    "samples": 157,
+    "fallback": false,
+    "bin_range": "1000~inf"
+  },
+  "2_0": {
+    "quantile": 0.26587555798082135,
+    "samples": 4,
+    "fallback": true,
+    "bin_range": "0~10"
+  },
+  "2_1": {
+    "quantile": 0.26587555798082135,
+    "samples": 16,
+    "fallback": true,
+    "bin_range": "10~50"
+  },
+  "2_2": {
+    "quantile": 0.26587555798082135,
+    "samples": 5,
+    "fallback": true,
+    "bin_range": "50~100"
+  },
+  "2_3": {
+    "quantile": 0.255721962007504,
+    "samples": 73,
+    "fallback": false,
+    "bin_range": "100~300"
+  },
+  "2_4": {
+    "quantile": 0.26622996839845453,
+    "samples": 257,
+    "fallback": false,
+    "bin_range": "300~1000"
+  },
+  "2_5": {
+    "quantile": 0.26375973916251794,
+    "samples": 145,
+    "fallback": false,
+    "bin_range": "1000~inf"
+  },
+  "3_0": {
+    "quantile": 0.27038811419102726,
+    "samples": 7,
+    "fallback": true,
+    "bin_range": "0~10"
+  },
+  "3_1": {
+    "quantile": 0.27038811419102726,
+    "samples": 9,
+    "fallback": true,
+    "bin_range": "10~50"
+  },
+  "3_2": {
+    "quantile": 0.27038811419102726,
+    "samples": 17,
+    "fallback": true,
+    "bin_range": "50~100"
+  },
+  "3_3": {
+    "quantile": 0.25260998634889603,
+    "samples": 66,
+    "fallback": false,
+    "bin_range": "100~300"
+  },
+  "3_4": {
+    "quantile": 0.26758277731059926,
+    "samples": 234,
+    "fallback": false,
+    "bin_range": "300~1000"
+  },
+  "3_5": {
+    "quantile": 0.28273251412944167,
+    "samples": 167,
+    "fallback": false,
+    "bin_range": "1000~inf"
+  },
+  "4_0": {
+    "quantile": 0.2657710441769318,
+    "samples": 4,
+    "fallback": true,
+    "bin_range": "0~10"
+  },
+  "4_1": {
+    "quantile": 0.2657710441769318,
+    "samples": 12,
+    "fallback": true,
+    "bin_range": "10~50"
+  },
+  "4_2": {
+    "quantile": 0.2657710441769318,
+    "samples": 23,
+    "fallback": true,
+    "bin_range": "50~100"
+  },
+  "4_3": {
+    "quantile": 0.2684486175041875,
+    "samples": 62,
+    "fallback": false,
+    "bin_range": "100~300"
+  },
+  "4_4": {
+    "quantile": 0.2673412615909316,
+    "samples": 232,
+    "fallback": false,
+    "bin_range": "300~1000"
+  },
+  "4_5": {
+    "quantile": 0.26080624253375784,
+    "samples": 167,
+    "fallback": false,
+    "bin_range": "1000~inf"
+  },
+  "0_all": {
+    "quantile": 0.2694328815355556,
+    "samples": 500,
+    "fallback": false,
+    "bin_range": "ALL"
+  },
+  "1_all": {
+    "quantile": 0.26720163726223806,
+    "samples": 500,
+    "fallback": false,
+    "bin_range": "ALL"
+  },
+  "2_all": {
+    "quantile": 0.26587555798082135,
+    "samples": 500,
+    "fallback": false,
+    "bin_range": "ALL"
+  },
+  "3_all": {
+    "quantile": 0.27038811419102726,
+    "samples": 500,
+    "fallback": false,
+    "bin_range": "ALL"
+  },
+  "4_all": {
+    "quantile": 0.2657710441769318,
+    "samples": 500,
+    "fallback": false,
+    "bin_range": "ALL"
+  }
+}

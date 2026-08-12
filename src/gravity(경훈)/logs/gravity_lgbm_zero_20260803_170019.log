@@ -1,0 +1,1011 @@
+[LOG] saving console output to /Users/implement/KT/KTDB/src/gravity(경훈)/logs/gravity_lgbm_zero_20260803_170019.log
+Dataset 초기화 완료 (Imputation: zero)
+Dataset 초기화 완료 (Imputation: zero)
+argument='lgbm'
+Start Model Training on Combined Data...
+Training Model for Origin Generation (O_i) using lgbm...
+[LightGBM] [Info] Auto-choosing row-wise multi-threading, the overhead of testing was 0.000110 seconds.
+You can set `force_row_wise=true` to remove the overhead.
+And if memory is not enough, you can set `force_col_wise=true`.
+[LightGBM] [Info] Total Bins 3625
+[LightGBM] [Info] Number of data points in the train set: 2168, number of used features: 18
+[LightGBM] [Info] Start training from score 37238.876553
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Info] Auto-choosing row-wise multi-threading, the overhead of testing was 0.000049 seconds.
+You can set `force_row_wise=true` to remove the overhead.
+And if memory is not enough, you can set `force_col_wise=true`.
+[LightGBM] [Info] Total Bins 3625
+[LightGBM] [Info] Number of data points in the train set: 2168, number of used features: 18
+[LightGBM] [Info] Start training from score 37238.878552
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+[LightGBM] [Warning] No further splits with positive gain, best gain: -inf
+
+Evaluating 2019 / val ...
+  [2019/val] 750개 샘플 병렬 평가 중 (threads=4)...
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [2019/val] 진행 30/750 (4.0%) | 경과 0.0분 | 예상 남음 0.1분
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [2019/val] 진행 60/750 (8.0%) | 경과 0.0분 | 예상 남음 0.1분
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [2019/val] 진행 90/750 (12.0%) | 경과 0.0분 | 예상 남음 0.1분
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [2019/val] 진행 120/750 (16.0%) | 경과 0.0분 | 예상 남음 0.1분
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=0): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [2019/val] 진행 150/750 (20.0%) | 경과 0.0분 | 예상 남음 0.1분
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [2019/val] 진행 180/750 (24.0%) | 경과 0.0분 | 예상 남음 0.1분
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [2019/val] 진행 210/750 (28.0%) | 경과 0.0분 | 예상 남음 0.1분
+
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [2019/val] 진행 240/750 (32.0%) | 경과 0.0분 | 예상 남음 0.1분
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [2019/val] 진행 270/750 (36.0%) | 경과 0.0분 | 예상 남음 0.1분
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=1): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [2019/val] 진행 300/750 (40.0%) | 경과 0.0분 | 예상 남음 0.1분
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [2019/val] 진행 330/750 (44.0%) | 경과 0.1분 | 예상 남음 0.1분
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [2019/val] 진행 360/750 (48.0%) | 경과 0.1분 | 예상 남음 0.1분
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [2019/val] 진행 390/750 (52.0%) | 경과 0.1분 | 예상 남음 0.1분
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [2019/val] 진행 420/750 (56.0%) | 경과 0.1분 | 예상 남음 0.1분
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [2019/val] 진행 450/750 (60.0%) | 경과 0.1분 | 예상 남음 0.0분
+  [WARN] 샘플 실패 (검단 task=2): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [2019/val] 진행 480/750 (64.0%) | 경과 0.1분 | 예상 남음 0.0분
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [2019/val] 진행 510/750 (68.0%) | 경과 0.1분 | 예상 남음 0.0분
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [2019/val] 진행 540/750 (72.0%) | 경과 0.1분 | 예상 남음 0.0분
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [2019/val] 진행 570/750 (76.0%) | 경과 0.1분 | 예상 남음 0.0분
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=3): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (동탄 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (위례 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+  [WARN] 샘플 실패 (검단 task=4): X has 20 features, but LGBMRegressor is expecting 18 features as input.
+Traceback (most recent call last):
+  File "/Users/implement/KT/KTDB/src/gravity(경훈)/train_and_val.py", line 421, in <module>
+    main()
+    ~~~~^^
+  File "/Users/implement/KT/KTDB/src/gravity(경훈)/train_and_val.py", line 262, in main
+    records = evaluate_and_report(
+        base_data,
+    ...<6 lines>...
+        imputation_values=imputation_values_by_year[year],
+    )
+  File "/Users/implement/KT/KTDB/src/gravity(경훈)/train_and_val.py", line 133, in evaluate_and_report
+    for done_count, future in enumerate(as_completed(futures), start=1):
+                              ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/concurrent/futures/_base.py", line 243, in as_completed
+    waiter.event.wait(wait_timeout)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/opt/anaconda3/lib/python3.13/threading.py", line 659, in wait
+    signaled = self._cond.wait(timeout)
+  File "/opt/anaconda3/lib/python3.13/threading.py", line 359, in wait
+    waiter.acquire()
+    ~~~~~~~~~~~~~~^^
+KeyboardInterrupt

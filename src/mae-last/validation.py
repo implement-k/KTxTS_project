@@ -1,0 +1,237 @@
+import os
+import sys
+import torch, time
+import numpy as np
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from evaluation.fixed_eval_utils import apply_merge_events
+from evaluation.smearing import compute_smearing_factor, apply_smearing
+
+def format_minutes(seconds):
+    m, s = divmod(int(seconds), 60)
+    return f"{m}m {s}s"
+
+def _eval_one_sample(args):
+    """단일 샘플(특정 city, 특정 task의 특정 시나리오) 평가"""
+    model, base_data, year_label, city_name, task, split_name, mask_indices, merge_events, device, lgbm_model, use_smearing = args
+    
+    try:
+        # validation에서는 test 동 정보를 hide
+        holdout_indices = base_data['test_indices'] if split_name == 'val' else []
+        sample = apply_merge_events(base_data, mask_indices, merge_events, hide_indices=holdout_indices)
+        
+        x_static = sample['X_static'].float().unsqueeze(0).to(device)
+        x_dist = sample['X_dist'].float().unsqueeze(0).to(device)
+        mask = sample['mask'].unsqueeze(0).to(device)
+        x_od_masked = sample['X_OD_masked'].float().unsqueeze(0).to(device)
+        a_spatial = sample['A_spatial'].float().unsqueeze(0).to(device)
+        
+        with torch.no_grad():
+            # v5에서 추가된 인자 처리
+            active_node_mask = sample.get('active_node_mask', None)
+            if active_node_mask is not None:
+                active_node_mask = active_node_mask.unsqueeze(0).to(device)
+                pred = model(x_static, x_od_masked, x_dist, a_spatial, mask, active_node_mask)
+            else:
+                print(f"W: active_node_mask가 없는 샘플 ({city_name} task={task})")
+                pred = model(x_static, x_od_masked, x_dist, a_spatial, mask)
+        
+        T_pred = torch.expm1(pred[0]).cpu().numpy()
+        T_pred = np.maximum(T_pred, 0)
+        
+        if lgbm_model is not None:
+            lgbm_pred = lgbm_model.predict(sample['X_static'].numpy())
+            lgbm_pred_real = np.expm1(np.maximum(lgbm_pred, 0))
+            np.fill_diagonal(T_pred, lgbm_pred_real)
+        
+        y_od = sample['y_OD_raw'].numpy()
+        
+        eval_indices = np.array(mask_indices)
+        N = y_od.shape[0]
+        
+        eval_mask_2d = np.zeros((N, N), dtype=bool)
+        eval_mask_2d[:, eval_indices] = True
+        eval_mask_2d[eval_indices, :] = True
+        
+        # active_node_mask를 반영하여 병합된 노드(hide)는 제외
+        active_m2d = active_node_mask.cpu().numpy().reshape(-1, 1) & active_node_mask.cpu().numpy().reshape(1, -1)
+        valid_cells = eval_mask_2d & active_m2d
+        
+        y_od_eval = y_od[valid_cells]
+        y_pred_eval = np.maximum(T_pred[valid_cells], 0)
+        
+        # 기본 지표
+        if len(y_od_eval) > 0:
+            rmse_eval = np.sqrt(np.mean((y_od_eval - y_pred_eval) ** 2))
+            num = 2 * np.sum(np.minimum(y_od_eval, y_pred_eval))
+            den = np.sum(y_od_eval) + np.sum(y_pred_eval)
+            cpc_eval = num / den if den > 0 else 0.0
+            prmse_eval = rmse_eval / np.mean(y_od_eval) if np.mean(y_od_eval) > 0 else 0.0
+        else:
+            rmse_eval = 0.0
+            cpc_eval = 0.0
+            prmse_eval = 0.0
+            
+        # Smearing 지표
+        sm_rmse_eval, sm_cpc_eval, sm_prmse_eval = 0.0, 0.0, 0.0
+        if use_smearing and len(y_od_eval) > 0:
+            pred_log_valid = pred[0].cpu().numpy()[valid_cells]
+            sm_factor = compute_smearing_factor(y_od_eval, pred_log_valid)
+            T_pred_sm = apply_smearing(T_pred, sm_factor)
+            y_pred_sm_eval = np.maximum(T_pred_sm[valid_cells], 0)
+            
+            sm_rmse_eval = np.sqrt(np.mean((y_od_eval - y_pred_sm_eval) ** 2))
+            sm_num = 2 * np.sum(np.minimum(y_od_eval, y_pred_sm_eval))
+            sm_den = np.sum(y_od_eval) + np.sum(y_pred_sm_eval)
+            sm_cpc_eval = sm_num / sm_den if sm_den > 0 else 0.0
+            sm_prmse_eval = sm_rmse_eval / np.mean(y_od_eval) if np.mean(y_od_eval) > 0 else 0.0
+            
+        # Top-K (K=20) 목적지 예측 정확도 계산
+        topk_accs = []
+        K = 20
+        active_dest = active_node_mask.cpu().numpy().reshape(-1)
+        for origin in eval_indices:
+            true_row = y_od[origin, :]
+            pred_row = np.maximum(T_pred[origin, :], 0)
+            
+            # 비활성 노드는 Top-K 선정에서 제외되도록 -1 처리
+            true_row = np.where(active_dest, true_row, -1)
+            pred_row = np.where(active_dest, pred_row, -1)
+            
+            valid_k = min(K, np.sum(active_dest))
+            if valid_k > 0:
+                true_topk = set(np.argsort(true_row)[-valid_k:])
+                pred_topk = set(np.argsort(pred_row)[-valid_k:])
+                topk_accs.append(len(true_topk.intersection(pred_topk)) / valid_k)
+                
+        top20_acc = np.mean(topk_accs) if len(topk_accs) > 0 else 0.0
+            
+        return {'year': year_label, 'city': city_name, 'task': task,
+                'rmse': rmse_eval, 'cpc': cpc_eval, 'prmse': prmse_eval,
+                'sm_rmse': sm_rmse_eval, 'sm_cpc': sm_cpc_eval, 'sm_prmse': sm_prmse_eval,
+                'top20_acc': top20_acc,
+                'split': split_name,
+                'y_od_eval': y_od_eval,     # eval 대상 셀만 (1D) - 시각화용
+                'y_pred_eval': y_pred_eval, # eval 대상 셀만 (1D) - 시각화용
+                'T_pred': T_pred}           # 히트맵용 전체 행렬
+    except Exception as e:
+        print(f"W: 샘플 실패 ({city_name} task={task}): {e}")
+        return None
+
+def evaluate_and_report(base_data, val_meta, model, year_label, split_name,  n_workers=4, device=None, use_lgbm_self_loop=False, use_smearing=True):
+    """ThreadPoolExecutor로 샘플병 병렬 평가"""
+    
+    lgbm_model = None
+    if use_lgbm_self_loop:
+        import lightgbm as lgb
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        lgbm_path = os.path.join(current_dir, '../../best_model/best_lgbm_self_loop.txt')
+        if os.path.exists(lgbm_path):
+            lgbm_model = lgb.Booster(model_file=lgbm_path)
+            
+    job_args = []
+    for task in [0, 1, 2, 3, 4]:
+        for city_name, val_meta_task_list in val_meta.items():
+            for meta in val_meta_task_list[task]:
+                job_args.append((
+                    model, base_data, year_label, city_name, task, split_name,
+                    meta['mask_indices'], meta['merge_events'], device, lgbm_model, use_smearing
+                ))
+    
+    total = len(job_args)
+    print(f"  [{year_label}/{split_name}] {total}개 샘플 평가 (threads={n_workers})...")
+    
+    results: list = [None] * total
+    heatmap_record = None  # 히트맵용 T_pred를 가진 대표 샘플 1개만 보존
+    start_time = time.time()
+    progress_every = 30
+    
+    # model.eval() 상태인지 확인 필요
+    was_training = model.training
+    model.eval()
+    
+    with ThreadPoolExecutor(max_workers=n_workers) as executor:
+        futures = {
+            executor.submit(_eval_one_sample, args): i
+            for i, args in enumerate(job_args)
+        }
+        for done_count, future in enumerate(as_completed(futures), start=1):
+            result = future.result()
+            if result is not None:
+                if heatmap_record is None and result.get('T_pred') is not None:
+                    heatmap_record = result
+                else:
+                    result['T_pred'] = None
+            results[futures[future]] = result
+
+            if done_count % progress_every == 0 or done_count == total:
+                elapsed = time.time() - start_time
+                rate = done_count / elapsed if elapsed > 0 else 0.0
+                remaining = (total - done_count) / rate if rate > 0 else 0.0
+                pct = done_count / total * 100 if total > 0 else 100.0
+                done_records = [r for r in results if r is not None]
+                if done_records:
+                    cpc_mean = np.mean([r['cpc'] for r in done_records])
+                    rmse_mean = np.mean([r['rmse'] for r in done_records])
+                    prmse_mean = np.mean([r['prmse'] for r in done_records])
+                    top20_mean = np.mean([r.get('top20_acc', 0.0) for r in done_records])
+                    metric_text = (
+                        f" | 누적 CPC {cpc_mean:.4f} "
+                        f"| RMSE {rmse_mean:.4f} "
+                        f"| %RMSE {prmse_mean:.4f} "
+                        f"| Top20 {top20_mean:.4f}"
+                    )
+                else:
+                    metric_text = ""
+                print(
+                    f"  [{year_label}/{split_name}] 진행 {done_count}/{total} "
+                    f"({pct:.1f}%){metric_text} "
+                    f"| 경과 {format_minutes(elapsed)} | 예상 남음 {format_minutes(remaining)}"
+                )
+    
+    if was_training:
+        model.train()
+        
+    records = [r for r in results if r is not None]
+    print(f"  [{year_label}/{split_name}] 완료: {len(records)}/{total}")
+    return records
+
+def summarize_results(records, group_keys, label):
+    """group_keys에 따라 records를 그룹화하고, 각 그룹의 평균과 표준편차를 계산하여 요약"""
+    grouped = defaultdict(lambda: defaultdict(list))
+    
+    for record in records:
+        key = tuple(record[key] for key in group_keys)
+        for metric in ('rmse', 'cpc', 'prmse', 'sm_rmse', 'sm_cpc', 'sm_prmse', 'top20_acc'):
+            if metric in record:
+                grouped[key][metric].append(record[metric])
+            
+    print(f"\n=== {label} ===")
+    for key in sorted(grouped.keys()):
+        key_str = ", ".join(f"{k}={v}" for k, v in zip(group_keys, key))
+        n = len(grouped[key]['cpc'])
+        cpc_mean, cpc_std = np.mean(grouped[key]['cpc']), np.std(grouped[key]['cpc'])
+        rmse_mean, rmse_std = np.mean(grouped[key]['rmse']), np.std(grouped[key]['rmse'])
+        prmse_mean, prmse_std = np.mean(grouped[key]['prmse']), np.std(grouped[key]['prmse'])
+        
+        # smearing
+        has_smearing = ('sm_cpc' in grouped[key]) and (len(grouped[key]['sm_cpc']) > 0) and (np.mean(grouped[key]['sm_cpc']) > 0)
+        sm_str = ""
+        if has_smearing:
+            sm_cpc = np.mean(grouped[key]['sm_cpc'])
+            sm_rmse = np.mean(grouped[key]['sm_rmse'])
+            sm_prmse = np.mean(grouped[key]['sm_prmse'])
+            sm_str = f"\n  [Smearing] CPC: {sm_cpc:.4f} | RMSE: {sm_rmse:.4f} | %RMSE: {sm_prmse:.4f}"
+            
+        if 'top20_acc' in grouped[key] and len(grouped[key]['top20_acc']) > 0:
+            top20_mean = np.mean(grouped[key]['top20_acc'])
+            top20_std = np.std(grouped[key]['top20_acc'])
+            top20_str = f"| Top20: {top20_mean:.4f}±{top20_std:.4f}"
+        else:
+            top20_str = ""
+            
+        print(f"[{key_str}] n={n} | CPC: {cpc_mean:.4f}±{cpc_std:.4f} | RMSE: {rmse_mean:.4f}±{rmse_std:.4f} | %RMSE: {prmse_mean:.4f}±{prmse_std:.4f} {top20_str}{sm_str}")
+        
+    return grouped

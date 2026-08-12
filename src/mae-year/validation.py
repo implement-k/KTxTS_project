@@ -14,7 +14,7 @@ def format_minutes(seconds):
 
 def _eval_one_sample(args):
     """단일 샘플(특정 city, 특정 task의 특정 시나리오) 평가"""
-    model, base_data, year_label, city_name, task, split_name, mask_indices, merge_events, device, use_lgbm_self_loop = args
+    model, base_data, year_label, city_name, task, split_name, mask_indices, merge_events, device = args
     
     try:
         # validation에서는 test 동 정보를 hide
@@ -34,21 +34,11 @@ def _eval_one_sample(args):
                 active_node_mask = active_node_mask.unsqueeze(0).to(device)
                 pred = model(x_static, x_od_masked, x_dist, a_spatial, mask, active_node_mask)
             else:
+                print(f"W: active_node_mask가 없는 샘플 ({city_name} task={task})")
                 pred = model(x_static, x_od_masked, x_dist, a_spatial, mask)
         
         T_pred = torch.expm1(pred[0]).cpu().numpy()
         T_pred = np.maximum(T_pred, 0)
-        
-        if use_lgbm_self_loop:
-            # LGBM 모델 로드 (캐싱을 위해 매번 로드하는 것은 비효율적일 수 있으나 병렬 스레드 문제 방지용)
-            import lightgbm as lgb
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            lgbm_path = os.path.join(current_dir, '../../best_model/best_lgbm_self_loop.txt')
-            if os.path.exists(lgbm_path):
-                lgbm_model = lgb.Booster(model_file=lgbm_path)
-                lgbm_pred = lgbm_model.predict(sample['X_static'].numpy())
-                lgbm_pred_real = np.expm1(np.maximum(lgbm_pred, 0))
-                np.fill_diagonal(T_pred, lgbm_pred_real)
         
         y_od = sample['y_OD_raw'].numpy()
         
@@ -81,14 +71,12 @@ def _eval_one_sample(args):
                 'split': split_name,
                 'y_od_eval': y_od_eval,     # eval 대상 셀만 (1D) - 시각화용
                 'y_pred_eval': y_pred_eval, # eval 대상 셀만 (1D) - 시각화용
-                'raw_y_od': y_od_eval.tolist(),
-                'raw_y_pred': y_pred_eval.tolist(),
                 'T_pred': T_pred}           # 히트맵용 전체 행렬
     except Exception as e:
         print(f"W: 샘플 실패 ({city_name} task={task}): {e}")
         return None
 
-def evaluate_and_report(base_data, val_meta, model, year_label, split_name,  n_workers=4, device=None, use_lgbm_self_loop=False):
+def evaluate_and_report(base_data, val_meta, model, year_label, split_name,  n_workers=4, device=None):
     """ThreadPoolExecutor로 샘플병 병렬 평가"""
     
     job_args = []
@@ -97,7 +85,7 @@ def evaluate_and_report(base_data, val_meta, model, year_label, split_name,  n_w
             for meta in val_meta_task_list[task]:
                 job_args.append((
                     model, base_data, year_label, city_name, task, split_name,
-                    meta['mask_indices'], meta['merge_events'], device, use_lgbm_self_loop
+                    meta['mask_indices'], meta['merge_events'], device
                 ))
     
     total = len(job_args)

@@ -191,16 +191,25 @@ def main():
     parser.add_argument('--log_dir', type=str,
                         default=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs'),
                         help='콘솔 출력 로그 저장 폴더')
+    parser.add_argument('--train_years', nargs='+', default=['2019', '2023'],
+                        choices=['2019', '2023'])
+    parser.add_argument('--eval_years', nargs='+', default=None,
+                        choices=['2019', '2023'])
+    parser.add_argument('--eval_splits', nargs='+', default=['val', 'test'],
+                        choices=['val', 'test'])
     args = parser.parse_args()
+    if args.eval_years is None:
+        args.eval_years = list(args.train_years)
     log_file, log_path = setup_logging(args)
     
-    year_labels = ['2019', '2023']
+    train_year_labels = list(args.train_years)
+    eval_year_labels = list(args.eval_years)
     datasets = []
     imputation_values_by_year = {}
     X_static_train_list = []
     X_o_train_list, X_d_train_list = [], []
     
-    for year in year_labels:
+    for year in train_year_labels:
         dataset = ODDataset(year=year, imputation=args.imputation, use_raw_static=args.model_type in ('trip_rate', 'cross_class', 'linear_regression'))
         X_static_train_list.append(dataset.X_static_train)
         X_o_train_list.append(dataset.y_o[dataset.train_mask])
@@ -228,7 +237,7 @@ def main():
     useRaw = args.model_type in ('trip_rate', 'cross_class', 'linear_regression')
     
     # 4. LGBM 통합 학습
-    print("Start Model Training on Combined Data...")
+    print(f"Start Model Training on years: {', '.join(train_year_labels)}")
     model.fit_O_D(X_static_train, X_o_train, X_d_train, useLog)
     
     # 프로젝트 루트: src/gravity(경훈)/ -> src/ -> 루트
@@ -236,14 +245,14 @@ def main():
     fixed_eval_dir = os.path.join(base_dir, "dataset", "fixed_eval")
     all_records = []
     
-    for year in year_labels:
+    for year in eval_year_labels:
         base_data_path = os.path.join(fixed_eval_dir, f"base_data_{year}.pt")
         if not os.path.exists(base_data_path):
             print(f"[SKIP] base_data_{year}.pt not found")
             continue
         base_data = torch.load(base_data_path, weights_only=False)
         
-        for split_name in ['val', 'test']:
+        for split_name in args.eval_splits:
             meta_path = os.path.join(fixed_eval_dir, f"fixed_{split_name}_meta_{year}.pt")
             if not os.path.exists(meta_path):
                 print(f"[SKIP] fixed_{split_name}_meta_{year}.pt not found")

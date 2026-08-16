@@ -61,13 +61,36 @@ def _eval_one_sample(args):
             den = np.sum(y_od_eval) + np.sum(y_pred_eval)
             cpc_eval = num / den if den > 0 else 0.0
             prmse_eval = rmse_eval / np.mean(y_od_eval) if np.mean(y_od_eval) > 0 else 0.0
+            
+            K = 20
+            active_dest = active_node_mask.cpu().numpy().reshape(-1) if active_node_mask is not None else np.ones(N, dtype=bool)
+            topk_accs = []
+            for r_idx in eval_indices:
+                if not active_dest[r_idx]:
+                    continue
+                true_row = y_od[r_idx, :].copy()
+                pred_row = np.maximum(T_pred[r_idx, :], 0).copy()
+                true_row[r_idx] = -1
+                pred_row[r_idx] = -1
+                
+                true_row = np.where(active_dest, true_row, -1)
+                pred_row = np.where(active_dest, pred_row, -1)
+                
+                valid_k = min(K, np.sum(active_dest))
+                if valid_k > 0:
+                    true_topk = set(np.argsort(true_row)[-valid_k:])
+                    pred_topk = set(np.argsort(pred_row)[-valid_k:])
+                    topk_accs.append(len(true_topk.intersection(pred_topk)) / valid_k)
+            top20_acc = np.mean(topk_accs) if len(topk_accs) > 0 else 0.0
         else:
             rmse_eval = 0.0
             cpc_eval = 0.0
             prmse_eval = 0.0
+            top20_acc = 0.0
             
         return {'year': year_label, 'city': city_name, 'task': task,
                 'rmse': rmse_eval, 'cpc': cpc_eval, 'prmse': prmse_eval,
+                'top20_acc': top20_acc,
                 'split': split_name,
                 'y_od_eval': y_od_eval,     # eval 대상 셀만 (1D) - 시각화용
                 'y_pred_eval': y_pred_eval, # eval 대상 셀만 (1D) - 시각화용
@@ -124,10 +147,12 @@ def evaluate_and_report(base_data, val_meta, model, year_label, split_name,  n_w
                     cpc_mean = np.mean([r['cpc'] for r in done_records])
                     rmse_mean = np.mean([r['rmse'] for r in done_records])
                     prmse_mean = np.mean([r['prmse'] for r in done_records])
+                    top20_mean = np.mean([r['top20_acc'] for r in done_records if 'top20_acc' in r])
                     metric_text = (
                         f" | 누적 CPC {cpc_mean:.4f} "
                         f"| RMSE {rmse_mean:.4f} "
-                        f"| %RMSE {prmse_mean:.4f}"
+                        f"| %RMSE {prmse_mean:.4f} "
+                        f"| Top20 {top20_mean:.4f}"
                     )
                 else:
                     metric_text = ""
@@ -166,8 +191,9 @@ def summarize_results(records, group_keys, label):
     
     for record in records:
         key = tuple(record[key] for key in group_keys)
-        for metric in ('rmse', 'cpc', 'prmse'):
-            grouped[key][metric].append(record[metric])
+        for metric in ('rmse', 'cpc', 'prmse', 'top20_acc'):
+            if metric in record:
+                grouped[key][metric].append(record[metric])
             
     print(f"\n=== {label} ===")
     for key in sorted(grouped.keys()):
@@ -176,7 +202,13 @@ def summarize_results(records, group_keys, label):
         cpc_mean, cpc_std = np.mean(grouped[key]['cpc']), np.std(grouped[key]['cpc'])
         rmse_mean, rmse_std = np.mean(grouped[key]['rmse']), np.std(grouped[key]['rmse'])
         prmse_mean, prmse_std = np.mean(grouped[key]['prmse']), np.std(grouped[key]['prmse'])
+        
+        top20_str = ""
+        if 'top20_acc' in grouped[key] and len(grouped[key]['top20_acc']) > 0:
+            t20_mean, t20_std = np.mean(grouped[key]['top20_acc']), np.std(grouped[key]['top20_acc'])
+            top20_str = f"  Top20={t20_mean:.4f}±{t20_std:.4f}"
+            
         print(f"[{key_str}] (n={n}) "
               f"CPC={cpc_mean:.4f}±{cpc_std:.4f}  "
               f"RMSE={rmse_mean:.4f}±{rmse_std:.4f}  "
-              f"%RMSE={prmse_mean:.4f}±{prmse_std:.4f}")
+              f"%RMSE={prmse_mean:.4f}±{prmse_std:.4f}{top20_str}")

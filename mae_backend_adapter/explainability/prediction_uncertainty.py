@@ -57,12 +57,14 @@ def get_prediction_uncertainty(
         key = f"{task}_{bin_idx}"
         fallback_key = f"{task}_all"
         
-        if key in calibration_quantiles:
-            q_info = calibration_quantiles[key]
-        elif fallback_key in calibration_quantiles:
-            q_info = calibration_quantiles[fallback_key]
-        else:
-            # 아예 통계가 없는 경우 (안전 장치)
+        q_info = None
+        if calibration_quantiles:
+            if key in calibration_quantiles:
+                q_info = calibration_quantiles[key]
+            elif fallback_key in calibration_quantiles:
+                q_info = calibration_quantiles[fallback_key]
+        
+        if q_info is None:
             q_info = {"quantile": 0.5, "samples": 0, "fallback": True}
             
         q = q_info["quantile"]

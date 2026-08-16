@@ -434,11 +434,129 @@ class MAEPredictor:
             newtown_zone_codes=zones,
         )
         metadata["returned_od_count"] = len(od)
+        
+        explainability = {}
+        try:
+            # 각 신도시 동의 총 유출량/총 유입량, 같은 동 내부이동, 신도시 내부 이동, 외부 이동, 주요 유출·유입 행정동 TOP20 등을 계산.
+            from .explainability.mobility_summary import get_mobility_summary
+            mobility_summary = get_mobility_summary(
+                predicted_od=matrix,
+                city_codes=origins,
+                target_codes=zones,
+            )
+            explainability["mobility_summary"] = mobility_summary
+            
+            # 이웃 행정동 영향도 계산.target 동과 이웃동의 adjacency 연결을 하나씩 제거한 뒤 다시 예측해서, 어떤 이웃동이 해당 동의 OD 예측에 얼마나 영향을 줬는지 계산
+            from .explainability.neighbors import get_neighbors
+            neighbors = get_neighbors(
+                a_spatial=inputs.a_spatial.squeeze(0).cpu(),
+                city_codes=origins,
+                target_codes=zones,
+            )
+            explainability["neighbors"] = neighbors
+            
+            # 어떤 이웃이 영향을 줬는지
+            from .explainability.neighbor_contribution import get_neighbor_contributions
+            neighbor_contributions = get_neighbor_contributions(
+                predictor=self,
+                inputs=inputs,
+                baseline_matrix=matrix,
+                city_codes=origins,
+                target_codes=zones,
+                neighbors=neighbors,
+            )
+            explainability["neighbor_contributions"] = neighbor_contributions
+            
+            # 피처 중요도 계산을 위해 Top 통행량 추출
+            od_pairs = []
+            for target_code, summary in mobility_summary.items():
+                for item in summary.get("top_outgoing", []):
+                    od_pairs.append((target_code, item["dong_code"]))
+                for item in summary.get("top_incoming", []):
+                    od_pairs.append((item["dong_code"], target_code))
+                for item in summary.get("internal_outgoing", []):
+                    od_pairs.append((target_code, item["destination_code"]))
+                for item in summary.get("internal_incoming", []):
+                    od_pairs.append((item["origin_code"], target_code))
+                    
+            # 중복 제거
+            od_pairs = list(set(od_pairs))
+            
+            # feature_names 구하기
+            _scaler = getattr(self.preprocessor, "scaler", None)
+            _feature_names = getattr(_scaler, "feature_names", None)
+            
+            if _feature_names is not None:
+                feature_names = _feature_names
+            else:
+                feature_names = [
+                    "business_count", "business_density", "pop_0_19", "pop_20_59", "pop_60_plus",
+                    "station_count_고속철도", "station_count_일반철도", "station_count_준고속철도",
+                    "station_count_지하철", "station_density_지하철", "worker_count", "worker_density",
+                    "공공시설지역비율_pct", "기타지역비율_pct", "상업업무지역비율_pct", "아파트비율_퍼센트",
+                    "주거지역비율_pct", "행정동전체면적_m2"
+                ]
+
+            from .explainability.neighbor_feature_importance import get_neighbor_feature_importance
+            neighbor_feature_importance = get_neighbor_feature_importance(
+                predictor=self,
+                inputs=inputs,
+                baseline_matrix=matrix,
+                city_codes=origins,
+                target_codes=zones,
+                neighbors_dict=neighbors,
+                feature_names=feature_names,
+            )
+            explainability["neighbor_feature_importance"] = neighbor_feature_importance
+            
+            from .explainability.feature_importance import get_feature_importance
+            feature_importance = get_feature_importance(
+                predictor=self,
+                inputs=inputs,
+                baseline_matrix=matrix,
+                city_codes=origins,
+                target_codes=zones,
+                feature_names=feature_names,
+                top_k=20,
+            )
+            explainability["feature_importance"] = feature_importance
+            
+            from .explainability.od_feature_importance import get_od_feature_importance
+            od_feature_importance = get_od_feature_importance(
+                predictor=self,
+                inputs=inputs,
+                baseline_matrix=matrix,
+                city_codes=origins,
+                od_pairs=od_pairs,
+                feature_names=feature_names,
+                top_k=5,
+            )
+            explainability["od_feature_importance"] = od_feature_importance
+            
+            from .explainability.prediction_uncertainty import get_prediction_uncertainty
+            # Map task string "task0", "task1" etc or output_transform to a task number
+            # For simplicity, default to task 0 unless defined
+            task_num = metadata.get("task", 0) 
+            prediction_uncertainty = get_prediction_uncertainty(
+                predicted_matrix=matrix,
+                city_codes=origins,
+                od_pairs=od_pairs,
+                task=task_num,
+                calibration_quantiles=self.calibration_quantiles
+            )
+            explainability["prediction_uncertainty"] = prediction_uncertainty
+            
+        except Exception as e:
+            import traceback
+            explainability["error"] = str(e)
+            explainability["traceback"] = traceback.format_exc()
+
         result = {
             "newtown": metadata.get("newtown"),
             "newtown_zone_codes": zones,
             "od": od,
             "metadata": metadata,
+            "explainability": explainability,
         }
         self._ensure_json(result)
         return result

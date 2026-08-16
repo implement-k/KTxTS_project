@@ -94,7 +94,7 @@ class ODCrossAttention(nn.Module):
         return pooled
 
 class ODMAE(nn.Module):
-    def __init__(self, num_features, d_model=128, nhead=8, num_layers=4, use_self_loop_predictor=True, use_transformer=True, od_scale_ablation='none'):
+    def __init__(self, num_features, d_model=128, nhead=8, num_layers=4, use_self_loop_predictor=False, use_transformer=True, od_scale_ablation='none'):
         super().__init__()
         self.use_self_loop_predictor = use_self_loop_predictor
         self.use_transformer = use_transformer
@@ -293,7 +293,7 @@ class ODMAE(nn.Module):
             inferred_od_scale = torch.zeros_like(inferred_od_scale)
         elif self.od_scale_ablation == 'global':
             observed_1d = (~mask).float()  # (B, N)
-            global_od_scale = (od_scale * observed_1d.unsqueeze(-1)).sum(dim=1, keepdim=True) / observed_1d.sum(dim=1, keepdim=True).clamp(min=1)
+            global_od_scale = (od_scale * observed_1d.unsqueeze(-1)).sum(dim=1, keepdim=True) / observed_1d.sum(dim=1, keepdim=True).unsqueeze(-1).clamp(min=1)
             inferred_od_scale = self.global_od_scale_proj(global_od_scale).expand(-1, N, -1)
             
         gcn_emb = self.od_gcn(A_spatial, feat_emb, active_mask_2d)  
